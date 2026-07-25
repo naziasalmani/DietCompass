@@ -1,0 +1,12 @@
+# Add your design assets here:
+#
+# logo.png          — Compass logo (88×88 or larger, transparent PNG)
+# robot.png         — AI robot hero illustration
+# bg.png            — Optional full background texture
+# food_avocado.png  — Orbiting food icon
+# food_broccoli.png
+# food_strawberry.png
+# food_milk.png
+# food_salad.png
+#
+# The splash screen uses custom-painted fallbacks when assets are missing.
