@@ -1,19 +1,35 @@
-import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../onboarding/onboarding_screen.dart';
-import 'widgets/compass_logo.dart';
-import 'widgets/floating_robot_section.dart';
-import 'widgets/glass_info_card.dart';
-import 'widgets/particles_layer.dart';
-import 'widgets/shimmer_loading_bar.dart';
-import 'widgets/splash_background.dart';
-
+/// DietCompass — Splash Screen
+/// -----------------------------------------------------------------------
+/// Built directly on top of the two supplied design images:
+///   • assets/images/bg_robot.png    — full background art: gradient,
+///     floating food chips, leaves and the AI robot mascot.
+///   • assets/images/logo_header.png — compass logo + "DietCompass"
+///     wordmark + tagline + "AI-Powered Nutrition Assistant" badge,
+///     pre-processed with a soft bottom fade so it blends seamlessly
+///     into bg_robot.png below it.
+///
+/// Nothing here is redrawn or redesigned — both images are used exactly
+/// as provided. Everything else (the glowing pulse behind the robot, the
+/// shimmering progress bar, sparkle twinkles, the glassmorphism card and
+/// all entrance/looping animation) is layered on top with Flutter so the
+/// static art becomes a living, premium splash sequence.
+///
+/// Add to pubspec.yaml:
+/// ```yaml
+/// flutter:
+///   assets:
+///     - assets/images/bg_robot.png
+///     - assets/images/logo_header.png
+/// ```
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.onFinished});
+
+  final VoidCallback? onFinished;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -21,430 +37,478 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  static const _loadingDuration = Duration(milliseconds: 3200);
+  // One-shot entrance choreography.
+  late final AnimationController _entranceCtrl;
 
-  late final AnimationController _logoController;
-  late final AnimationController _titleController;
-  late final AnimationController _taglineController;
-  late final AnimationController _badgeController;
-  late final AnimationController _heroController;
-  late final AnimationController _cardController;
-  late final AnimationController _loadingController;
-  late final AnimationController _floatController;
-  late final AnimationController _orbitController;
-  late final AnimationController _particlesController;
-  late final AnimationController _shimmerController;
-  late final AnimationController _exitController;
+  // Continuous ambient loops.
+  late final AnimationController _breatheCtrl; // whole-art float/breathe
+  late final AnimationController _glowCtrl; // pulsing glow behind robot
+  late final AnimationController _sweepCtrl; // slow diagonal light sweep
+  late final AnimationController _sparkleCtrl; // twinkling sparkles
+  late final AnimationController _progressCtrl; // loading bar fill
 
+  late final Animation<double> _logoFade;
   late final Animation<double> _logoScale;
-  late final Animation<double> _logoRotation;
-  late final Animation<double> _titleOpacity;
-  late final Animation<Offset> _titleSlide;
-  late final Animation<double> _taglinePart1;
-  late final Animation<double> _taglinePart2;
-  late final Animation<double> _badgeOpacity;
-  late final Animation<double> _heroOpacity;
-  late final Animation<double> _cardOpacity;
-  late final Animation<double> _cardSlide;
-  late final Animation<double> _loadingOpacity;
-  late final Animation<double> _loadingProgress;
-  late final Animation<double> _floatOffset;
-  late final Animation<double> _exitFade;
-  late final Animation<double> _exitScale;
-
-  Timer? _navigationTimer;
-  bool _navigated = false;
+  late final Animation<double> _cardFade;
+  late final Animation<Offset> _cardSlide;
 
   @override
   void initState() {
     super.initState();
-    _initControllers();
-    _startSequence();
-  }
 
-  void _initControllers() {
-    _logoController = AnimationController(
+    _entranceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _titleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _taglineController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _badgeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _heroController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _cardController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _loadingController = AnimationController(
-      vsync: this,
-      duration: _loadingDuration,
-    );
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    );
-    _orbitController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 18000),
-    );
-    _particlesController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 8000),
-    );
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-    _exitController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 650),
-    );
+      duration: const Duration(milliseconds: 1300),
+    )..forward();
 
-    _logoScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.08)
-            .chain(CurveTween(curve: Curves.easeOutBack)),
-        weight: 70,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.08, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 30,
-      ),
-    ]).animate(_logoController);
+    _breatheCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3600),
+    )..repeat(reverse: true);
 
-    _logoRotation = Tween<double>(begin: -0.12, end: 0.0).animate(
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+
+    _sweepCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+
+    _sparkleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..forward();
+
+    _logoFade = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+    );
+    _logoScale = Tween<double>(begin: 0.88, end: 1.0).animate(
       CurvedAnimation(
-        parent: _logoController,
-        curve: const Interval(0.0, 0.85, curve: Curves.easeOutCubic),
+        parent: _entranceCtrl,
+        curve: const Interval(0.0, 0.55, curve: Curves.easeOutBack),
       ),
     );
-
-    _titleOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _titleController, curve: Curves.easeOut),
+    _cardFade = CurvedAnimation(
+      parent: _entranceCtrl,
+      curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
     );
-    _titleSlide = Tween<Offset>(
-      begin: const Offset(0, 0.35),
+    _cardSlide = Tween<Offset>(
+      begin: const Offset(0, 0.25),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _titleController, curve: Curves.easeOutCubic),
-    );
-
-    _taglinePart1 = CurvedAnimation(
-      parent: _taglineController,
-      curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
-    );
-    _taglinePart2 = CurvedAnimation(
-      parent: _taglineController,
-      curve: const Interval(0.35, 1.0, curve: Curves.easeOut),
-    );
-
-    _badgeOpacity = CurvedAnimation(
-      parent: _badgeController,
-      curve: Curves.easeOut,
-    );
-
-    _heroOpacity = CurvedAnimation(
-      parent: _heroController,
-      curve: Curves.easeOut,
-    );
-
-    _cardOpacity = CurvedAnimation(
-      parent: _cardController,
-      curve: Curves.easeOut,
-    );
-    _cardSlide = Tween<double>(begin: 24, end: 0).animate(
-      CurvedAnimation(parent: _cardController, curve: Curves.easeOutCubic),
-    );
-
-    _loadingOpacity = CurvedAnimation(
-      parent: _loadingController,
-      curve: const Interval(0.0, 0.15, curve: Curves.easeOut),
-    );
-    _loadingProgress = CurvedAnimation(
-      parent: _loadingController,
-      curve: Curves.easeInOutCubic,
-    );
-
-    _floatOffset = Tween<double>(begin: 6, end: -6).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
-    );
-
-    _exitFade = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _exitController, curve: Curves.easeInOut),
-    );
-    _exitScale = Tween<double>(begin: 1.0, end: 1.04).animate(
-      CurvedAnimation(parent: _exitController, curve: Curves.easeInOut),
-    );
-  }
-
-  Future<void> _startSequence() async {
-    _floatController.repeat(reverse: true);
-    _orbitController.repeat();
-    _particlesController.repeat();
-    _shimmerController.repeat();
-
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    if (!mounted) return;
-
-    unawaited(_logoController.forward());
-    await Future<void>.delayed(const Duration(milliseconds: 280));
-    if (!mounted) return;
-
-    unawaited(_titleController.forward());
-    await Future<void>.delayed(const Duration(milliseconds: 220));
-    if (!mounted) return;
-
-    unawaited(_taglineController.forward());
-    unawaited(_badgeController.forward());
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (!mounted) return;
-
-    unawaited(_heroController.forward());
-    await Future<void>.delayed(const Duration(milliseconds: 260));
-    if (!mounted) return;
-
-    unawaited(_cardController.forward());
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-
-    unawaited(_loadingController.forward());
-
-    _navigationTimer = Timer(
-      _loadingDuration + const Duration(milliseconds: 400),
-      _transitionToOnboarding,
-    );
-  }
-
-  Future<void> _transitionToOnboarding() async {
-    if (_navigated || !mounted) return;
-    _navigated = true;
-
-    await _exitController.forward();
-    if (!mounted) return;
-
-    await Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 700),
-        reverseTransitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOutCubic,
-            ),
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.04),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                ),
-              ),
-              child: const OnboardingScreen(),
-            ),
-          );
-        },
+      CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
       ),
     );
+
+    _progressCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onFinished?.call();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _navigationTimer?.cancel();
-    _logoController.dispose();
-    _titleController.dispose();
-    _taglineController.dispose();
-    _badgeController.dispose();
-    _heroController.dispose();
-    _cardController.dispose();
-    _loadingController.dispose();
-    _floatController.dispose();
-    _orbitController.dispose();
-    _particlesController.dispose();
-    _shimmerController.dispose();
-    _exitController.dispose();
+    _entranceCtrl.dispose();
+    _breatheCtrl.dispose();
+    _glowCtrl.dispose();
+    _sweepCtrl.dispose();
+    _sparkleCtrl.dispose();
+    _progressCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final scale = (screenSize.shortestSide / 390).clamp(0.8, 1.3);
+
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _exitController,
-        builder: (context, child) {
-          return Opacity(
-            opacity: _exitFade.value,
-            child: Transform.scale(
-              scale: _exitScale.value,
-              child: child,
+      backgroundColor: const Color(0xFFEDE7FA),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ---- Layer 1: the real background + robot artwork ----
+          // A slow, subtle scale/translate "breathing" loop brings the
+          // static illustration to life (the robot, food chips and
+          // leaves all move together as one living scene).
+          AnimatedBuilder(
+            animation: _breatheCtrl,
+            builder: (context, child) {
+              final t = Curves.easeInOut.transform(_breatheCtrl.value);
+              final scaleAmt = 1.0 + t * 0.02;
+              final dy = t * 6;
+              return Transform.translate(
+                offset: Offset(0, -dy),
+                child: Transform.scale(scale: scaleAmt, child: child),
+              );
+            },
+            child: Image.asset(
+              'assets/images/bg_robot.png',
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
             ),
-          );
-        },
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const SplashBackground(),
-            ParticlesLayer(animation: _particlesController),
-            SafeArea(
-              child: Column(
-                children: [
-                  const SizedBox(height: 28),
-                  _buildBrandingSection(),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: FadeTransition(
-                      opacity: _heroOpacity,
-                      child: AnimatedBuilder(
-                        animation: Listenable.merge([
-                          _floatController,
-                          _orbitController,
-                        ]),
-                        builder: (context, _) {
-                          return FloatingRobotSection(
-                            floatOffset: _floatOffset.value,
-                            orbitAngle: _orbitController.value * 6.28318,
-                          );
-                        },
-                      ),
+          ),
+
+          // ---- Layer 2: soft pulsing glow behind the robot ----
+          // Robot sits roughly at the horizontal/vertical center of the
+          // artwork's upper-mid section — glow is aligned to that spot.
+          AnimatedBuilder(
+            animation: _glowCtrl,
+            builder: (context, _) {
+              final g = _glowCtrl.value;
+              return Align(
+                alignment: const Alignment(0, -0.18),
+                child: Container(
+                  width: screenSize.width * (0.72 + g * 0.08),
+                  height: screenSize.width * (0.72 + g * 0.08),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.22 + g * 0.10),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
-                  GlassInfoCard(
-                    opacity: _cardOpacity.value,
-                    slideOffset: _cardSlide.value,
+                ),
+              );
+            },
+          ),
+
+          // ---- Layer 3: slow diagonal light sweep for premium sheen ----
+          AnimatedBuilder(
+            animation: _sweepCtrl,
+            builder: (context, _) {
+              final t = _sweepCtrl.value;
+              return IgnorePointer(
+                child: Opacity(
+                  opacity: 0.5,
+                  child: ShaderMask(
+                    blendMode: BlendMode.softLight,
+                    shaderCallback: (rect) {
+                      return LinearGradient(
+                        begin: Alignment(-1.6 + t * 3.2, -1),
+                        end: Alignment(-0.6 + t * 3.2, 1),
+                        colors: [
+                          Colors.transparent,
+                          Colors.white.withValues(alpha: 0.55),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.35, 0.5, 0.65],
+                      ).createShader(rect);
+                    },
+                    child: Container(color: Colors.white.withValues(alpha: 0.001)),
                   ),
-                  const SizedBox(height: 28),
-                  ShimmerLoadingBar(
-                    progress: _loadingProgress.value,
-                    shimmerPhase: _shimmerController.value,
-                    opacity: _loadingOpacity.value,
+                ),
+              );
+            },
+          ),
+
+          // ---- Layer 4: twinkling sparkles over the scene ----
+          _SparkleField(controller: _sparkleCtrl),
+
+          // ---- Layer 5: UI chrome (logo, glass card, progress bar) ----
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                SizedBox(height: 8 * scale),
+                // Logo header image — fades + scales in on launch.
+                FadeTransition(
+                  opacity: _logoFade,
+                  child: ScaleTransition(
+                    scale: _logoScale,
+                    alignment: Alignment.topCenter,
+                    child: Image.asset(
+                      'assets/images/logo_header.png',
+                      width: screenSize.width,
+                      fit: BoxFit.fitWidth,
+                    ),
                   ),
-                  const SizedBox(height: 32),
-                ],
-              ),
+                ),
+                const Spacer(),
+                // Glassmorphism info card.
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                  child: FadeTransition(
+                    opacity: _cardFade,
+                    child: SlideTransition(
+                      position: _cardSlide,
+                      child: _GlassCard(uiScale: scale),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 18 * scale),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 28 * scale),
+                  child: _ProgressSection(
+                    controller: _progressCtrl,
+                    uiScale: scale,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sparkles overlay
+// ---------------------------------------------------------------------------
+class _SparkleField extends StatelessWidget {
+  const _SparkleField({required this.controller});
+  final AnimationController controller;
+
+  static const _positions = [
+    Offset(0.84, 0.14),
+    Offset(0.1, 0.24),
+    Offset(0.88, 0.36),
+    Offset(0.09, 0.5),
+    Offset(0.8, 0.58),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return IgnorePointer(
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              return Stack(
+                children: List.generate(_positions.length, (i) {
+                  final phase =
+                      (controller.value + i / _positions.length) % 1;
+                  final opacity = (math.sin(phase * math.pi * 2) + 1) / 2;
+                  final pos = _positions[i];
+                  return Positioned(
+                    left: constraints.maxWidth * pos.dx,
+                    top: constraints.maxHeight * pos.dy,
+                    child: Opacity(
+                      opacity: 0.2 + opacity * 0.6,
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 10 + opacity * 5,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Glassmorphism card ("Better Choices, Better You.")
+// ---------------------------------------------------------------------------
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({required this.uiScale});
+  final double uiScale;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: EdgeInsets.all(16 * uiScale),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40 * uiScale,
+                height: 40 * uiScale,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEDE7FA),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite,
+                  color: const Color(0xFF6C4EF5),
+                  size: 18 * uiScale,
+                ),
+              ),
+              SizedBox(width: 12 * uiScale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: 15.5 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                        children: const [
+                          TextSpan(text: 'Better Choices, '),
+                          TextSpan(
+                            text: 'Better You.',
+                            style: TextStyle(color: Color(0xFF6C4EF5)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 4 * uiScale),
+                    Text(
+                      'Make smarter food choices with AI insights '
+                      'tailored just for you.',
+                      style: TextStyle(
+                        fontSize: 12.5 * uiScale,
+                        color: const Color(0xFF5B5B6B),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildBrandingSection() {
-    return Column(
-      children: [
-        AnimatedBuilder(
-          animation: _logoController,
-          builder: (context, _) {
-            return CompassLogo(
-              scale: _logoScale.value,
-              rotation: _logoRotation.value,
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        FadeTransition(
-          opacity: _titleOpacity,
-          child: SlideTransition(
-            position: _titleSlide,
-            child: RichText(
-              text: TextSpan(
-                style: GoogleFonts.inter(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-                children: const [
-                  TextSpan(
-                    text: 'Diet',
-                    style: TextStyle(color: AppColors.charcoal),
-                  ),
-                  TextSpan(
-                    text: 'Compass',
-                    style: TextStyle(color: AppColors.forestGreen),
-                  ),
-                ],
+// ---------------------------------------------------------------------------
+// Progress bar with shimmering gradient fill
+// ---------------------------------------------------------------------------
+class _ProgressSection extends StatelessWidget {
+  const _ProgressSection({required this.controller, required this.uiScale});
+  final AnimationController controller;
+  final double uiScale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 40 * uiScale),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              height: 6 * uiScale,
+              color: Colors.white.withValues(alpha: 0.45),
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: controller.value,
+                      child: const _ShimmerBar(),
+                    ),
+                  );
+                },
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        AnimatedBuilder(
-          animation: _taglineController,
-          builder: (context, _) {
-            return Column(
-              children: [
-                Opacity(
-                  opacity: _taglinePart1.value,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - _taglinePart1.value) * 8),
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
-                        ),
-                        children: const [
-                          TextSpan(
-                            text: 'Scan. Analyze. ',
-                            style: TextStyle(color: AppColors.deepPurple),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Opacity(
-                  opacity: _taglinePart2.value,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - _taglinePart2.value) * 8),
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
-                        ),
-                        children: const [
-                          TextSpan(
-                            text: 'Eat Better. ',
-                            style: TextStyle(
-                              color: AppColors.forestGreen,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'Live Healthier.',
-                            style: TextStyle(color: AppColors.forestGreen),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+          SizedBox(height: 10 * uiScale),
+          Text(
+            'Loading your healthy journey...',
+            style: TextStyle(
+              fontSize: 12.5 * uiScale,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF6C4EF5),
+              shadows: const [
+                Shadow(color: Colors.white, blurRadius: 6),
               ],
-            );
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerBar extends StatefulWidget {
+  const _ShimmerBar();
+
+  @override
+  State<_ShimmerBar> createState() => _ShimmerBarState();
+}
+
+class _ShimmerBarState extends State<_ShimmerBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmerCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmerCtrl,
+      builder: (context, _) {
+        return ShaderMask(
+          shaderCallback: (rect) {
+            final sweep = _shimmerCtrl.value;
+            return LinearGradient(
+              begin: Alignment(-1.5 + sweep * 3, 0),
+              end: Alignment(-0.5 + sweep * 3, 0),
+              colors: const [
+                Color(0xFF6C4EF5),
+                Colors.white,
+                Color(0xFF1E8A4C),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ).createShader(rect);
           },
-        ),
-        const SizedBox(height: 14),
-        AiBadge(opacity: _badgeOpacity.value),
-      ],
+          blendMode: BlendMode.srcATop,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
