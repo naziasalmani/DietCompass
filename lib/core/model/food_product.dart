@@ -6,13 +6,15 @@ class FoodProduct {
   final String ingredients;
   final List<String> allergens;
 
-  // Nullable because some products may not provide every nutrient.
+  // Nullable because Open Food Facts may not provide every nutrient.
   final double? calories;
   final double? protein;
   final double? carbohydrates;
   final double? fat;
   final double? fiber;
   final double? sugar;
+
+  // Open Food Facts stores sodium_100g in g/100g.
   final double? sodium;
 
   final String? nutriScore;
@@ -36,17 +38,43 @@ class FoodProduct {
     this.novaGroup,
   });
 
-  factory FoodProduct.fromOpenFoodFacts(Map<String, dynamic> json) {
+  factory FoodProduct.fromOpenFoodFacts(
+    Map<String, dynamic> json,
+  ) {
     final product = json['product'] ?? {};
     final nutrients = product['nutriments'] ?? {};
 
     return FoodProduct(
       barcode: json['code']?.toString() ?? '',
-      name: product['product_name']?.toString() ?? 'Unknown Product',
-      brand: product['brands']?.toString() ?? 'Unknown Brand',
-      imageUrl: product['image_front_url']?.toString() ?? '',
-      ingredients: product['ingredients_text']?.toString() ?? '',
-      allergens: _parseAllergens(product['allergens']),
+
+      name: _firstNonEmpty([
+        product['product_name'],
+        product['product_name_en'],
+        product['product_name_hi'],
+      ], fallback: 'Unknown Product'),
+
+      brand: _firstNonEmpty([
+        product['brands'],
+        product['brand_owner'],
+      ], fallback: 'Unknown Brand'),
+
+      // Try several possible image fields.
+      imageUrl: _firstNonEmpty([
+        product['image_front_url'],
+        product['image_front_small_url'],
+        product['image_front_thumb_url'],
+        product['image_url'],
+        product['image_small_url'],
+      ]),
+
+      ingredients: _firstNonEmpty([
+        product['ingredients_text'],
+        product['ingredients_text_en'],
+      ]),
+
+      allergens: _parseAllergens(
+        product['allergens'],
+      ),
 
       calories: _toDouble(
         nutrients['energy-kcal_100g'],
@@ -76,11 +104,46 @@ class FoodProduct {
         nutrients['sodium_100g'],
       ),
 
-      nutriScore: product['nutriscore_grade']?.toString(),
-      novaGroup: _toInt(product['nova_group']),
+      nutriScore: _firstNonEmpty([
+        product['nutriscore_grade'],
+        product['nutriscore_score'],
+      ]),
+
+      novaGroup: _toInt(
+        product['nova_group'],
+      ),
     );
   }
 
+  // ------------------------------------------------------------
+  // Return the first non-empty value from a list.
+  // ------------------------------------------------------------
+  static String _firstNonEmpty(
+    List<dynamic> values, {
+    String fallback = '',
+  }) {
+    for (final value in values) {
+      if (value == null) {
+        continue;
+      }
+
+      final text = value.toString().trim();
+
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return fallback;
+  }
+
+  // ------------------------------------------------------------
+  // Convert dynamic API values into nullable double.
+  //
+  // IMPORTANT:
+  // Missing value = null
+  // NOT 0.0
+  // ------------------------------------------------------------
   static double? _toDouble(dynamic value) {
     if (value == null) {
       return null;
@@ -90,9 +153,18 @@ class FoodProduct {
       return value.toDouble();
     }
 
-    return double.tryParse(value.toString());
+    final text = value.toString().trim();
+
+    if (text.isEmpty) {
+      return null;
+    }
+
+    return double.tryParse(text);
   }
 
+  // ------------------------------------------------------------
+  // Convert dynamic API values into nullable int.
+  // ------------------------------------------------------------
   static int? _toInt(dynamic value) {
     if (value == null) {
       return null;
@@ -102,9 +174,14 @@ class FoodProduct {
       return value;
     }
 
-    return int.tryParse(value.toString());
+    return int.tryParse(
+      value.toString().trim(),
+    );
   }
 
+  // ------------------------------------------------------------
+  // Parse allergens safely.
+  // ------------------------------------------------------------
   static List<String> _parseAllergens(dynamic value) {
     if (value == null) {
       return [];
@@ -114,6 +191,13 @@ class FoodProduct {
       return value
           .split(',')
           .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
+    if (value is List) {
+      return value
+          .map((e) => e.toString().trim())
           .where((e) => e.isNotEmpty)
           .toList();
     }

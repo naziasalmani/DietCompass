@@ -198,11 +198,11 @@ class AnalysisProgressController extends ChangeNotifier {
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({
-    super.key,
-    this.capturedImage,
-    this.product,
-    this.productName = 'Organic Oats',
-    this.productSubtitle = 'Wholegrain Rolled Oats',
+  super.key,
+  this.capturedImage,
+  this.product,
+  required this.productName,
+  required this.productSubtitle,
     this.servingInfo = '40 g (1 serving)',
     this.imageQualityLabel = 'Good',
     this.foodTypeLabel = 'Healthy Choice',
@@ -316,14 +316,16 @@ void _handleControllerChange() {
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => ResultScreen(
-      product: widget.product!,
+      if (widget.product != null) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ResultScreen(
+        product: widget.product!,
+      ),
     ),
-  ),
-);
+  );
+}
     });
   }
 }

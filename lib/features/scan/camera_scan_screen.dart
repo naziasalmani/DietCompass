@@ -10,6 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/food_service.dart';
+import '../../core/model/food_product.dart';
+import '../../core/services/product_image_analyzer.dart';
 import 'ai_analysis_screen.dart';
 import '../home/home_screen.dart';
 import 'scan_screen.dart';
@@ -188,46 +190,86 @@ Future<String?> _extractProductName(XFile image) async {
       'rs.',
     ];
 
-    // Read individual OCR lines instead of simply taking the longest text.
-    for (final block in recognizedText.blocks) {
-      for (final line in block.lines) {
-        final String text = line.text.trim();
+    // Read OCR lines and also combine consecutive lines.
+// This allows products such as:
+//
+// THUMS
+// UP
+//
+// to become:
+//
+// THUMS UP
 
-        if (text.isEmpty) continue;
+final List<String> ocrLines = [];
 
-        final String lower = text.toLowerCase();
+for (final block in recognizedText.blocks) {
+  for (final line in block.lines) {
+    final String text = line.text.trim();
 
-        // Ignore common packaging / nutrition information.
-        if (ignoredWords.any((word) => lower.contains(word))) {
-          continue;
-        }
+    if (text.isEmpty) continue;
 
-        // Product names normally contain actual letters.
-        final int letterCount =
-            RegExp(r'[A-Za-z]').allMatches(text).length;
+    final String lower = text.toLowerCase();
 
-        if (letterCount < 3) {
-          continue;
-        }
-
-        // Ignore text that is mostly numbers/symbols.
-        if (letterCount / text.length < 0.45) {
-          continue;
-        }
-
-        // Avoid extremely long sentences/descriptions.
-        if (text.length > 60) {
-          continue;
-        }
-
-        // Avoid tiny OCR fragments.
-        if (text.length < 3) {
-          continue;
-        }
-
-        candidates.add(text);
-      }
+    // Ignore common packaging / nutrition information.
+    if (ignoredWords.any((word) => lower.contains(word))) {
+      continue;
     }
+
+    final int letterCount =
+        RegExp(r'[A-Za-z]').allMatches(text).length;
+
+    if (letterCount < 2) {
+      continue;
+    }
+
+    if (letterCount / text.length < 0.45) {
+      continue;
+    }
+
+    if (text.length > 60) {
+      continue;
+    }
+
+    if (text.length < 2) {
+      continue;
+    }
+
+    ocrLines.add(text);
+  }
+}
+
+// Add individual lines as candidates.
+candidates.addAll(ocrLines);
+
+// Also combine consecutive OCR lines.
+// Example:
+// THUMS
+// UP
+// → THUMS UP
+//
+// We try 2-line and 3-line combinations because some
+// product names may be split across multiple lines.
+
+for (int i = 0; i < ocrLines.length; i++) {
+  // Two consecutive lines
+  if (i + 1 < ocrLines.length) {
+    final combined = '${ocrLines[i]} ${ocrLines[i + 1]}';
+
+    if (combined.length <= 40) {
+      candidates.add(combined);
+    }
+  }
+
+  // Three consecutive lines
+  if (i + 2 < ocrLines.length) {
+    final combined =
+        '${ocrLines[i]} ${ocrLines[i + 1]} ${ocrLines[i + 2]}';
+
+    if (combined.length <= 50) {
+      candidates.add(combined);
+    }
+  }
+}
 
     if (candidates.isEmpty) {
       debugPrint('OCR: No suitable product-name candidates');
@@ -404,6 +446,589 @@ Future<String?> _extractProductName(XFile image) async {
   } catch (e, stackTrace) {
     debugPrint('OCR error: $e');
     debugPrint('$stackTrace');
+    return null;
+  }
+}
+
+// ============================================================
+// OCR TEXT PROCESSING & PRODUCT RESOLUTION PIPELINE
+// ============================================================
+
+/// Normalize OCR text for better matching
+String normalizeOcrText(String text) {
+  return text
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[^\w\s-]'), '');
+}
+
+/// Calculate similarity between two strings using a word and character-based approach
+/// Returns a value between 0.0 and 1.0
+double calculateStringSimilarity(String a, String b) {
+  final aLower = a.toLowerCase().trim();
+  final bLower = b.toLowerCase().trim();
+
+  if (aLower == bLower) {
+    return 1.0;
+  }
+
+  if (aLower.isEmpty || bLower.isEmpty) {
+    return 0.0;
+  }
+
+  final aWords = aLower
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+
+  final bWords = bLower
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+
+  if (aWords.isEmpty || bWords.isEmpty) {
+    return 0.0;
+  }
+
+  int matchingWords = 0;
+
+  for (final aWord in aWords) {
+    for (final bWord in bWords) {
+      // Exact word match
+      if (aWord == bWord) {
+        matchingWords++;
+        break;
+      }
+
+      // Fuzzy word match
+      if (aWord.length > 3 && bWord.length > 3) {
+        final distance = _levenshteinDistance(
+          aWord,
+          bWord,
+        );
+
+        if (distance <= 2) {
+          matchingWords++;
+          break;
+        }
+      }
+    }
+  }
+
+  // IMPORTANT:
+  // Score against the COMPLETE database product name.
+  //
+  // "Dairy" vs "Dairy Milk"
+  // = 1 / 2 = 0.5
+  //
+  // "Dairy Milk" vs "Dairy Milk"
+  // = 2 / 2 = 1.0
+  final productWordCoverage =
+      matchingWords / bWords.length;
+
+  // Also calculate OCR coverage.
+  final ocrWordCoverage =
+      matchingWords / aWords.length;
+
+  // Use the weaker of the two.
+  //
+  // This prevents a short OCR fragment such as
+  // "Dairy" from becoming a perfect match for
+  // "Dairy Milk".
+  return math.min(
+    productWordCoverage,
+    ocrWordCoverage,
+  );
+}
+
+/// Calculate Levenshtein distance between two words for fuzzy matching
+int _levenshteinDistance(String a, String b) {
+  if (a == b) return 0;
+  if (a.isEmpty) return b.length;
+  if (b.isEmpty) return a.length;
+
+  final List<List<int>> matrix =
+      List.generate(a.length + 1, (i) => List.filled(b.length + 1, 0));
+
+  for (int i = 0; i <= a.length; i++) {
+    matrix[i][0] = i;
+  }
+  for (int j = 0; j <= b.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (int i = 1; i <= a.length; i++) {
+    for (int j = 1; j <= b.length; j++) {
+      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+      matrix[i][j] = [
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j - 1] + cost, // substitution
+      ].reduce((x, y) => x < y ? x : y);
+    }
+  }
+
+  return matrix[a.length][b.length];
+}
+
+/// Extract OCR candidates from recognized text
+/// Returns a list of candidate product names with increasing specificity
+List<String> extractOcrCandidates(
+  RecognizedText recognizedText,
+) {
+  final candidates = <String>[];
+
+  final ignoredWords = <String>[
+    'nutrition',
+    'nutritional',
+    'nutrition facts',
+    'ingredients',
+    'ingredient',
+    'energy',
+    'calories',
+    'protein',
+    'carbohydrate',
+    'carbohydrates',
+    'total fat',
+    'saturated fat',
+    'trans fat',
+    'sugar',
+    'sugars',
+    'sodium',
+    'cholesterol',
+    'dietary fibre',
+    'dietary fiber',
+    'serving',
+    'servings',
+    'serving size',
+    'per 100g',
+    'per 100ml',
+    'net weight',
+    'net wt',
+    'net quantity',
+    'manufactured',
+    'manufactured by',
+    'marketed by',
+    'packed by',
+    'customer care',
+    'expiry',
+    'expiry date',
+    'best before',
+    'use by',
+    'mrp',
+    'm.r.p',
+    'batch',
+    'batch no',
+    'barcode',
+    'fssai',
+    'license',
+    'licence',
+    'email',
+    'website',
+    'www.',
+    'http',
+    '₹',
+    'rs.',
+  ];
+
+  final List<String> ocrLines = [];
+
+  for (final block in recognizedText.blocks) {
+    for (final line in block.lines) {
+      final String text = line.text.trim();
+
+      if (text.isEmpty) continue;
+
+      final String lower = text.toLowerCase();
+
+      // Ignore common packaging / nutrition information
+      if (ignoredWords.any((word) => lower.contains(word))) {
+        continue;
+      }
+
+      final int letterCount =
+          RegExp(r'[A-Za-z]').allMatches(text).length;
+
+      if (letterCount < 2) {
+        continue;
+      }
+
+      if (letterCount / text.length < 0.45) {
+        continue;
+      }
+
+      if (text.length > 60) {
+        continue;
+      }
+
+      if (text.length < 2) {
+        continue;
+      }
+
+      ocrLines.add(text);
+    }
+  }
+
+  // Add individual lines as candidates
+  candidates.addAll(ocrLines);
+
+  // Combine consecutive OCR lines for 2-3 line combinations
+  for (int i = 0; i < ocrLines.length; i++) {
+    if (i + 1 < ocrLines.length) {
+      final combined = '${ocrLines[i]} ${ocrLines[i + 1]}';
+      if (combined.length <= 40) {
+        candidates.add(combined);
+      }
+    }
+
+    if (i + 2 < ocrLines.length) {
+      final combined =
+          '${ocrLines[i]} ${ocrLines[i + 1]} ${ocrLines[i + 2]}';
+      if (combined.length <= 50) {
+        candidates.add(combined);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+/// Main OCR-based product resolution pipeline
+/// Returns a product with confidence score, or null if no match found
+Future<FoodProduct?> resolveProductFromOcr(
+  XFile image,
+) async {
+  try {
+    final inputImage =
+        InputImage.fromFilePath(image.path);
+
+    final RecognizedText recognizedText =
+        await _textRecognizer.processImage(inputImage);
+
+    if (recognizedText.text.trim().isEmpty) {
+      debugPrint('OCR: No text detected');
+      return null;
+    }
+
+    debugPrint(
+      '========== OCR RESOLUTION STARTED ==========',
+    );
+
+    debugPrint(
+      'RAW OCR:\n${recognizedText.text}',
+    );
+
+    // ----------------------------------------------------------
+    // STEP 1: Extract candidates
+    // ----------------------------------------------------------
+
+    final candidates =
+        extractOcrCandidates(recognizedText);
+
+    if (candidates.isEmpty) {
+      debugPrint('OCR: No candidates found');
+      return null;
+    }
+
+    debugPrint(
+      'OCR candidates: $candidates',
+    );
+
+    // ----------------------------------------------------------
+    // STEP 2: Normalize + deduplicate
+    // ----------------------------------------------------------
+
+    final normalized = <String>{};
+
+    for (final candidate in candidates) {
+      final value =
+          normalizeOcrText(candidate);
+
+      if (value.isNotEmpty) {
+        normalized.add(value);
+      }
+    }
+
+    // ----------------------------------------------------------
+    // STEP 3:
+    //
+    // PRIORITIZE MULTI-WORD CANDIDATES
+    //
+    // Example:
+    //
+    // Dairy
+    // Milk
+    // Chocolate
+    //
+    // becomes:
+    //
+    // Dairy Milk Chocolate
+    // Dairy Milk
+    // Milk Chocolate
+    // Dairy
+    // Milk
+    // Chocolate
+    // ----------------------------------------------------------
+
+    final sortedCandidates =
+        normalized.toList()
+          ..sort(
+            (a, b) {
+              final aWords =
+                  a.split(RegExp(r'\s+')).length;
+
+              final bWords =
+                  b.split(RegExp(r'\s+')).length;
+
+              // More words first
+              if (aWords != bWords) {
+                return bWords.compareTo(aWords);
+              }
+
+              // If same word count, longer text first
+              return b.length.compareTo(a.length);
+            },
+          );
+
+    debugPrint(
+      'Prioritized candidates: $sortedCandidates',
+    );
+
+    // ----------------------------------------------------------
+    // STEP 4: Search all candidates
+    // ----------------------------------------------------------
+
+    FoodProduct? bestMatch;
+    double bestScore = 0.0;
+    String bestQuery = '';
+
+    // Keep track of whether we have meaningful multi-word
+    // OCR candidates.
+    final hasMultiWordCandidate =
+        sortedCandidates.any(
+      (candidate) =>
+          candidate.split(RegExp(r'\s+')).length >= 2,
+    );
+
+    for (final candidate in sortedCandidates) {
+      final candidateWords =
+          candidate.split(RegExp(r'\s+'));
+
+      final isSingleWord =
+          candidateWords.length == 1;
+
+      // --------------------------------------------------------
+      // VERY IMPORTANT:
+      //
+      // If OCR found multiple words, don't allow a random
+      // single word like "Dairy" to become the final product.
+      //
+      // We'll only use single-word candidates if NO
+      // multi-word candidate produces a valid match.
+      // --------------------------------------------------------
+
+      if (isSingleWord && hasMultiWordCandidate) {
+        debugPrint(
+          'Skipping single-word candidate for now: '
+          '"$candidate"',
+        );
+
+        continue;
+      }
+
+      debugPrint(
+        'Searching: "$candidate"',
+      );
+
+      final products =
+          await _foodService.getFoodsByName(
+        candidate,
+      );
+
+      if (products.isEmpty) {
+        continue;
+      }
+
+      debugPrint(
+        'Found ${products.length} products for '
+        '"$candidate"',
+      );
+
+      // --------------------------------------------------------
+      // Compare against every returned product
+      // --------------------------------------------------------
+
+      for (final product in products) {
+        final productName =
+            normalizeOcrText(product.name);
+
+        if (productName.isEmpty) {
+          continue;
+        }
+
+        final similarity =
+            calculateStringSimilarity(
+          candidate,
+          productName,
+        );
+
+        debugPrint(
+          '"$candidate" → '
+          '"${product.name}" '
+          'score=${similarity.toStringAsFixed(2)}',
+        );
+
+        if (similarity <= 0.5) {
+          continue;
+        }
+
+        // ------------------------------------------------------
+        // Candidate-length bonus
+        //
+        // Prefer:
+        //
+        // Dairy Milk
+        //
+        // over:
+        //
+        // Dairy
+        //
+        // when both are valid.
+        // ------------------------------------------------------
+
+        final candidateWordCount =
+            candidateWords.length;
+
+        double adjustedScore =
+            similarity;
+
+        if (candidateWordCount >= 3) {
+          adjustedScore += 0.15;
+        } else if (candidateWordCount == 2) {
+          adjustedScore += 0.10;
+        }
+
+        // Don't allow score above 1.0
+        adjustedScore =
+            math.min(adjustedScore, 1.0);
+
+        if (adjustedScore > bestScore) {
+          bestScore = adjustedScore;
+          bestMatch = product;
+          bestQuery = candidate;
+
+          debugPrint(
+            '⭐ NEW BEST MATCH: '
+            '"${product.name}" '
+            'from "$candidate" '
+            'score=${adjustedScore.toStringAsFixed(2)}',
+          );
+        }
+      }
+    }
+
+    // ----------------------------------------------------------
+    // STEP 5: If no multi-word result worked,
+    // THEN try single-word candidates as fallback.
+    // ----------------------------------------------------------
+
+    if (bestMatch == null &&
+        hasMultiWordCandidate) {
+      debugPrint(
+        'No multi-word match found. '
+        'Trying single-word fallback...',
+      );
+
+      for (final candidate in sortedCandidates) {
+        final words =
+            candidate.split(RegExp(r'\s+'));
+
+        if (words.length != 1) {
+          continue;
+        }
+
+        // Generic words that should never identify
+        // a packaged food by themselves.
+        const genericWords = {
+          'dairy',
+          'milk',
+          'chocolate',
+          'drink',
+          'juice',
+          'food',
+          'fresh',
+          'natural',
+          'original',
+          'classic',
+          'cream',
+          'snack',
+        };
+
+        if (genericWords.contains(candidate)) {
+          debugPrint(
+            'Skipping generic single word: "$candidate"',
+          );
+
+          continue;
+        }
+
+        final products =
+            await _foodService.getFoodsByName(
+          candidate,
+        );
+
+        for (final product in products) {
+          final productName =
+              normalizeOcrText(product.name);
+
+          final similarity =
+              calculateStringSimilarity(
+            candidate,
+            productName,
+          );
+
+          if (similarity > 0.75 &&
+              similarity > bestScore) {
+            bestScore = similarity;
+            bestMatch = product;
+            bestQuery = candidate;
+          }
+        }
+      }
+    }
+
+    // ----------------------------------------------------------
+    // STEP 6: Final result
+    // ----------------------------------------------------------
+
+    if (bestMatch != null) {
+      debugPrint(
+        '========== OCR SUCCESS ==========\n'
+        'Query: "$bestQuery"\n'
+        'Product: "${bestMatch.name}"\n'
+        'Brand: "${bestMatch.brand}"\n'
+        'Score: ${bestScore.toStringAsFixed(2)}\n'
+        '=================================',
+      );
+
+      return bestMatch;
+    }
+
+    debugPrint(
+      '❌ OCR could not confidently identify product.',
+    );
+
+    return null;
+  } catch (e, stackTrace) {
+    debugPrint(
+      'OCR resolution error: $e',
+    );
+
+    debugPrint(
+      '$stackTrace',
+    );
+
     return null;
   }
 }
@@ -599,82 +1224,163 @@ Future<void> _lookupFood(
   );
 
   try {
+    // Step 1: Try barcode lookup
+    debugPrint('=== BARCODE LOOKUP STARTED ===');
+    debugPrint('Barcode: $barcode');
+
     final product = await _foodService.getFoodByBarcode(barcode);
 
     if (!mounted) return;
 
-    Navigator.pop(context);
+    // If barcode lookup succeeded, show product and return
+    if (product != null) {
+      debugPrint('=== BARCODE LOOKUP SUCCESS ===');
+      debugPrint('Product: ${product.name}');
+      debugPrint('Brand: ${product.brand}');
 
-   if (product == null) {
-  _barcodeDetected = false;
-  _isProcessingImage = false;
+      Navigator.pop(context);
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text(
-        'Product not found. Please upload a product image instead.',
-      ),
-      duration: Duration(seconds: 2),
-    ),
-  );
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiAnalysisScreen(
+            capturedImage: FileImage(
+              File(productImage.path),
+            ),
+            product: product,
+            productName: product.name,
+            productSubtitle: product.brand ?? 'Food Product',
+            servingInfo: 'Serving information unavailable',
+            foodTypeLabel: 'Food Product',
+          ),
+        ),
+      );
 
-  // Restart barcode scanning
-  final camera = _cameraController;
+      // User came back from AI Analysis.
+      // Reset barcode scanning so another product can be scanned.
+      if (!mounted) return;
 
-  if (camera != null &&
-      camera.value.isInitialized &&
-      !camera.value.isStreamingImages) {
-    await camera.startImageStream(_processCameraImage);
-  }
+      _barcodeDetected = false;
+      _isProcessingImage = false;
 
-  return;
-}
+      final camera = _cameraController;
 
-    // Barcode successfully found a product.
-    await Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => AiAnalysisScreen(
-  capturedImage: FileImage(
-    File(productImage.path),
-  ),
-  product: product,
-  productName: product.name,
-  productSubtitle: product.brand ?? 'Food Product',
-  servingInfo: 'Serving information unavailable',
-  foodTypeLabel: 'Food Product',
-),
-  ),
-);
+      if (camera != null &&
+          camera.value.isInitialized &&
+          !camera.value.isStreamingImages) {
+        await camera.startImageStream(_processCameraImage);
+      }
 
-// User came back from AI Analysis.
-// Reset barcode scanning so another product can be scanned.
-if (!mounted) return;
+      return;
+    }
 
-_barcodeDetected = false;
-_isProcessingImage = false;
+    // Step 2: Barcode lookup failed, try OCR fallback
+    debugPrint('=== BARCODE NOT FOUND, STARTING OCR FALLBACK ===');
 
-final camera = _cameraController;
+    // Close loading dialog before running OCR
+    if (mounted) {
+      Navigator.pop(context);
+    }
 
-if (camera != null &&
-    camera.value.isInitialized &&
-    !camera.value.isStreamingImages) {
-  await camera.startImageStream(_processCameraImage);
-}
+    // Run OCR resolution on the same captured image
+    final ocrProduct = await resolveProductFromOcr(productImage);
+
+    if (!mounted) return;
+
+    // Step 3: Check OCR result
+    if (ocrProduct != null) {
+      debugPrint('=== OCR FALLBACK SUCCESS ===');
+      debugPrint('Product: ${ocrProduct.name}');
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiAnalysisScreen(
+            capturedImage: FileImage(
+              File(productImage.path),
+            ),
+            product: ocrProduct,
+            productName: ocrProduct.name,
+            productSubtitle: ocrProduct.brand ?? 'Food Product',
+            servingInfo: 'Serving information unavailable',
+            foodTypeLabel: 'Food Product',
+          ),
+        ),
+      );
+
+      // User came back from AI Analysis.
+      if (!mounted) return;
+
+      _barcodeDetected = false;
+      _isProcessingImage = false;
+
+      final camera = _cameraController;
+
+      if (camera != null &&
+          camera.value.isInitialized &&
+          !camera.value.isStreamingImages) {
+        await camera.startImageStream(_processCameraImage);
+      }
+
+      return;
+    }
+
+    // Step 4: Both barcode and OCR failed, show error
+    debugPrint('=== BARCODE AND OCR BOTH FAILED ===');
+
+    _barcodeDetected = false;
+    _isProcessingImage = false;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not identify the product. Please take a clearer photo and try again.',
+          ),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+
+    // Restart barcode scanning
+    final camera = _cameraController;
+
+    if (camera != null &&
+        camera.value.isInitialized &&
+        !camera.value.isStreamingImages) {
+      await camera.startImageStream(_processCameraImage);
+    }
   } catch (e) {
     if (!mounted) return;
 
-    Navigator.pop(context);
+    // Make sure dialog is dismissed even on error
+    try {
+      Navigator.pop(context);
+    } catch (_) {}
+
+    debugPrint('_lookupFood error: $e');
 
     _barcodeDetected = false;
+    _isProcessingImage = false;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Could not get product information: $e',
+          'Error processing product: $e',
         ),
       ),
     );
+
+    // Restart barcode scanning
+    final camera = _cameraController;
+
+    if (camera != null &&
+        camera.value.isInitialized &&
+        !camera.value.isStreamingImages) {
+      try {
+        await camera.startImageStream(_processCameraImage);
+      } catch (_) {}
+    }
   }
 }
 
@@ -961,28 +1667,79 @@ Widget build(BuildContext context) {
                             uiScale: scale,
 
                             // GALLERY
-                            onGalleryTap: () async {
-                              final picker = ImagePicker();
+onGalleryTap: () async {
+  final picker = ImagePicker();
 
-                              final image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                              );
+  final image = await picker.pickImage(
+    source: ImageSource.gallery,
+  );
 
-                              if (image == null) return;
+  if (image == null) return;
 
-                              if (!mounted) return;
+  if (!mounted) return;
 
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AiAnalysisScreen(
-                                    capturedImage: FileImage(
-                                      File(image.path),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+  final analyzer = ProductImageAnalyzer();
+
+  try {
+    debugPrint('=== GALLERY IMAGE SELECTED ===');
+    debugPrint('Image: ${image.path}');
+
+    // Same barcode → OCR → product lookup pipeline
+    // used by the analyzer.
+    final product = await analyzer.analyze(image);
+
+    if (!mounted) return;
+
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not identify the product. '
+            'Please select a clearer image.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    debugPrint('=== GALLERY PRODUCT FOUND ===');
+    debugPrint('Product: ${product.name}');
+    debugPrint('Brand: ${product.brand}');
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiAnalysisScreen(
+          capturedImage: FileImage(
+            File(image.path),
+          ),
+          product: product,
+          productName: product.name,
+          productSubtitle:
+              product.brand ?? 'Food Product',
+          servingInfo:
+              'Serving information unavailable',
+          foodTypeLabel: 'Food Product',
+        ),
+      ),
+    );
+  } catch (e) {
+    debugPrint('Gallery analysis error: $e');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Could not process the image: $e',
+        ),
+      ),
+    );
+  } finally {
+    await analyzer.dispose();
+  }
+},
 
                             onHowToScanTap: widget.onHowToScanTap,
 

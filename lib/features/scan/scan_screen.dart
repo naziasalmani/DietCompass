@@ -9,6 +9,7 @@ import '../home/home_screen.dart';
 import '../ai/ai_shopping_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../dashboard/DashboardScreen.dart';
+import '../../core/services/product_image_analyzer.dart';
 
 /// DietCompass — Scan Screen
 /// -----------------------------------------------------------------------
@@ -227,23 +228,49 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                       uiScale: scale,
                       onScanBarcode: widget.onScanBarcodeTap,
                       onScanLabel: widget.onScanLabelTap,
-                      onImportGallery: () async {
+                     onImportGallery: () async {
   final XFile? image = await ImagePicker().pickImage(
     source: ImageSource.gallery,
   );
 
   if (image == null) return;
 
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AiAnalysisScreen(
-  capturedImage: FileImage(
-    File(image.path),
-  ),
-),
-    ),
-  );
+  final analyzer = ProductImageAnalyzer();
+
+  try {
+    final product = await analyzer.analyze(image);
+
+    if (!mounted) return;
+
+    if (product == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not identify the product. Please upload a clearer image.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiAnalysisScreen(
+          capturedImage: FileImage(
+            File(image.path),
+          ),
+          product: product,
+          productName: product.name,
+          productSubtitle: product.brand ?? 'Food Product',
+          servingInfo: 'Serving information unavailable',
+          foodTypeLabel: 'Food Product',
+        ),
+      ),
+    );
+  } finally {
+    await analyzer.dispose();
+  }
 },
                       onManualEntry: () {
   Navigator.pushReplacement(

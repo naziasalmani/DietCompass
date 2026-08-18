@@ -231,7 +231,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   final nutrients = <NutrientStat>[];
 
   // Calories
-  final calories = product.calories;
+  final calories = _nutritionValue(product.calories);
   String caloriesBadge;
 
   if (calories <= 100) {
@@ -256,7 +256,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   );
 
   // Protein
-  final protein = product.protein;
+  final protein = _nutritionValue(product.protein);
   String proteinBadge;
 
   if (protein >= 10) {
@@ -281,7 +281,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   );
 
   // Carbohydrates
-  final carbs = product.carbohydrates;
+  final carbs = _nutritionValue(product.carbohydrates);
   String carbsBadge;
 
   if (carbs < 20) {
@@ -306,7 +306,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   );
 
   // Sugar
-  final sugar = product.sugar;
+  final sugar = _nutritionValue(product.sugar);
   String sugarBadge;
 
   if (sugar <= 5) {
@@ -331,7 +331,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   );
 
   // Fat
-  final fat = product.fat;
+  final fat = _nutritionValue(product.fat);
   String fatBadge;
 
   if (fat <= 3) {
@@ -358,7 +358,7 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   // Sodium
   // Open Food Facts gives sodium in g/100g.
   // Convert to mg/100g for DietCompass criteria.
-  final sodiumMg = product.sodium * 1000;
+  final sodiumMg = _nutritionValue(product.sodium);
   String sodiumBadge;
 
   if (sodiumMg <= 120) {
