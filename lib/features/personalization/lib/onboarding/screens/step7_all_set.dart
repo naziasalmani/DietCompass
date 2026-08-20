@@ -37,17 +37,10 @@ class Step7AllSet extends StatelessWidget {
       onBack: onBack,
       onSkip: onSkip,
       bottomButton: GradientButton(
-  label: 'Get Started',
-  onTap: () {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const HomeScreen(),
+        label: 'Get Started',
+        onTap: onGetStarted,
+        gradient: AppColors.finalButtonGradient,
       ),
-    );
-  },
-  gradient: AppColors.finalButtonGradient,
-),
       child: EntranceAnimator(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),

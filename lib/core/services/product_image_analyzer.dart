@@ -7,6 +7,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import '../../core/services/food_service.dart';
 import '../../core/model/food_product.dart';
+import '../../core/services/ai_service.dart';
 
 class ProductImageAnalyzer {
   final FoodService _foodService = FoodService();
@@ -159,6 +160,16 @@ class ProductImageAnalyzer {
         'Normalized candidates: $normalized',
       );
 
+      final meaningfulCandidates =
+          normalized.where(_isMeaningfulOcrCandidate).toList();
+
+      if (meaningfulCandidates.isEmpty) {
+        debugPrint(
+          'OCR resolution: No meaningful product candidates found after filtering noisy OCR fragments.',
+        );
+        return null;
+      }
+
       // --------------------------------------------------------
       // STEP 3:
       // Search candidates from MOST SPECIFIC to LEAST SPECIFIC
@@ -183,8 +194,8 @@ class ProductImageAnalyzer {
 
       final orderedCandidates =
           _sortCandidatesBySpecificity(
-        normalized.toList(),
-      );
+        meaningfulCandidates,
+      ).take(6).toList();
 
       debugPrint(
         'Ordered search candidates: $orderedCandidates',
@@ -282,7 +293,25 @@ class ProductImageAnalyzer {
           '============================================',
         );
 
-        return bestMatch;
+        return await _foodService.enrichProduct(bestMatch);
+      }
+
+      // --------------------------------------------------------
+      // STEP 6: Gemini AI OCR Fallback (when standard DBs cannot match)
+      // --------------------------------------------------------
+      if (recognizedText.text.trim().isNotEmpty) {
+        debugPrint('🤖 OCR fallback: Resolving product label with Gemini AI...');
+        try {
+          final geminiProduct = await AiService.instance.lookupProductWithGemini(
+            ocrText: recognizedText.text,
+          );
+          if (geminiProduct != null) {
+            debugPrint('✅ OCR Gemini AI resolution success: ${geminiProduct.name}');
+            return geminiProduct;
+          }
+        } catch (e) {
+          debugPrint('Gemini OCR resolution error: $e');
+        }
       }
 
       debugPrint(
@@ -302,6 +331,63 @@ class ProductImageAnalyzer {
 
       return null;
     }
+  }
+
+  static const Set<String> _noiseKeywords = {
+    'buy',
+    'visit',
+    'save',
+    'more',
+    'share',
+    'online',
+    'lowest',
+    'price',
+    'offer',
+    'promo',
+    'shop',
+    'shopping',
+    'click',
+    'fresh',
+    'today',
+    'deal',
+    'best',
+    'discount',
+    'limited',
+    'only',
+    'new',
+    'app',
+    'website',
+    'www',
+    'http',
+    'https',
+  };
+
+  bool _isMeaningfulOcrCandidate(String candidate) {
+    final cleaned = normalizeOcrText(candidate);
+
+    if (cleaned.isEmpty || cleaned.length < 3) {
+      return false;
+    }
+
+    final words = _getWords(cleaned)
+        .where((word) => word.length > 1)
+        .where((word) => !_noiseKeywords.contains(word))
+        .toList();
+
+    if (words.isEmpty) {
+      return false;
+    }
+
+    if (words.length < 2) {
+      return false;
+    }
+
+    final joined = words.join(' ');
+    if (joined.contains('save more') || joined.contains('visit save') || joined.contains('share more')) {
+      return false;
+    }
+
+    return true;
   }
 
   // ============================================================
@@ -339,6 +425,10 @@ class ProductImageAnalyzer {
 
     if (candidateWords.isEmpty ||
         productWords.isEmpty) {
+      return 0.0;
+    }
+
+    if (candidateWords.any(_noiseKeywords.contains)) {
       return 0.0;
     }
 
@@ -908,7 +998,7 @@ class ProductImageAnalyzer {
 
       // Sprite
       'sprlte': 'sprite',
-      'sprlte': 'sprite',
+      'spr1te': 'sprite',
 
       // Coca Cola
       'coca-cola': 'coca cola',

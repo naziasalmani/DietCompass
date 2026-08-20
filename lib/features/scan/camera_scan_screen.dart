@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/food_service.dart';
 import '../../core/model/food_product.dart';
 import '../../core/services/product_image_analyzer.dart';
+import '../../core/services/ai_service.dart';
 import 'ai_analysis_screen.dart';
 import '../home/home_screen.dart';
 import 'scan_screen.dart';
@@ -1012,7 +1013,25 @@ Future<FoodProduct?> resolveProductFromOcr(
         '=================================',
       );
 
-      return bestMatch;
+      return await _foodService.enrichProduct(bestMatch);
+    }
+
+    // ----------------------------------------------------------
+    // STEP 6: Gemini AI Fallback on raw OCR text
+    // ----------------------------------------------------------
+    if (recognizedText.text.trim().isNotEmpty) {
+      debugPrint('🤖 OCR fallback: Identifying product with Gemini AI...');
+      try {
+        final geminiProduct = await AiService.instance.lookupProductWithGemini(
+          ocrText: recognizedText.text,
+        );
+        if (geminiProduct != null) {
+          debugPrint('✅ OCR Gemini AI resolution success: ${geminiProduct.name}');
+          return geminiProduct;
+        }
+      } catch (e) {
+        debugPrint('Gemini OCR resolution error: $e');
+      }
     }
 
     debugPrint(
@@ -1075,6 +1094,12 @@ Future<void> _capture() async {
 
   _isManualCapturing = true;
 
+  _setProcessingState(
+    true,
+    title: '🔍 Analyzing your product…',
+    subtitle: 'Checking nutrition, ingredients & personalized compatibility.',
+  );
+
   try {
     // Stop live barcode scanning first.
     if (camera.value.isStreamingImages) {
@@ -1110,16 +1135,18 @@ Future<void> _capture() async {
     }
 
     // --------------------------------------------------
-    // STEP 2: NO BARCODE → OCR
+    // STEP 2: NO BARCODE → SMART OCR PRODUCT RESOLUTION
     // --------------------------------------------------
 
-    debugPrint('No barcode found. Starting OCR...');
+    debugPrint(
+      'No barcode found. Starting smart OCR resolution...',
+    );
 
-    final productName = await _extractProductName(image);
+    final product = await resolveProductFromOcr(image);
 
     if (!mounted) return;
 
-    if (productName == null || productName.isEmpty) {
+    if (product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1131,27 +1158,13 @@ Future<void> _capture() async {
       return;
     }
 
-    debugPrint('Detected product name: $productName');
+    debugPrint(
+      'OCR identified product: ${product.name}',
+    );
 
-    // --------------------------------------------------
-    // STEP 3: Search Open Food Facts
-    // --------------------------------------------------
-
-    final product = await _foodService.getFoodByName(productName);
-
-    if (!mounted) return;
-
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not find "$productName" in the food database.',
-          ),
-        ),
-      );
-
-      return;
-    }
+    debugPrint(
+      'OCR identified brand: ${product.brand}',
+    );
 
     // --------------------------------------------------
     // STEP 4: Show AI Analysis
@@ -1161,15 +1174,15 @@ Future<void> _capture() async {
       context,
       MaterialPageRoute(
         builder: (_) => AiAnalysisScreen(
-  capturedImage: FileImage(
-    File(image.path),
-  ),
-  product: product,
-  productName: product.name,
-  productSubtitle: product.brand,
-  servingInfo: 'Serving information unavailable',
-  foodTypeLabel: 'Food Product',
-),
+          capturedImage: FileImage(
+            File(image.path),
+          ),
+          product: product,
+          productName: product.name,
+          productSubtitle: product.brand,
+          servingInfo: 'Serving information unavailable',
+          foodTypeLabel: 'Food Product',
+        ),
       ),
     );
 
@@ -1186,6 +1199,9 @@ Future<void> _capture() async {
     );
   } finally {
     _isManualCapturing = false;
+    if (mounted) {
+      _setProcessingState(false);
+    }
 
     // Restart barcode scanning.
     final currentCamera = _cameraController;
@@ -1213,20 +1229,22 @@ Future<void> _lookupFood(
   String barcode,
   XFile productImage,
 ) async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    },
+  _setProcessingState(
+    true,
+    title: '🔍 Analyzing your product…',
+    subtitle: 'Checking nutrition, ingredients & personalized compatibility.',
   );
 
   try {
     // Step 1: Try barcode lookup
     debugPrint('=== BARCODE LOOKUP STARTED ===');
     debugPrint('Barcode: $barcode');
+
+    _setProcessingState(
+      true,
+      title: '🔍 Analyzing your product…',
+      subtitle: 'Checking nutrition, ingredients & personalized compatibility.',
+    );
 
     final product = await _foodService.getFoodByBarcode(barcode);
 
@@ -1237,8 +1255,6 @@ Future<void> _lookupFood(
       debugPrint('=== BARCODE LOOKUP SUCCESS ===');
       debugPrint('Product: ${product.name}');
       debugPrint('Brand: ${product.brand}');
-
-      Navigator.pop(context);
 
       await Navigator.push(
         context,
@@ -1256,8 +1272,6 @@ Future<void> _lookupFood(
         ),
       );
 
-      // User came back from AI Analysis.
-      // Reset barcode scanning so another product can be scanned.
       if (!mounted) return;
 
       _barcodeDetected = false;
@@ -1277,12 +1291,12 @@ Future<void> _lookupFood(
     // Step 2: Barcode lookup failed, try OCR fallback
     debugPrint('=== BARCODE NOT FOUND, STARTING OCR FALLBACK ===');
 
-    // Close loading dialog before running OCR
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    _setProcessingState(
+      true,
+      title: '🔍 Analyzing your product…',
+      subtitle: 'Checking nutrition, ingredients & personalized compatibility.',
+    );
 
-    // Run OCR resolution on the same captured image
     final ocrProduct = await resolveProductFromOcr(productImage);
 
     if (!mounted) return;
@@ -1308,7 +1322,6 @@ Future<void> _lookupFood(
         ),
       );
 
-      // User came back from AI Analysis.
       if (!mounted) return;
 
       _barcodeDetected = false;
@@ -1342,7 +1355,6 @@ Future<void> _lookupFood(
       );
     }
 
-    // Restart barcode scanning
     final camera = _cameraController;
 
     if (camera != null &&
@@ -1352,11 +1364,6 @@ Future<void> _lookupFood(
     }
   } catch (e) {
     if (!mounted) return;
-
-    // Make sure dialog is dismissed even on error
-    try {
-      Navigator.pop(context);
-    } catch (_) {}
 
     debugPrint('_lookupFood error: $e');
 
@@ -1371,7 +1378,6 @@ Future<void> _lookupFood(
       ),
     );
 
-    // Restart barcode scanning
     final camera = _cameraController;
 
     if (camera != null &&
@@ -1380,6 +1386,10 @@ Future<void> _lookupFood(
       try {
         await camera.startImageStream(_processCameraImage);
       } catch (_) {}
+    }
+  } finally {
+    if (mounted) {
+      _setProcessingState(false);
     }
   }
 }
@@ -1419,6 +1429,23 @@ Future<void> _initializeCamera() async {
 
 bool _isProcessingImage = false;
 bool _isManualCapturing = false;
+bool _isScanProcessing = false;
+String _processingTitle = '🔍 Analyzing your product…';
+String _processingSubtitle = 'Checking nutrition, ingredients & personalized compatibility.';
+
+void _setProcessingState(
+  bool isProcessing, {
+  String title = '🔍 Analyzing your product…',
+  String subtitle = 'Checking nutrition, ingredients & personalized compatibility.',
+}) {
+  if (!mounted) return;
+
+  setState(() {
+    _isScanProcessing = isProcessing;
+    _processingTitle = title;
+    _processingSubtitle = subtitle;
+  });
+}
 
 Future<void> _processCameraImage(CameraImage image) async {
   if (_isProcessingImage ||
@@ -1470,23 +1497,27 @@ Future<void> _processCameraImage(CameraImage image) async {
 
       if (code == null || code.isEmpty) continue;
 
-// Barcode found!
-_barcodeDetected = true;
+      // Barcode found!
+      _barcodeDetected = true;
 
-// Stop processing camera frames.
-await _cameraController?.stopImageStream();
+      // Stop processing camera frames.
+      await _cameraController?.stopImageStream();
 
-if (!mounted) return;
+      if (!mounted) return;
 
-// Capture the product image.
-final XFile productImage =
-    await _cameraController!.takePicture();
+      _setProcessingState(
+        true,
+        title: '🔍 Analyzing your product…',
+        subtitle: 'Checking nutrition, ingredients & personalized compatibility.',
+      );
 
-// Look up the barcode and pass the image too.
-await _lookupFood(code, productImage);
+      // Capture the product image.
+      final XFile productImage = await _cameraController!.takePicture();
 
-break;
+      // Look up the barcode and pass the image too.
+      await _lookupFood(code, productImage);
 
+      break;
     }
   } catch (e) {
     debugPrint('Barcode detection error: $e');
@@ -1642,21 +1673,75 @@ Widget build(BuildContext context) {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-  // REAL CAMERA PREVIEW
-  if (_cameraController != null &&
-      _cameraController!.value.isInitialized)
-    CameraPreview(_cameraController!)
-  else
-    const Center(
-      child: CircularProgressIndicator(),
-    ),
+                              // REAL CAMERA PREVIEW
+                              if (_cameraController != null &&
+                                  _cameraController!.value.isInitialized)
+                                CameraPreview(_cameraController!)
+                              else
+                                const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
 
-  // YOUR UI SCANNER FRAME
-  _ScannerFrame(
-    uiScale: scale,
-    scanLineCtrl: _scanLineCtrl,
-  ),
-],
+                              // YOUR UI SCANNER FRAME
+                              _ScannerFrame(
+                                uiScale: scale,
+                                scanLineCtrl: _scanLineCtrl,
+                              ),
+
+                              if (_isScanProcessing)
+                                Positioned.fill(
+                                  child: Container(
+                                    color: Colors.black.withValues(alpha: 0.28),
+                                    child: Center(
+                                      child: Container(
+                                        width: 250 * scale,
+                                        padding: EdgeInsets.all(18 * scale),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(24 * scale),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.22),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 28 * scale,
+                                              height: 28 * scale,
+                                              child: const CircularProgressIndicator(
+                                                strokeWidth: 3,
+                                                valueColor: AlwaysStoppedAnimation(
+                                                  Color(0xFF8F7BFF),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(height: 16 * scale),
+                                            Text(
+                                              _processingTitle,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 21 * scale,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            SizedBox(height: 8 * scale),
+                                            Text(
+                                              _processingSubtitle,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.82),
+                                                fontSize: 13 * scale,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 

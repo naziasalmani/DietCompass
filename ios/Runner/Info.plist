@@ -24,8 +24,13 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DietCompass uses the microphone so you can talk to your AI Nutrition Coach using your voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>DietCompass uses speech recognition to convert your spoken questions into text for nutrition guidance.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

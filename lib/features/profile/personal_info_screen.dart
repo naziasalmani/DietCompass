@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
+import '../../core/services/profile_service.dart';
 
 /// DietCompass — Personal Information Screen
 /// -----------------------------------------------------------------------
@@ -155,14 +156,41 @@ _selectedCity = widget.city;
   Animation<Offset> _slide(double s, double e) => Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
       .animate(CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOutCubic)));
 
-  void _handleSave() {
-    widget.onSave?.call({
-      'fullName': _fullNameCtrl.text,
-      'username': _usernameCtrl.text,
-      'email': _emailCtrl.text,
-      'phone': _phoneCtrl.text,
-      'address': _addressCtrl.text,
-    });
+  void _handleSave() async {
+    final updates = {
+      'fullName': _fullNameCtrl.text.trim(),
+      'phone': _phoneCtrl.text.trim(),
+      'countryCode': _countryCode,
+      'country': _countryName,
+      'city': _selectedCity,
+      'address': _addressCtrl.text.trim(),
+    };
+
+    if (widget.onSave != null) {
+      widget.onSave!(updates);
+    } else {
+      try {
+        await ProfileService.instance.updateProfile(updates);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully!'),
+              backgroundColor: Color(0xFF1E8A4C),
+            ),
+          );
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update profile: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override

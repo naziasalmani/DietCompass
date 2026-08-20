@@ -3,6 +3,7 @@ import 'open_food_facts_service.dart';
 import 'usda_food_service.dart';
 import 'upc_food_service.dart';
 import 'local_food_database_service.dart';
+import 'ai_service.dart';
 
 class FoodService {
   final OpenFoodFactsService _openFoodFactsService =
@@ -19,7 +20,8 @@ class FoodService {
 
   // ============================================================
   // BARCODE SEARCH
-  // Open Food Facts → USDA → UPC → Local Database
+  // Cascading Multi-API: Open Food Facts → USDA → UPC → Local Database → Gemini AI
+  // Keeps non-null & non-zero values from API 1 and enriches zero/missing values from subsequent APIs.
   // ============================================================
 
   Future<FoodProduct?> getFoodByBarcode(
@@ -31,7 +33,9 @@ class FoodService {
       return null;
     }
 
-    // 1. Open Food Facts
+    FoodProduct? mergedProduct;
+
+    // 1. Open Food Facts (Primary API)
     try {
       final product =
           await _openFoodFactsService.getProductByBarcode(
@@ -40,10 +44,19 @@ class FoodService {
 
       if (product != null) {
         print(
-          '✅ PRODUCT SOURCE: OPEN FOOD FACTS',
+          '✅ PRODUCT SOURCE: OPEN FOOD FACTS (Barcode: $cleanBarcode)',
         );
 
-        return product;
+        mergedProduct = product;
+
+        // If product already has all positive nutrients and is complete, return early
+        if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+          return mergedProduct;
+        }
+
+        print(
+          'ℹ️ [FoodService] Open Food Facts has zero/missing values. Querying subsequent APIs for enrichment...',
+        );
       }
     } catch (e) {
       print(
@@ -51,64 +64,142 @@ class FoodService {
       );
     }
 
-    // 2. USDA
-    try {
-      final product =
-          await _usdaFoodService.getProductByBarcode(
-        cleanBarcode,
-      );
-
-      if (product != null) {
-        print(
-          '✅ PRODUCT SOURCE: USDA',
+    // 2. USDA FoodData Central (Enrich missing/zero fields)
+    if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
+      try {
+        var usdaProduct =
+            await _usdaFoodService.getProductByBarcode(
+          cleanBarcode,
         );
 
-        return product;
+        if (usdaProduct == null &&
+            mergedProduct != null &&
+            mergedProduct.name.isNotEmpty &&
+            mergedProduct.name.toLowerCase() != 'unknown product') {
+          usdaProduct =
+              await _usdaFoodService.getProductByName(
+            mergedProduct.name,
+          );
+        }
+
+        if (usdaProduct != null) {
+          print(
+            '✅ PRODUCT SOURCE: USDA (Enriched/Found)',
+          );
+
+          mergedProduct = mergedProduct == null
+              ? usdaProduct
+              : mergedProduct.mergeWith(usdaProduct);
+
+          if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            return mergedProduct;
+          }
+        }
+      } catch (e) {
+        print(
+          'USDA failed: $e',
+        );
       }
-    } catch (e) {
-      print(
-        'USDA failed: $e',
-      );
     }
 
-    // 3. UPC
-    try {
-      final product =
-          await _upcFoodService.getProductByBarcode(
-        cleanBarcode,
-      );
-
-      if (product != null) {
-        print(
-          '✅ PRODUCT SOURCE: UPC',
+    // 3. UPC.dev (Enrich remaining zero/missing fields)
+    if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
+      try {
+        var upcProduct =
+            await _upcFoodService.getProductByBarcode(
+          cleanBarcode,
         );
 
-        return product;
+        if (upcProduct == null &&
+            mergedProduct != null &&
+            mergedProduct.name.isNotEmpty &&
+            mergedProduct.name.toLowerCase() != 'unknown product') {
+          upcProduct =
+              await _upcFoodService.getProductByName(
+            mergedProduct.name,
+          );
+        }
+
+        if (upcProduct != null) {
+          print(
+            '✅ PRODUCT SOURCE: UPC (Enriched/Found)',
+          );
+
+          mergedProduct = mergedProduct == null
+              ? upcProduct
+              : mergedProduct.mergeWith(upcProduct);
+
+          if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            return mergedProduct;
+          }
+        }
+      } catch (e) {
+        print(
+          'UPC failed: $e',
+        );
       }
-    } catch (e) {
-      print(
-        'UPC failed: $e',
-      );
     }
 
-    // 4. Local Database
-    try {
-      final product =
-          await _localDatabaseService.getProductByBarcode(
-        cleanBarcode,
-      );
-
-      if (product != null) {
-        print(
-          '✅ PRODUCT SOURCE: LOCAL DATABASE',
+    // 4. Local Database (Final local database fallback / enrichment)
+    if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
+      try {
+        var localProduct =
+            await _localDatabaseService.getProductByBarcode(
+          cleanBarcode,
         );
 
-        return product;
+        if (localProduct == null &&
+            mergedProduct != null &&
+            mergedProduct.name.isNotEmpty &&
+            mergedProduct.name.toLowerCase() != 'unknown product') {
+          localProduct =
+              await _localDatabaseService.getProductByName(
+            mergedProduct.name,
+          );
+        }
+
+        if (localProduct != null) {
+          print(
+            '✅ PRODUCT SOURCE: LOCAL DATABASE (Enriched/Found)',
+          );
+
+          mergedProduct = mergedProduct == null
+              ? localProduct
+              : mergedProduct.mergeWith(localProduct);
+
+          if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            return mergedProduct;
+          }
+        }
+      } catch (e) {
+        print(
+          'Local database failed: $e',
+        );
       }
-    } catch (e) {
-      print(
-        'Local database failed: $e',
-      );
+    }
+
+    // 5. Gemini AI Fallback & Enrichment (when information is unavailable in any API)
+    if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
+      try {
+        print('🤖 [FoodService] Checking Gemini AI for missing product/nutrition data...');
+        final geminiProduct = await AiService.instance.lookupProductWithGemini(
+          barcode: cleanBarcode,
+          partialProduct: mergedProduct,
+        );
+
+        if (geminiProduct != null) {
+          print('✅ PRODUCT SOURCE: GEMINI AI (Enriched/Found)');
+          mergedProduct = mergedProduct == null
+              ? geminiProduct
+              : mergedProduct.mergeWith(geminiProduct);
+        }
+      } catch (e) {
+        print('Gemini AI fallback failed: $e');
+      }
+    }
+
+    if (mergedProduct != null) {
+      return mergedProduct;
     }
 
     print(
@@ -116,6 +207,112 @@ class FoodService {
     );
 
     return null;
+  }
+
+  // ============================================================
+  // ENRICH PRODUCT HELPER
+  // ============================================================
+
+  /// Enriches a [FoodProduct] by querying fallback sources (USDA, UPC, Local DB, Gemini AI)
+  /// to fill in any missing, null, or zero nutrition and metadata values.
+  Future<FoodProduct> enrichProduct(FoodProduct product) async {
+    if (product.isComplete && !product.hasMissingOrZeroNutrients) {
+      return product;
+    }
+
+    var enriched = product;
+
+    // 1. Try USDA
+    if (enriched.hasMissingOrZeroNutrients) {
+      try {
+        FoodProduct? usdaProduct;
+        if (enriched.barcode.trim().isNotEmpty) {
+          usdaProduct =
+              await _usdaFoodService.getProductByBarcode(enriched.barcode);
+        }
+        if (usdaProduct == null &&
+            enriched.name.trim().isNotEmpty &&
+            enriched.name.toLowerCase() != 'unknown product') {
+          usdaProduct =
+              await _usdaFoodService.getProductByName(enriched.name);
+        }
+        if (usdaProduct != null) {
+          enriched = enriched.mergeWith(usdaProduct);
+          if (enriched.isComplete && !enriched.hasMissingOrZeroNutrients) {
+            return enriched;
+          }
+        }
+      } catch (e) {
+        print('USDA product enrichment error: $e');
+      }
+    }
+
+    // 2. Try UPC.dev
+    if (enriched.hasMissingOrZeroNutrients) {
+      try {
+        FoodProduct? upcProduct;
+        if (enriched.barcode.trim().isNotEmpty) {
+          upcProduct =
+              await _upcFoodService.getProductByBarcode(enriched.barcode);
+        }
+        if (upcProduct == null &&
+            enriched.name.trim().isNotEmpty &&
+            enriched.name.toLowerCase() != 'unknown product') {
+          upcProduct =
+              await _upcFoodService.getProductByName(enriched.name);
+        }
+        if (upcProduct != null) {
+          enriched = enriched.mergeWith(upcProduct);
+          if (enriched.isComplete && !enriched.hasMissingOrZeroNutrients) {
+            return enriched;
+          }
+        }
+      } catch (e) {
+        print('UPC product enrichment error: $e');
+      }
+    }
+
+    // 3. Try Local DB
+    if (enriched.hasMissingOrZeroNutrients) {
+      try {
+        FoodProduct? localProduct;
+        if (enriched.barcode.trim().isNotEmpty) {
+          localProduct =
+              await _localDatabaseService.getProductByBarcode(enriched.barcode);
+        }
+        if (localProduct == null &&
+            enriched.name.trim().isNotEmpty &&
+            enriched.name.toLowerCase() != 'unknown product') {
+          localProduct =
+              await _localDatabaseService.getProductByName(enriched.name);
+        }
+        if (localProduct != null) {
+          enriched = enriched.mergeWith(localProduct);
+          if (enriched.isComplete && !enriched.hasMissingOrZeroNutrients) {
+            return enriched;
+          }
+        }
+      } catch (e) {
+        print('Local DB product enrichment error: $e');
+      }
+    }
+
+    // 4. Try Gemini AI Fallback
+    if (enriched.hasMissingOrZeroNutrients) {
+      try {
+        final geminiProduct = await AiService.instance.lookupProductWithGemini(
+          partialProduct: enriched,
+        );
+        if (geminiProduct != null) {
+          print('✅ [FoodService] Enriched missing fields from Gemini AI');
+          enriched = enriched.mergeWith(geminiProduct);
+        }
+      } catch (e) {
+        print('Gemini AI enrichment step error: $e');
+      }
+    }
+
+    return enriched;
   }
 
   // ============================================================
@@ -135,6 +332,13 @@ class FoodService {
     final cleanName = name.trim();
 
     if (cleanName.isEmpty) {
+      return [];
+    }
+
+    if (!_isMeaningfulProductQuery(cleanName)) {
+      print(
+        '🚫 Ignoring noisy OCR product query: "$cleanName"',
+      );
       return [];
     }
 
@@ -255,6 +459,26 @@ class FoodService {
       );
     }
 
+    // ------------------------------------------------------------
+    // 5. GEMINI AI FALLBACK
+    // ------------------------------------------------------------
+
+    if (results.isEmpty) {
+      try {
+        print('🤖 [FoodService] Searching Gemini AI by product name: "$cleanName"...');
+        final geminiProduct = await AiService.instance.lookupProductWithGemini(
+          name: cleanName,
+        );
+
+        if (geminiProduct != null) {
+          print('✅ NAME SOURCE: GEMINI AI');
+          results.add(geminiProduct);
+        }
+      } catch (e) {
+        print('Gemini AI name search error: $e');
+      }
+    }
+
     if (results.isEmpty) {
       print(
         '❌ PRODUCT NOT FOUND BY NAME: $cleanName',
@@ -282,12 +506,50 @@ class FoodService {
       return null;
     }
 
-    return products.first;
+    final product = products.first;
+    if (product.hasMissingOrZeroNutrients) {
+      return await enrichProduct(product);
+    }
+
+    return product;
   }
 
   // ============================================================
   // REMOVE DUPLICATE PRODUCTS
   // ============================================================
+
+  bool _isMeaningfulProductQuery(String value) {
+    final normalized = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (normalized.isEmpty || normalized.length < 3) {
+      return false;
+    }
+
+    final words = normalized
+        .split(RegExp(r'\s+'))
+        .where((word) => word.length > 1)
+        .where((word) => word != 'buy')
+        .where((word) => word != 'visit')
+        .where((word) => word != 'save')
+        .where((word) => word != 'more')
+        .where((word) => word != 'share')
+        .where((word) => word != 'online')
+        .where((word) => word != 'lowest')
+        .where((word) => word != 'price')
+        .where((word) => word != 'offer')
+        .where((word) => word != 'shop')
+        .toList();
+
+    if (words.length < 2) {
+      return false;
+    }
+
+    return true;
+  }
 
   List<FoodProduct> _removeDuplicates(
     List<FoodProduct> products,

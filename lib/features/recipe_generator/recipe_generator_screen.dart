@@ -2,12 +2,14 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../core/services/recipe_service.dart';
 import 'recipe_detail_screen.dart';
 import '../home/home_screen.dart';
 import 'history_screen.dart';
 import 'pdf_service.dart';
 import 'calendar_service.dart';
 import 'ai_meal_planner_screen.dart';
+
 
 class RecipeGeneratorScreen extends StatefulWidget {
   const RecipeGeneratorScreen({
@@ -178,8 +180,13 @@ class RecipeCardData {
     required this.proteinGrams,
     required this.imageAsset,
     required this.whatsInside,
+    this.id,
     this.recommended = false,
+    this.usedIngredientCount = 0,
+    this.missedIngredientCount = 0,
+    this.pantryMatchSummary = '',
   });
+  final dynamic id;
   final String title;
   final String tagline;
   final String description;
@@ -189,7 +196,11 @@ class RecipeCardData {
   final String imageAsset;
   final List<WhatsInTag> whatsInside;
   final bool recommended;
+  final int usedIngredientCount;
+  final int missedIngredientCount;
+  final String pantryMatchSummary;
 }
+
 
 class MoreIdeaData {
   const MoreIdeaData({
@@ -225,16 +236,19 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
   late final PageController _recipePageCtrl;
   late final TextEditingController _cravingCtrl;
   late List<PantryChipData> _pantryItems;
+  late List<RecipeCardData> _recipes;
   late Set<int> _savedRecipes;
   late Set<int> _bookmarkedIdeas;
   late int _navIndex;
   double _recipePage = 0;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _navIndex = widget.initialNavIndex;
     _pantryItems = [...widget.pantryItems];
+    _recipes = [...widget.recipes];
     _savedRecipes = {};
     _bookmarkedIdeas = {};
     _cravingCtrl = TextEditingController();
@@ -252,6 +266,35 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           _recipePage = _recipePageCtrl.page ?? 0;
         });
       });
+    _fetchRecipes();
+  }
+
+  Future<void> _fetchRecipes({String craving = ''}) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final ingredients = _pantryItems.map((p) => p.label).toList();
+      final list = await RecipeService.instance.generateRecipes(
+        ingredients: ingredients,
+        craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (list.isNotEmpty) {
+            _recipes = list;
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -280,6 +323,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
 
   void _removePantryItem(int index) {
     setState(() => _pantryItems.removeAt(index));
+    _fetchRecipes();
   }
 
   void _toggleSaveRecipe(int index) {
@@ -303,11 +347,58 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     });
   }
 
+  void _openRecipeDetail(RecipeCardData card) async {
+    if (card.id != null) {
+      try {
+        final fullRecipe = await RecipeService.instance.getRecipeDetails(card.id);
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RecipeDetailScreen(recipe: fullRecipe),
+            ),
+          );
+          return;
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      final fallbackRecipe = Recipe(
+        id: card.id,
+        images: [card.imageAsset],
+        title: card.title,
+        tags: card.tagline.split('•').map((s) => s.trim()).toList(),
+        description: card.description,
+        prepTime: '${card.timeMinutes} min',
+        calories: '${card.kcal} kcal',
+        protein: '${card.proteinGrams}g',
+        difficulty: 'Easy',
+        nutritionFacts: [],
+        ingredients: card.whatsInside.map((w) => IngredientItem(amount: '1 portion', name: w.title)).toList(),
+        serves: 1,
+        instructions: [
+          'Prepare all fresh pantry ingredients.',
+          'Cook and combine according to personal preference.',
+          'Serve warm and enjoy your healthy meal!',
+        ],
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipe: fallbackRecipe),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
-    final currentRecipeIndex = _recipePage.round().clamp(0, widget.recipes.length - 1);
+    final currentRecipeIndex = _recipePage.round().clamp(0, (_recipes.isNotEmpty ? _recipes.length - 1 : 0));
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
@@ -385,7 +476,10 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     child: _CravingInputRow(
                       uiScale: scale,
                       controller: _cravingCtrl,
-                      onGenerate: () => widget.onGenerateRecipe?.call(_cravingCtrl.text),
+                      onGenerate: () {
+                        widget.onGenerateRecipe?.call(_cravingCtrl.text);
+                        _fetchRecipes(craving: _cravingCtrl.text);
+                      },
                     ),
                   ),
                 ),
@@ -398,7 +492,10 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     child: _CustomizeSection(
                       uiScale: scale,
                       options: widget.customizeOptions,
-                      onTap: widget.onCustomizeTap,
+                      onTap: (optIndex) {
+                        widget.onCustomizeTap?.call(optIndex);
+                        _fetchRecipes();
+                      },
                     ),
                   ),
                 ),
@@ -420,39 +517,82 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
 
                 FadeTransition(
                   opacity: _fade(0.28, 0.65),
-                  child: SizedBox(
-  height: 220 * scale, // increase height
-  child: PageView.builder(
-    controller: _recipePageCtrl,
-    itemCount: widget.recipes.length,
-    itemBuilder: (context, index) {
-      final recipe = widget.recipes[index];
-      final delta = (_recipePage - index).abs().clamp(0.0, 1.0);
-      final cardScale = 1.0 - (delta * 0.06);
+                  child: _isLoading
+                      ? Container(
+                          height: 220 * scale,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const CircularProgressIndicator(color: _kPurple),
+                              SizedBox(height: 12 * scale),
+                              Text(
+                                'Chef AI is finding recipes with your pantry...',
+                                style: TextStyle(
+                                  fontSize: 12.5 * scale,
+                                  fontWeight: FontWeight.w600,
+                                  color: _kInk,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _recipes.isEmpty
+                          ? Container(
+                              height: 200 * scale,
+                              padding: EdgeInsets.all(16 * scale),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.kitchen_outlined, size: 42 * scale, color: _kMutedInk),
+                                  SizedBox(height: 8 * scale),
+                                  Text(
+                                    'No suitable recipes found with your current pantry and preferences.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12 * scale,
+                                      color: _kMutedInk,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : SizedBox(
+                              height: 220 * scale,
+                              child: PageView.builder(
+                                controller: _recipePageCtrl,
+                                itemCount: _recipes.length,
+                                itemBuilder: (context, index) {
+                                  final recipe = _recipes[index];
+                                  final delta = (_recipePage - index).abs().clamp(0.0, 1.0);
+                                  final cardScale = 1.0 - (delta * 0.06);
 
-      return Transform.scale(
-        scale: cardScale,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 2 * scale),
-          child: _RecipeCard(
-            uiScale: scale,
-            recipe: recipe,
-            saved: _savedRecipes.contains(index),
-            onView: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const RecipeDetailScreen(),
-    ),
-  );
-},
-            onSave: () => _toggleSaveRecipe(index),
-          ),
-        ),
-      );
-    },
-  ),
-),
+                                  return Transform.scale(
+                                    scale: cardScale,
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 2 * scale),
+                                      child: _RecipeCard(
+                                        uiScale: scale,
+                                        recipe: recipe,
+                                        saved: _savedRecipes.contains(index),
+                                        onView: () => _openRecipeDetail(recipe),
+                                        onSave: () => _toggleSaveRecipe(index),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                 ),
                 SizedBox(height: 10 * scale),
 
@@ -460,22 +600,24 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                   opacity: _fade(0.3, 0.66),
                   child: _PageDots(
                     uiScale: scale,
-                    count: widget.recipes.length,
+                    count: _recipes.isNotEmpty ? _recipes.length : 1,
                     page: _recipePage,
                   ),
                 ),
                 SizedBox(height: 22 * scale),
 
-                FadeTransition(
-                  opacity: _fade(0.32, 0.68),
-                  child: SlideTransition(
-                    position: _slide(0.32, 0.7),
-                    child: _WhatsInRecipeSection(
-                      uiScale: scale,
-                      recipe: widget.recipes[currentRecipeIndex],
+                if (_recipes.isNotEmpty)
+                  FadeTransition(
+                    opacity: _fade(0.32, 0.68),
+                    child: SlideTransition(
+                      position: _slide(0.32, 0.7),
+                      child: _WhatsInRecipeSection(
+                        uiScale: scale,
+                        recipe: _recipes[currentRecipeIndex],
+                      ),
                     ),
                   ),
-                ),
+
                 SizedBox(height: 24 * scale),
 
                 FadeTransition(
@@ -654,8 +796,6 @@ class _GlassContainer extends StatelessWidget {
   }
 }
 
-/// Small helper so Image.asset never crashes the layout before the real
-/// photos are dropped in — falls back to a soft tinted icon tile.
 class _SafeAssetImage extends StatelessWidget {
   const _SafeAssetImage({
     required this.asset,
@@ -673,9 +813,20 @@ class _SafeAssetImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (asset.startsWith('http')) {
+      return Image.network(
+        asset,
+        fit: fit,
+        errorBuilder: (context, error, stack) => Container(
+          color: bgColor,
+          alignment: Alignment.center,
+          child: Icon(icon, color: iconColor.withValues(alpha: 0.6)),
+        ),
+      );
+    }
     return Image.asset(
       asset,
-      fit: BoxFit.contain,
+      fit: fit,
       errorBuilder: (context, error, stack) => Container(
         color: bgColor,
         alignment: Alignment.center,
@@ -684,6 +835,7 @@ class _SafeAssetImage extends StatelessWidget {
     );
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Header

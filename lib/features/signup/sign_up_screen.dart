@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -153,6 +152,24 @@ class _SignUpScreenState extends State<SignUpScreen>
           accountType: _accountType,
         ),
       );
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFE0525C),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred. Please try again.'),
+            backgroundColor: Color(0xFFE0525C),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1404,24 +1421,45 @@ class _GoogleGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (rect) => const LinearGradient(
-        colors: [
-          Color(0xFF4285F4),
-          Color(0xFFEA4335),
-          Color(0xFFFBBC05),
-          Color(0xFF34A853),
-        ],
-        stops: [0.0, 0.35, 0.65, 1.0],
-      ).createShader(rect),
-      child: const Text(
-        'G',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          color: Colors.white,
-        ),
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(
+        painter: _GoogleGlyphPainter(),
       ),
     );
   }
+}
+
+class _GoogleGlyphPainter extends CustomPainter {
+  const _GoogleGlyphPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width * 0.36;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.22
+      ..strokeCap = StrokeCap.round;
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(bounds, -math.pi, math.pi / 2, false, paint);
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(bounds, math.pi / 2, math.pi / 2, false, paint);
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(bounds, 0, math.pi / 2, false, paint);
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(bounds, -math.pi / 2, math.pi / 4, false, paint);
+
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawLine(
+      Offset(center.dx, center.dy),
+      Offset(size.width * 0.84, center.dy),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GoogleGlyphPainter oldDelegate) => false;
 }

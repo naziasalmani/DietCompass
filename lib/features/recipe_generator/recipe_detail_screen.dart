@@ -27,6 +27,7 @@ class NutritionFact {
 
 class Recipe {
   const Recipe({
+    this.id,
     required this.images,
     required this.title,
     required this.tags,
@@ -41,6 +42,7 @@ class Recipe {
     required this.instructions,
   });
 
+  final dynamic id;
   final List<String> images;
   final String title;
   final List<String> tags;
@@ -54,6 +56,7 @@ class Recipe {
   final int serves;
   final List<String> instructions;
 }
+
 
 class RecipeDetailScreen extends StatefulWidget {
   const RecipeDetailScreen({
@@ -175,13 +178,20 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                       favorited: _favorited,
                       onPageChanged: (i) => setState(() => _page = i),
                       onBack: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const RecipeGeneratorScreen(),
-    ),
-  );
-},
+                        if (widget.onBack != null) {
+                          widget.onBack!();
+                        } else if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RecipeGeneratorScreen(),
+                            ),
+                          );
+                        }
+                      },
+
                       onFavoriteTap: () {
                         setState(() => _favorited = !_favorited);
                         widget.onFavoriteTap?.call();
@@ -360,14 +370,23 @@ class _HeroCarousel extends StatelessWidget {
             itemCount: images.isEmpty ? 1 : images.length,
             itemBuilder: (context, i) {
               final asset = images.isEmpty ? null : images[i];
-              return asset == null
-                  ? const _ImagePlaceholder()
-                  : Image.asset(
-                      asset,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const _ImagePlaceholder(),
-                    );
+              if (asset == null || asset.isEmpty) {
+                return const _ImagePlaceholder();
+              }
+              if (asset.startsWith('http')) {
+                return Image.network(
+                  asset,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const _ImagePlaceholder(),
+                );
+              }
+              return Image.asset(
+                asset,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const _ImagePlaceholder(),
+              );
             },
+
           ),
         ),
         Positioned(

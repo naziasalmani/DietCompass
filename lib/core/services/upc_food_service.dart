@@ -219,21 +219,23 @@ class UPCFoodService {
     );
   }
 
-  static double _toDouble(
+  static double? _toDouble(
     dynamic value,
   ) {
     if (value == null) {
-      return 0.0;
+      return null;
     }
 
     if (value is num) {
       return value.toDouble();
     }
 
-    return double.tryParse(
-          value.toString(),
-        ) ??
-        0.0;
+    final text = value.toString().trim();
+    if (text.isEmpty) {
+      return null;
+    }
+
+    return double.tryParse(text);
   }
 
   static int? _toInt(

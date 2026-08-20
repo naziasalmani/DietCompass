@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import '../model/food_product.dart';
 
 class USDAFoodService {
-  // Replace this with your own Data.gov API key.
   static const String _apiKey = 'gMhZc1ZStMR8uppaAqHxuLXGAjTb6zLlgrQnsael';
 
   static const String _baseUrl =

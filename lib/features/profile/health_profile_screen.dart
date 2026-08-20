@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../core/services/personalization_service.dart';
+import '../../core/services/profile_service.dart';
 
 /// DietCompass — Health Profile Screen
 /// -----------------------------------------------------------------------
@@ -169,6 +171,32 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
     _selectedGoals = {...widget.selectedGoals};
     _selectedDiets = {...widget.selectedDiets};
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..forward();
+
+    _loadCloudPersonalization();
+  }
+
+  void _loadCloudPersonalization() {
+    final pers = PersonalizationService.instance.currentPersonalization;
+    if (pers != null) {
+      final newGoals = <int>{};
+      for (int i = 0; i < widget.goalOptions.length; i++) {
+        if (pers.goals.contains(widget.goalOptions[i].label)) {
+          newGoals.add(i);
+        }
+      }
+      final newDiets = <int>{};
+      for (int i = 0; i < widget.dietOptions.length; i++) {
+        if (pers.dietType == widget.dietOptions[i].label) {
+          newDiets.add(i);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          if (newGoals.isNotEmpty) _selectedGoals = newGoals;
+          if (newDiets.isNotEmpty) _selectedDiets = newDiets;
+        });
+      }
+    }
   }
 
   @override
@@ -188,6 +216,7 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
       _selectedGoals.contains(i) ? _selectedGoals.remove(i) : _selectedGoals.add(i);
     });
     widget.onGoalsChanged?.call(_selectedGoals);
+    _syncGoals();
   }
 
   void _toggleDiet(int i) {
@@ -195,6 +224,26 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
       _selectedDiets.contains(i) ? _selectedDiets.remove(i) : _selectedDiets.add(i);
     });
     widget.onDietsChanged?.call(_selectedDiets);
+    _syncDiets();
+  }
+
+  Future<void> _syncGoals() async {
+    final goals = _selectedGoals.map((i) => widget.goalOptions[i].label).toList();
+    try {
+      await PersonalizationService.instance.updatePersonalization({'goals': goals});
+    } catch (_) {}
+  }
+
+  Future<void> _syncDiets() async {
+    final diets = _selectedDiets.map((i) => widget.dietOptions[i].label).toList();
+    try {
+      await PersonalizationService.instance.updatePersonalization({
+        'dietType': diets.isNotEmpty ? diets.first : 'Vegetarian',
+      });
+      await ProfileService.instance.updateProfile({
+        'dietType': diets.isNotEmpty ? diets.first : 'Vegetarian',
+      });
+    } catch (_) {}
   }
 
   @override

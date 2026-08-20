@@ -2,6 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../core/model/user_profile.dart';
+import '../../core/model/personalization_profile.dart';
+import '../../core/services/profile_service.dart';
+import '../../core/services/personalization_service.dart';
 import '../home/home_screen.dart';
 import 'saved_recipes_screen.dart';
 import 'personal_info_screen.dart';
@@ -15,10 +19,6 @@ import 'health_profile_screen.dart';
 /// entrance choreography and small delightful micro-animations
 /// (progress fill, count-up health score, pulsing bell badge, breathing
 /// avatar glow, press-scale on every tappable row).
-///
-/// No custom image assets are required — all icons use Material icons so
-/// this file drops in as-is. Swap `_Avatar`'s initials/gradient for a
-/// real photo whenever you wire up real user data.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
@@ -35,7 +35,7 @@ class ProfileScreen extends StatefulWidget {
     this.dietType = 'Vegetarian',
     this.height = '165 cm',
     this.weight = '58 kg',
-    this.appVersion = '1.0.0',
+    this.appVersion = '1.0.0 (Beta)',
     this.onNotificationsTap,
     this.onSettingsTap,
     this.onEditAvatarTap,
@@ -53,6 +53,9 @@ class ProfileScreen extends StatefulWidget {
     this.onPrivacyTap,
     this.onHelpSupportTap,
     this.onAboutTap,
+    /// Callback invoked when the user confirms logout.
+    /// Should revoke the session and navigate to the login screen.
+    this.onLogout,
   });
 
   final String name;
@@ -87,6 +90,9 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onPrivacyTap;
   final VoidCallback? onHelpSupportTap;
   final VoidCallback? onAboutTap;
+  /// Real logout callback — revokes the session on the backend and
+  /// clears secure credentials before returning to the login screen.
+  final Future<void> Function()? onLogout;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -96,6 +102,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
+
+  UserProfile? _profile;
+  PersonalizationProfile? _personalization;
 
   @override
   void initState() {
@@ -108,7 +117,40 @@ class _ProfileScreenState extends State<ProfileScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
+
+    _loadCloudProfile();
   }
+
+  Future<void> _loadCloudProfile() async {
+    try {
+      final p = await ProfileService.instance.getProfile();
+      final pers = await PersonalizationService.instance.getPersonalization();
+      if (mounted) {
+        setState(() {
+          _profile = p;
+          _personalization = pers;
+        });
+      }
+    } catch (_) {}
+  }
+
+  String get _displayName => _profile?.displayName ?? widget.name;
+  String get _email => _profile?.email.isNotEmpty == true ? _profile!.email : widget.email;
+  String get _phone => _profile?.phone.isNotEmpty == true
+      ? '${_profile!.countryCode} ${_profile!.phone}'
+      : widget.phone;
+  String get _avatarInitial => _profile?.avatarInitial ?? widget.avatarInitial;
+  String get _badgeLabel => _profile?.badgeLabel.isNotEmpty == true ? _profile!.badgeLabel : widget.badgeLabel;
+  String get _dietType => _profile?.dietType.isNotEmpty == true
+      ? _profile!.dietType
+      : (_personalization?.dietType?.isNotEmpty == true ? _personalization!.dietType! : widget.dietType);
+  String get _height => _profile?.height.isNotEmpty == true
+      ? '${_profile!.height} cm'
+      : (_personalization?.height.isNotEmpty == true ? '${_personalization!.height} cm' : widget.height);
+  String get _weight => _profile?.weight.isNotEmpty == true
+      ? '${_profile!.weight} kg'
+      : (_personalization?.weight.isNotEmpty == true ? '${_personalization!.weight} kg' : widget.weight);
+  String get _goal => _personalization?.goals.isNotEmpty == true ? _personalization!.goals.first : widget.goal;
 
   @override
   void dispose() {
@@ -177,14 +219,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                         uiScale: scale,
                         ambientCtrl: _ambientCtrl,
                         entranceCtrl: _entranceCtrl,
-                        name: widget.name,
-                        email: widget.email,
-                        phone: widget.phone,
-                        avatarInitial: widget.avatarInitial,
-                        badgeLabel: widget.badgeLabel,
+                        name: _displayName,
+                        email: _email,
+                        phone: _phone,
+                        avatarInitial: _avatarInitial,
+                        badgeLabel: _badgeLabel,
                         memberSince: widget.memberSince,
-                        healthScore: widget.healthScore,
-                        streakDays: widget.streakDays,
+                        healthScore: _profile?.healthScore ?? widget.healthScore,
+                        streakDays: _profile?.streakDays ?? widget.streakDays,
                         onEditAvatarTap: widget.onEditAvatarTap,
                       ),
                     ),
@@ -199,7 +241,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: _CompleteProfileBanner(
                       uiScale: scale,
                       entranceCtrl: _entranceCtrl,
-                      completion: widget.profileCompletion,
+                      completion: _profile?.isPersonalizationComplete == true ? 1.0 : widget.profileCompletion,
                       onCompleteNowTap: widget.onCompleteNowTap,
                     ),
                   ),
@@ -232,10 +274,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       child: _HealthSummaryRow(
                         uiScale: scale,
-                        goal: widget.goal,
-                        dietType: widget.dietType,
-                        height: widget.height,
-                        weight: widget.weight,
+                        goal: _goal,
+                        dietType: _dietType,
+                        height: _height,
+                        weight: _weight,
                         onGoalTap: widget.onGoalTap,
                         onDietTypeTap: widget.onDietTypeTap,
                         onHeightTap: widget.onHeightTap,
@@ -262,14 +304,30 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF6C4EF5),
                             title: 'Personal Information',
                             subtitle: 'Update your personal details',
-                           onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const PersonalInfoScreen(),
-    ),
-  );
-},
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PersonalInfoScreen(
+                                    fullName: _profile?.fullName ?? widget.name,
+                                    email: _email,
+                                    phone: _profile?.phone ?? widget.phone,
+                                    countryCode: _profile?.countryCode ?? '+91',
+                                    dateOfBirth: _profile?.dateOfBirth.isNotEmpty == true ? _profile!.dateOfBirth : '15 May 2005',
+                                    gender: _profile?.gender.isNotEmpty == true ? _profile!.gender : 'Female',
+                                    country: _profile?.country.isNotEmpty == true ? _profile!.country : 'India',
+                                    city: _profile?.city ?? 'Mumbai',
+                                    address: _profile?.address ?? '',
+                                    occupation: _profile?.occupation ?? '',
+                                    dietType: _dietType,
+                                    height: _height,
+                                    weight: _weight,
+                                  ),
+                                ),
+                              ).then((updated) {
+                                if (updated == true) _loadCloudProfile();
+                              });
+                            },
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(
@@ -280,13 +338,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                             title: 'Health Profile',
                             subtitle: 'Manage your health preferences',
                             onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const HealthProfileScreen(),
-    ),
-  );
-},
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HealthProfileScreen(
+                                    fullName: _displayName,
+                                    gender: _profile?.gender.isNotEmpty == true ? _profile!.gender : 'Female',
+                                    height: _height,
+                                    weight: _weight,
+                                  ),
+                                ),
+                              ).then((_) => _loadCloudProfile());
+                            },
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(
@@ -382,6 +445,23 @@ _ProfileMenuTile(
                             onTap: widget.onAboutTap,
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16 * scale),
+
+                // ── Logout button ───────────────────────────────────────────
+                FadeTransition(
+                  opacity: _fade(0.5, 0.8),
+                  child: SlideTransition(
+                    position: _slide(0.5, 0.84),
+                    child: _GlassCard(
+                      uiScale: scale,
+                      padding: EdgeInsets.symmetric(vertical: 4 * scale),
+                      child: _LogoutTile(
+                        uiScale: scale,
+                        onLogout: widget.onLogout,
                       ),
                     ),
                   ),
@@ -1466,6 +1546,139 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
               duration: const Duration(milliseconds: 140),
               child: Icon(Icons.chevron_right_rounded,
                   size: 18 * uiScale, color: const Color(0xFFB0ACC2)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Logout tile — shows a confirmation dialog then calls onLogout
+// ---------------------------------------------------------------------------
+class _LogoutTile extends StatefulWidget {
+  const _LogoutTile({required this.uiScale, this.onLogout});
+
+  final double uiScale;
+  final Future<void> Function()? onLogout;
+
+  @override
+  State<_LogoutTile> createState() => _LogoutTileState();
+}
+
+class _LogoutTileState extends State<_LogoutTile> {
+  bool _loading = false;
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Log Out',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1B1B2E),
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to log out from this device?',
+          style: TextStyle(color: Color(0xFF6B6B7B)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B6B7B)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFE0525C),
+            ),
+            child: const Text(
+              'Log Out',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    if (widget.onLogout == null) return;
+
+    setState(() => _loading = true);
+    try {
+      await widget.onLogout!();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.uiScale;
+    return InkWell(
+      onTap: _loading ? null : _confirmLogout,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 14 * s),
+        child: Row(
+          children: [
+            Container(
+              width: 40 * s,
+              height: 40 * s,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFECEE),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _loading
+                  ? Padding(
+                      padding: EdgeInsets.all(10 * s),
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation(Color(0xFFE0525C)),
+                      ),
+                    )
+                  : Icon(
+                      Icons.logout_rounded,
+                      size: 19 * s,
+                      color: const Color(0xFFE0525C),
+                    ),
+            ),
+            SizedBox(width: 12 * s),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Log Out',
+                    style: TextStyle(
+                      fontSize: 13.5 * s,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFE0525C),
+                    ),
+                  ),
+                  SizedBox(height: 2 * s),
+                  Text(
+                    'Sign out from this device',
+                    style: TextStyle(
+                      fontSize: 11 * s,
+                      color: const Color(0xFF6B6B7B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18 * s,
+              color: const Color(0xFFE0525C),
             ),
           ],
         ),

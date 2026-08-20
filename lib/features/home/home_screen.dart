@@ -1,18 +1,18 @@
 import 'dart:math' as math;
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/material.dart';
 import '../ai/ai_shopping_screen.dart';
 import '../scan/scan_screen.dart';
 import '../scan/camera_scan_screen.dart';
-import '../ai/ai_shopping_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/compare_screen.dart';
 import '../dashboard/DashboardScreen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
 import '../ai_coach/ai_coach_screen.dart';
+import '../ai_coach/voice_assistant_modal.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -59,6 +59,9 @@ class HomeScreen extends StatefulWidget {
     this.onChatNowTap,
     this.onNavTap,
     this.initialNavIndex = 0,
+    /// Callback invoked when the user confirms logout from ProfileScreen.
+    /// Should revoke the backend session and navigate to the login screen.
+    this.onLogout,
   });
 
   final String userName;
@@ -78,6 +81,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onChatNowTap;
   final ValueChanged<int>? onNavTap;
   final int initialNavIndex;
+  final Future<void> Function()? onLogout;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -120,12 +124,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _ambientCtrl;
   late int _navIndex;
 
-  final stt.SpeechToText _speech = stt.SpeechToText();
-
-bool _isListening = false;
-String _spokenText = "";
-
    Future<void> _pickCompareImages() async {
+
     final ImagePicker picker = ImagePicker();
 
     final List<XFile> images = await picker.pickMultiImage(
@@ -185,26 +185,13 @@ String _spokenText = "";
     )..repeat(reverse: true);
   }
 
-  Future<void> _listen() async {
-  if (!_isListening) {
-    bool available = await _speech.initialize();
-
-    if (available) {
-      setState(() => _isListening = true);
-
-      _speech.listen(
-        onResult: (result) {
-          setState(() {
-            _spokenText = result.recognizedWords;
-          });
-        },
-      );
-    }
-  } else {
-    setState(() => _isListening = false);
-    _speech.stop();
+  void _openVoiceAssistant() {
+    showVoiceAssistantModal(
+      context,
+      userName: widget.userName,
+    );
   }
-}
+
 
   @override
   void dispose() {
@@ -278,6 +265,7 @@ String _spokenText = "";
                       greeting: _greeting,
                       avatarUrl: widget.avatarUrl,
                       onNotificationTap: widget.onNotificationTap,
+                      onLogout: widget.onLogout,
                     ),
                   ),
                 ),
@@ -290,8 +278,9 @@ String _spokenText = "";
                     child: _SearchBar(
                       uiScale: scale,
                       onSubmitted: widget.onSearchSubmitted,
-                     onMicTap: _listen,
+                      onMicTap: _openVoiceAssistant,
                     ),
+
                   ),
                 ),
                 SizedBox(height: 16 * scale),
@@ -574,6 +563,7 @@ class _HeaderRow extends StatelessWidget {
     required this.greeting,
     required this.avatarUrl,
     this.onNotificationTap,
+    this.onLogout,
   });
 
   final double uiScale;
@@ -581,6 +571,7 @@ class _HeaderRow extends StatelessWidget {
   final String greeting;
   final String? avatarUrl;
   final VoidCallback? onNotificationTap;
+  final Future<void> Function()? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -588,10 +579,10 @@ class _HeaderRow extends StatelessWidget {
       children: [
         GestureDetector(
   onTap: () {
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ProfileScreen(),
+        builder: (_) => ProfileScreen(onLogout: onLogout),
       ),
     );
   },

@@ -1,11 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../login/login_screen.dart';
-import '../signup/sign_up_screen.dart';
-import '../forgot_password/forgot_password_screen.dart';
-import '../home/home_screen.dart';
-import '../personalization/lib/onboarding/onboarding_flow.dart';
+
 
 /// DietCompass — Onboarding
 /// -----------------------------------------------------------------------
@@ -142,123 +138,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
- void _handlePrimaryButton() {
-  if (_page == _pages.length - 1) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (loginContext) => LoginScreen(
-          onLogin: (email, password) async {
-  // successful login
-  Navigator.pushReplacement(
-    loginContext,
-    MaterialPageRoute(
-     builder: (_) => OnboardingFlow(
-  onComplete: (data) {
-    Navigator.pushReplacement(
-      loginContext,
-      MaterialPageRoute(
-        builder: (_) => const HomeScreen(),
-      ),
-    );
-  },
-),
-    ),
-  );
-},
-          onForgotPassword: () {
-            Navigator.push(
-              loginContext,
-              MaterialPageRoute(
-                builder: (_) => ForgotPasswordScreen(
-                  onBack: () {
-                    Navigator.pop(loginContext);
-                  },
-                  onLoginTap: () {
-                    Navigator.pop(loginContext);
-                  },
-                  onSendResetLink: (email) async {
-                    // TODO: Connect Firebase/API later.
-                    await Future.delayed(const Duration(seconds: 2));
-                  },
-                ),
-              ),
-            );
-          },
-          onSignUpTap: () {
-            Navigator.push(
-              loginContext,
-              MaterialPageRoute(
-                builder: (_) => SignUpScreen(
-                  onBack: () {
-                    Navigator.pop(loginContext);
-                  },
-                  onLoginTap: () {
-                    Navigator.pop(loginContext);
-                  },
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  } else {
-    _goToPage(_page + 1);
+  void _handlePrimaryButton() {
+    if (_page == _pages.length - 1) {
+      widget.onComplete();
+    } else {
+      _goToPage(_page + 1);
+    }
   }
-}
 
   void _handleSkip() {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (loginContext) => LoginScreen(
-        onLogin: (email, password) async {
-  Navigator.pushReplacement(
-    loginContext,
-    MaterialPageRoute(
-      builder: (_) => OnboardingFlow(
-        onComplete: (data) {
-          Navigator.pushReplacement(
-            loginContext,
-            MaterialPageRoute(
-              builder: (_) => const HomeScreen(),
-            ),
-          );
-        },
-      ),
-    ),
-  );
-},
-        onForgotPassword: () {
-          Navigator.push(
-            loginContext,
-            MaterialPageRoute(
-              builder: (_) => ForgotPasswordScreen(
-                onBack: () => Navigator.pop(loginContext),
-                onLoginTap: () => Navigator.pop(loginContext),
-                onSendResetLink: (email) async {
-                  await Future.delayed(const Duration(seconds: 2));
-                },
-              ),
-            ),
-          );
-        },
-        onSignUpTap: () {
-          Navigator.push(
-            loginContext,
-            MaterialPageRoute(
-              builder: (_) => SignUpScreen(
-                onBack: () => Navigator.pop(loginContext),
-                onLoginTap: () => Navigator.pop(loginContext),
-              ),
-            ),
-          );
-        },
-      ),
-    ),
-  );
-}
+    if (widget.onSkip != null) {
+      widget.onSkip!();
+    } else {
+      widget.onComplete();
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {

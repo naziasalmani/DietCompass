@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import '../personalization/lib/onboarding/onboarding_flow.dart';
 
 /// DietCompass — Login Screen
 /// -----------------------------------------------------------------------
@@ -62,6 +61,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool _obscure = true;
   bool _loading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -89,11 +89,29 @@ class _LoginScreenState extends State<LoginScreen>
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
     if (widget.onLogin == null) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
     try {
       await widget.onLogin!(_emailCtrl.text.trim(), _passwordCtrl.text);
+    } on Exception catch (e) {
+      if (mounted) {
+        setState(() {
+          // Strip the 'Exception: ' prefix that _handleLogin wraps
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'An unexpected error occurred. Please try again.';
+          _loading = false;
+        });
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) setState(() => _loading = false);
     }
   }
 
@@ -180,6 +198,7 @@ class _LoginScreenState extends State<LoginScreen>
                         passwordCtrl: _passwordCtrl,
                         obscure: _obscure,
                         loading: _loading,
+                        errorMessage: _errorMessage,
                         onToggleObscure: () =>
                             setState(() => _obscure = !_obscure),
                         onSubmit: _submit,
@@ -217,6 +236,7 @@ class _GlassCard extends StatelessWidget {
     required this.onToggleObscure,
     required this.onSubmit,
     required this.entranceCtrl,
+    this.errorMessage,
     this.onForgotPassword,
     this.onGoogleTap,
     this.onAppleTap,
@@ -230,6 +250,7 @@ class _GlassCard extends StatelessWidget {
   final TextEditingController passwordCtrl;
   final bool obscure;
   final bool loading;
+  final String? errorMessage;
   final VoidCallback onToggleObscure;
   final Future<void> Function() onSubmit;
   final AnimationController entranceCtrl;
@@ -414,6 +435,45 @@ class _GlassCard extends StatelessWidget {
                 ),
                 SizedBox(height: 12 * uiScale),
 
+                // ── API/network error message ─────────────────────────────
+                if (errorMessage != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 12 * uiScale),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14 * uiScale,
+                        vertical: 10 * uiScale,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFECEE),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFE0525C).withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: const Color(0xFFE0525C),
+                            size: 16 * uiScale,
+                          ),
+                          SizedBox(width: 8 * uiScale),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: TextStyle(
+                                fontSize: 12.5 * uiScale,
+                                color: const Color(0xFFB02030),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 FadeTransition(
                   opacity: _fieldFade(0.55, 0.85),
                   child: SlideTransition(
@@ -426,6 +486,7 @@ class _GlassCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 20 * uiScale),
+
 
                 FadeTransition(
                   opacity: _fieldFade(0.6, 0.9),
@@ -784,31 +845,53 @@ class _SocialButtonState extends State<_SocialButton> {
   }
 }
 
-/// Lightweight multi-color "G" glyph so the Google button doesn't need a
-/// bundled brand asset.
+/// Segmented Google "G" mark without requiring a bundled brand asset.
 class _GoogleGlyph extends StatelessWidget {
   const _GoogleGlyph();
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (rect) => const LinearGradient(
-        colors: [
-          Color(0xFF4285F4),
-          Color(0xFFEA4335),
-          Color(0xFFFBBC05),
-          Color(0xFF34A853),
-        ],
-        stops: [0.0, 0.35, 0.65, 1.0],
-      ).createShader(rect),
-      child: const Text(
-        'G',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          color: Colors.white,
-        ),
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(
+        painter: _GoogleGlyphPainter(),
       ),
     );
   }
+}
+
+class _GoogleGlyphPainter extends CustomPainter {
+  const _GoogleGlyphPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width * 0.36;
+    final bounds = Rect.fromCircle(center: center, radius: radius);
+    final strokeWidth = size.width * 0.22;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(bounds, -math.pi, math.pi / 2, false, paint);
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(bounds, math.pi / 2, math.pi / 2, false, paint);
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(bounds, 0, math.pi / 2, false, paint);
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(bounds, -math.pi / 2, math.pi / 4, false, paint);
+
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawLine(
+      Offset(center.dx, center.dy),
+      Offset(size.width * 0.84, center.dy),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GoogleGlyphPainter oldDelegate) => false;
 }

@@ -115,6 +115,177 @@ class FoodProduct {
     );
   }
 
+  factory FoodProduct.fromJson(Map<String, dynamic> json) {
+    final nutrition = json['nutrition'] is Map<String, dynamic>
+        ? json['nutrition'] as Map<String, dynamic>
+        : json;
+
+    return FoodProduct(
+      barcode: json['barcode']?.toString() ?? '',
+      name: _firstNonEmpty([
+        json['name'],
+        json['product_name'],
+      ], fallback: 'Unknown Product'),
+      brand: _firstNonEmpty([
+        json['brand'],
+        json['brands'],
+      ], fallback: 'Unknown Brand'),
+      imageUrl: _firstNonEmpty([
+        json['imageUrl'],
+        json['image_url'],
+      ]),
+      ingredients: _firstNonEmpty([
+        json['ingredients'],
+        json['ingredients_text'],
+      ]),
+      allergens: _parseAllergens(json['allergens']),
+      calories: _toDouble(nutrition['calories'] ?? json['calories']),
+      protein: _toDouble(nutrition['protein'] ?? json['protein']),
+      carbohydrates: _toDouble(nutrition['carbohydrates'] ?? json['carbohydrates']),
+      fat: _toDouble(nutrition['fat'] ?? json['fat']),
+      fiber: _toDouble(nutrition['fiber'] ?? json['fiber']),
+      sugar: _toDouble(nutrition['sugar'] ?? json['sugar']),
+      sodium: _toDouble(nutrition['sodium'] ?? json['sodium']),
+      nutriScore: _firstNonEmpty([
+        json['nutriScore'],
+        json['nutriscore'],
+      ]),
+      novaGroup: _toInt(json['novaGroup'] ?? json['nova_group']),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Merge this product with another source (e.g. USDA, UPC, Local DB).
+  //
+  // Non-null and non-zero (> 0) values from this product take precedence.
+  // Any null, 0/0.0, or empty values are backfilled from [other].
+  // ------------------------------------------------------------
+  FoodProduct mergeWith(FoodProduct? other) {
+    if (other == null) return this;
+
+    final resolvedName = _isValidText(name)
+        ? name
+        : (_isValidText(other.name) ? other.name : name);
+
+    final resolvedBrand = _isValidBrand(brand)
+        ? brand
+        : (_isValidBrand(other.brand) ? other.brand : brand);
+
+    final resolvedImage = imageUrl.trim().isNotEmpty
+        ? imageUrl
+        : other.imageUrl.trim();
+
+    final resolvedIngredients = ingredients.trim().isNotEmpty
+        ? ingredients
+        : other.ingredients.trim();
+
+    final resolvedAllergens =
+        allergens.isNotEmpty ? allergens : other.allergens;
+
+    final resolvedNutriScore = (nutriScore != null && nutriScore!.trim().isNotEmpty)
+        ? nutriScore
+        : other.nutriScore;
+
+    return FoodProduct(
+      barcode: barcode.trim().isNotEmpty
+          ? barcode.trim()
+          : other.barcode.trim(),
+      name: resolvedName,
+      brand: resolvedBrand,
+      imageUrl: resolvedImage,
+      ingredients: resolvedIngredients,
+      allergens: resolvedAllergens,
+      calories: _mergePositiveDouble(calories, other.calories),
+      protein: _mergePositiveDouble(protein, other.protein),
+      carbohydrates: _mergePositiveDouble(carbohydrates, other.carbohydrates),
+      fat: _mergePositiveDouble(fat, other.fat),
+      fiber: _mergePositiveDouble(fiber, other.fiber),
+      sugar: _mergePositiveDouble(sugar, other.sugar),
+      sodium: _mergePositiveDouble(sodium, other.sodium),
+      nutriScore: resolvedNutriScore,
+      novaGroup: _mergePositiveInt(novaGroup, other.novaGroup),
+    );
+  }
+
+  FoodProduct copyWith({
+    String? barcode,
+    String? name,
+    String? brand,
+    String? imageUrl,
+    String? ingredients,
+    List<String>? allergens,
+    double? calories,
+    double? protein,
+    double? carbohydrates,
+    double? fat,
+    double? fiber,
+    double? sugar,
+    double? sodium,
+    String? nutriScore,
+    int? novaGroup,
+  }) {
+    return FoodProduct(
+      barcode: barcode ?? this.barcode,
+      name: name ?? this.name,
+      brand: brand ?? this.brand,
+      imageUrl: imageUrl ?? this.imageUrl,
+      ingredients: ingredients ?? this.ingredients,
+      allergens: allergens ?? this.allergens,
+      calories: calories ?? this.calories,
+      protein: protein ?? this.protein,
+      carbohydrates: carbohydrates ?? this.carbohydrates,
+      fat: fat ?? this.fat,
+      fiber: fiber ?? this.fiber,
+      sugar: sugar ?? this.sugar,
+      sodium: sodium ?? this.sodium,
+      nutriScore: nutriScore ?? this.nutriScore,
+      novaGroup: novaGroup ?? this.novaGroup,
+    );
+  }
+
+  /// Returns true if any major nutrient value is null or <= 0, or if ingredients are missing.
+  bool get hasMissingOrZeroNutrients {
+    if (calories == null || calories! <= 0) return true;
+    if (protein == null || protein! <= 0) return true;
+    if (carbohydrates == null || carbohydrates! <= 0) return true;
+    if (fat == null || fat! <= 0) return true;
+    if (fiber == null || fiber! <= 0) return true;
+    if (sugar == null || sugar! <= 0) return true;
+    if (sodium == null || sodium! <= 0) return true;
+    if (ingredients.trim().isEmpty) return true;
+    return false;
+  }
+
+  /// Returns true when all primary nutrient fields and metadata are present and non-zero.
+  bool get isComplete {
+    return !hasMissingOrZeroNutrients &&
+        _isValidText(name) &&
+        _isValidBrand(brand) &&
+        imageUrl.trim().isNotEmpty;
+  }
+
+  static bool _isValidText(String text) {
+    final trimmed = text.trim();
+    return trimmed.isNotEmpty && trimmed.toLowerCase() != 'unknown product';
+  }
+
+  static bool _isValidBrand(String text) {
+    final trimmed = text.trim();
+    return trimmed.isNotEmpty && trimmed.toLowerCase() != 'unknown brand';
+  }
+
+  static double? _mergePositiveDouble(double? primary, double? fallback) {
+    if (primary != null && primary > 0) return primary;
+    if (fallback != null && fallback > 0) return fallback;
+    return primary ?? fallback;
+  }
+
+  static int? _mergePositiveInt(int? primary, int? fallback) {
+    if (primary != null && primary > 0) return primary;
+    if (fallback != null && fallback > 0) return fallback;
+    return primary ?? fallback;
+  }
+
   // ------------------------------------------------------------
   // Return the first non-empty value from a list.
   // ------------------------------------------------------------

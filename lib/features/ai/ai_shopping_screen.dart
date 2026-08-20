@@ -5,6 +5,8 @@ import '../home/home_screen.dart';
 import '../scan/scan_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../dashboard/DashboardScreen.dart';
+import '../ai_coach/voice_assistant_modal.dart';
+
 
 /// DietCompass — AI Shopping Assistant Screen
 /// -----------------------------------------------------------------------
@@ -216,9 +218,16 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
                   opacity: _fade(0.1, 0.44),
                   child: SlideTransition(
                     position: _slide(0.1, 0.46),
-                    child: _SearchBar(uiScale: scale, onSubmitted: widget.onSearchSubmitted, onMicTap: widget.onMicTap, onScanTap: widget.onScanTap),
+                    child: _SearchBar(
+                      uiScale: scale,
+                      onSubmitted: widget.onSearchSubmitted,
+                      onMicTap: widget.onMicTap ??
+                          () => showVoiceAssistantModal(context, userName: widget.userName),
+                      onScanTap: widget.onScanTap,
+                    ),
                   ),
                 ),
+
                 SizedBox(height: 20 * scale),
 
                 FadeTransition(

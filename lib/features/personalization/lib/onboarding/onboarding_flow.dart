@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/model/personalization_profile.dart';
+import '../../../../core/services/personalization_service.dart';
 import '../../../home/home_screen.dart';
 import 'onboarding_data.dart';
 import 'screens/step1_welcome.dart';
@@ -21,8 +23,14 @@ import 'screens/step7_all_set.dart';
 class OnboardingFlow extends StatefulWidget {
   final ValueChanged<OnboardingData>? onComplete;
   final VoidCallback? onSkipAll;
+  final OnboardingData? initialData;
 
-  const OnboardingFlow({super.key, this.onComplete, this.onSkipAll});
+  const OnboardingFlow({
+    super.key,
+    this.onComplete,
+    this.onSkipAll,
+    this.initialData,
+  });
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -30,9 +38,15 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
-  final OnboardingData _data = OnboardingData();
+  late final OnboardingData _data;
   int _currentPage = 0;
   static const int totalPages = 7;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = widget.initialData ?? OnboardingData();
+  }
 
   void _goToPage(int index) {
     _pageController.animateToPage(
@@ -44,6 +58,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _next() {
     if (_currentPage < totalPages - 1) {
+      // Save partial progress to cloud in background so mid-flow dropoffs are preserved
+      PersonalizationService.instance
+          .savePersonalization(_data, isCompleted: false)
+          .catchError((_) => PersonalizationProfile(id: '', userId: ''));
       _goToPage(_currentPage + 1);
     } else {
       widget.onComplete?.call(_data);
@@ -55,13 +73,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _skip() {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const HomeScreen(),
-    ),
-  );
-}
+    if (widget.onSkipAll != null) {
+      widget.onSkipAll!();
+      return;
+    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HomeScreen(),
+      ),
+    );
+  }
 
   @override
   void dispose() {

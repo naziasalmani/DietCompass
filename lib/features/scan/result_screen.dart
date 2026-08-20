@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:diet_compass/features/scan/compare_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/model/food_product.dart';
+import '../../core/model/ai_analysis_model.dart';
+import '../../core/services/ai_service.dart';
 
 /// DietCompass — AI Result Screen
 /// -----------------------------------------------------------------------
@@ -123,16 +125,32 @@ int _calculateCompatibility(FoodProduct product) {
   final sugar = _nutritionValue(product.sugar);
   final sodium = _nutritionValue(product.sodium);
 
-  int score = 50;
+  int score = 70;
 
-  if (sugar <= 5) score += 10;
-  if (fiber >= 3) score += 10;
-  if (protein >= 5) score += 10;
-  if (sodium <= 0.4) score += 10;
-  if (calories <= 200) score += 10;
+  if (protein >= 8) {
+    score += 10;
+  }
+  if (fiber >= 4) {
+    score += 10;
+  }
+  if (sugar > 12) {
+    score -= 15;
+  } else if (sugar <= 3) {
+    score += 5;
+  }
+  if (sodium > 500) {
+    score -= 15;
+  } else if (sodium <= 140) {
+    score += 5;
+  }
+  if (calories > 350) {
+    score -= 8;
+  }
 
-  return score.clamp(0, 100);
+  return score.clamp(10, 99);
 }
+
+
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
@@ -212,13 +230,34 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
   bool _favorited = false;
+  ProductAiAnalysis? _aiAnalysis;
+  ProductCompatibility? _compatibility;
+  List<PersonalizedRecommendation> _recommendations = [];
 
   @override
   void initState() {
     super.initState();
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..forward();
     _ambientCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
+    _loadAiIntelligence();
   }
+
+  Future<void> _loadAiIntelligence() async {
+    try {
+      final res = await AiService.instance.analyzeProduct(widget.product);
+      if (mounted) {
+        setState(() {
+          _aiAnalysis = res.analysis;
+          _compatibility = res.compatibility;
+          _recommendations = res.recommendations;
+        });
+      }
+    } catch (_) {
+      // Graceful fallback to client calculations
+    }
+  }
+
+
 
   @override
   void dispose() {
@@ -386,6 +425,27 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
 }
 
 List<CompatibilityItem> _buildCompatibility(FoodProduct product) {
+  if (_compatibility != null && _compatibility!.items.isNotEmpty) {
+    return _compatibility!.items.map((item) {
+      IconData icon = Icons.health_and_safety_outlined;
+      final lower = item.label.toLowerCase();
+      if (lower.contains('diet')) {
+        icon = Icons.restaurant_outlined;
+      } else if (lower.contains('allergy') || lower.contains('safe')) {
+        icon = Icons.shield_outlined;
+      } else if (lower.contains('goal') || lower.contains('weight') || lower.contains('muscle')) {
+        icon = Icons.flag_outlined;
+      } else if (lower.contains('nutrient') || lower.contains('balance') || lower.contains('sugar')) {
+        icon = Icons.insights_outlined;
+      }
+      return CompatibilityItem(
+        icon: icon,
+        label: item.label,
+        rating: item.rating,
+      );
+    }).toList();
+  }
+
   final calories = _nutritionValue(product.calories);
   final sodium = _nutritionValue(product.sodium);
   final sugar = _nutritionValue(product.sugar);
@@ -400,7 +460,7 @@ List<CompatibilityItem> _buildCompatibility(FoodProduct product) {
     CompatibilityItem(
       icon: Icons.favorite_outline,
       label: 'Heart Health',
-      rating: sodium <= 0.4 ? 'Good' : 'Consider',
+      rating: sodium <= 400 ? 'Good' : 'Consider',
     ),
     CompatibilityItem(
       icon: Icons.water_drop_outlined,
@@ -415,12 +475,25 @@ List<CompatibilityItem> _buildCompatibility(FoodProduct product) {
   ];
 }
 
+
 List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
+  final points = <ProsConsItem>[];
+
+  if (_aiAnalysis != null && _aiAnalysis!.pros.isNotEmpty) {
+    for (final pro in _aiAnalysis!.pros) {
+      points.add(
+        ProsConsItem(
+          title: pro,
+          subtitle: 'AI Verified Nutritional Benefit',
+        ),
+      );
+    }
+    return points;
+  }
+
   final fiber = _nutritionValue(product.fiber);
   final sugar = _nutritionValue(product.sugar);
   final protein = _nutritionValue(product.protein);
-
-  final points = <ProsConsItem>[];
 
   if (fiber >= 3) {
     points.add(
@@ -449,7 +522,7 @@ List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
     );
   }
 
-  if (fiber == 0 && sugar == 0 && protein == 0) {
+  if (points.isEmpty) {
     points.add(
       const ProsConsItem(
         title: 'Nutrition data limited',
@@ -462,11 +535,47 @@ List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
 }
 
 List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
+  final points = <ProsConsItem>[];
+
+  if (_aiAnalysis != null) {
+    for (final warning in _aiAnalysis!.allergenWarnings) {
+      points.add(
+        ProsConsItem(
+          title: '⚠️ Allergen Alert',
+          subtitle: warning,
+        ),
+      );
+    }
+    for (final sugar in _aiAnalysis!.disguisedSugars) {
+      points.add(
+        ProsConsItem(
+          title: 'Hidden Sugar: ${sugar.name}',
+          subtitle: sugar.description,
+        ),
+      );
+    }
+    for (final additive in _aiAnalysis!.harmfulAdditives) {
+      points.add(
+        ProsConsItem(
+          title: 'Additive Concern: ${additive.name}',
+          subtitle: additive.concern,
+        ),
+      );
+    }
+    for (final claim in _aiAnalysis!.claimVerifications) {
+      points.add(
+        ProsConsItem(
+          title: 'Claim "${claim.claim}": ${claim.status}',
+          subtitle: claim.explanation,
+        ),
+      );
+    }
+    if (points.isNotEmpty) return points;
+  }
+
   final sugar = _nutritionValue(product.sugar);
   final sodium = _nutritionValue(product.sodium);
   final fat = _nutritionValue(product.fat);
-
-  final points = <ProsConsItem>[];
 
   if (sugar > 10) {
     points.add(
@@ -569,10 +678,11 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                   child: SlideTransition(
                     position: _slide(0.1, 0.48),
                     child: _GreatChoiceBanner(
-                    uiScale: scale,
-                    ambientCtrl: _ambientCtrl,
-                    product: widget.product,
-                    onAskAiTap: widget.onAskAiTap,
+                      uiScale: scale,
+                      ambientCtrl: _ambientCtrl,
+                      product: widget.product,
+                      compatibility: _compatibility,
+                      onAskAiTap: widget.onAskAiTap,
                     ),
                   ),
                 ),
@@ -595,10 +705,12 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                       uiScale: scale,
                       entranceCtrl: _entranceCtrl,
                       items: _buildCompatibility(widget.product),
-                      percent: _calculateCompatibility(widget.product),
+                      percent: _compatibility?.score ?? _calculateCompatibility(widget.product),
+                      compatibility: _compatibility,
                     ),
                   ),
                 ),
+
                 SizedBox(height: 16 * scale),
 
                 FadeTransition(
@@ -621,11 +733,22 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                     child: _AlternativesSection(
                       uiScale: scale,
                       items: widget.alternatives,
+                      recommendations: _recommendations,
                       onViewAll: widget.onViewAllAlternatives,
                       onTap: widget.onAlternativeTap,
+                      onRecommendationTap: (rec) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ResultScreen(product: rec.product),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
+
+
                 SizedBox(height: 18 * scale),
 
                 FadeTransition(
@@ -1129,39 +1252,54 @@ class _GreatChoiceBanner extends StatelessWidget {
     required this.uiScale,
     required this.ambientCtrl,
     required this.product,
+    this.compatibility,
     this.onAskAiTap,
   });
 
   final double uiScale;
   final AnimationController ambientCtrl;
   final FoodProduct product;
+  final ProductCompatibility? compatibility;
   final VoidCallback? onAskAiTap;
 
   @override
   Widget build(BuildContext context) {
-    final score = _calculateCompatibility(product);
+    final score = compatibility?.score ?? _calculateCompatibility(product);
+    final hasAllergyAlert = compatibility != null && compatibility!.allergyAlerts.isNotEmpty;
+    final hasDietAlert = compatibility != null && compatibility!.dietaryAlerts.isNotEmpty;
 
-final String message;
+    final String title;
+    final String message;
 
-if (score >= 80) {
-  message = 'This product fits well with your health profile.';
-} else if (score >= 60) {
-  message = 'This product can fit your diet when consumed in moderation.';
-} else {
-  message = 'This product may not be the best fit for your health goals.';
-}
+    if (hasAllergyAlert) {
+      title = 'Allergen Alert ⚠️';
+      message = compatibility!.allergyAlerts.first;
+    } else if (hasDietAlert) {
+      title = 'Diet Conflict ⚠️';
+      message = compatibility!.dietaryAlerts.first;
+    } else if (score >= 80) {
+      title = 'Great choice! 🎉';
+      message = compatibility?.summary.isNotEmpty == true
+          ? compatibility!.summary
+          : 'This product fits well with your health profile.';
+    } else if (score >= 60) {
+      title = 'Good option 👍';
+      message = compatibility?.summary.isNotEmpty == true
+          ? compatibility!.summary
+          : 'This product can fit your diet when consumed in moderation.';
+    } else {
+      title = 'Take a closer look 👀';
+      message = compatibility?.summary.isNotEmpty == true
+          ? compatibility!.summary
+          : 'This product may not be the best fit for your health goals.';
+    }
 
-final String title;
+    final isAlert = hasAllergyAlert || hasDietAlert;
 
-if (score >= 80) {
-  title = 'Great choice! 🎉';
-} else if (score >= 60) {
-  title = 'Good option 👍';
-} else {
-  title = 'Take a closer look 👀';
-}
     return _GlassCard(
-      color: const Color(0xFFF1ECFB).withValues(alpha: 0.85),
+      color: isAlert
+          ? const Color(0xFFFDE8E8).withValues(alpha: 0.9)
+          : const Color(0xFFF1ECFB).withValues(alpha: 0.85),
       padding: EdgeInsets.all(14 * uiScale),
       child: Row(
         children: [
@@ -1171,22 +1309,27 @@ if (score >= 80) {
               final bob = math.sin(ambientCtrl.value * math.pi) * 4;
               return Transform.translate(offset: Offset(0, -bob), child: child);
             },
-           child: Container(
-  width: 70 * uiScale,
-  height: 70 * uiScale,
-  decoration: const BoxDecoration(
-    shape: BoxShape.circle,
-    color: Colors.white,
-  ),
-  child: ClipOval(
-    child: Image.asset(
-      'assets/images/robot_badge.png',
-      fit: BoxFit.cover, // fills the circle
-      width: double.infinity,
-      height: double.infinity,
-    ),
-  ),
-),
+            child: Container(
+              width: 70 * uiScale,
+              height: 70 * uiScale,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/robot_badge.png',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => Icon(
+                    isAlert ? Icons.warning_amber_rounded : Icons.smart_toy_outlined,
+                    size: 32 * uiScale,
+                    color: isAlert ? const Color(0xFFE0525C) : const Color(0xFF6C4EF5),
+                  ),
+                ),
+              ),
+            ),
           ),
           SizedBox(width: 12 * uiScale),
           Expanded(
@@ -1196,24 +1339,24 @@ if (score >= 80) {
                 Row(
                   children: [
                     Text(
-  title,
-  style: TextStyle(
-    fontSize: 13.5 * uiScale,
-    fontWeight: FontWeight.w800,
-    color: const Color(0xFF6C4EF5),
-  ),
-),
+                      title,
+                      style: TextStyle(
+                        fontSize: 13.5 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: isAlert ? const Color(0xFFC53030) : const Color(0xFF6C4EF5),
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
-  message,
-  style: TextStyle(
-    fontSize: 10.5 * uiScale,
-    height: 1.3,
-    color: const Color(0xFF3B3B4F),
-  ),
-),
+                  message,
+                  style: TextStyle(
+                    fontSize: 10.5 * uiScale,
+                    height: 1.3,
+                    color: isAlert ? const Color(0xFF9B2C2C) : const Color(0xFF3B3B4F),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1224,6 +1367,7 @@ if (score >= 80) {
     );
   }
 }
+
 
 class _AskAiButton extends StatefulWidget {
   const _AskAiButton({required this.uiScale, this.onTap});
@@ -1397,16 +1541,56 @@ class _HealthCompatibilityCard extends StatelessWidget {
     required this.entranceCtrl,
     required this.items,
     required this.percent,
+    this.compatibility,
   });
 
   final double uiScale;
   final AnimationController entranceCtrl;
   final List<CompatibilityItem> items;
   final int percent;
+  final ProductCompatibility? compatibility;
 
   @override
   Widget build(BuildContext context) {
     final gaugeAnim = CurvedAnimation(parent: entranceCtrl, curve: const Interval(0.3, 0.85, curve: Curves.easeOutCubic));
+
+    final effectivePercent = compatibility?.score ?? percent;
+    final status = compatibility?.status ??
+        (effectivePercent >= 80
+            ? 'Great Match'
+            : (effectivePercent >= 60
+                ? 'Good Match'
+                : (effectivePercent >= 40 ? 'Moderate Match' : 'Consider Alternatives')));
+
+    final hasAllergyRisk = compatibility != null && compatibility!.allergyAlerts.isNotEmpty;
+    final hasDietConflict = compatibility != null && compatibility!.dietaryAlerts.isNotEmpty;
+
+    final Color statusColor;
+    final Color statusBg;
+
+    if (hasAllergyRisk || hasDietConflict || status.contains('Incompatible') || status.contains('Risk')) {
+      statusColor = const Color(0xFFE0525C);
+      statusBg = const Color(0xFFFDE8E8);
+    } else if (effectivePercent >= 80) {
+      statusColor = const Color(0xFF1E8A4C);
+      statusBg = const Color(0xFFE4F5E9);
+    } else if (effectivePercent >= 60) {
+      statusColor = const Color(0xFF3B82F6);
+      statusBg = const Color(0xFFE8F0FE);
+    } else if (effectivePercent >= 40) {
+      statusColor = const Color(0xFFE0862E);
+      statusBg = const Color(0xFFFEF3E8);
+    } else {
+      statusColor = const Color(0xFFE0525C);
+      statusBg = const Color(0xFFFDE8E8);
+    }
+
+    final recommendation = compatibility?.recommendation ??
+        (effectivePercent >= 80
+            ? 'This food is highly compatible with your health goals.'
+            : (effectivePercent >= 60
+                ? 'Acceptable in moderation with your health goals.'
+                : 'Review highlighted nutrients to match your personal diet.'));
 
     return _GlassCard(
       child: Column(
@@ -1414,12 +1598,50 @@ class _HealthCompatibilityCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Health Compatibility', style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+              Text(
+                'Personalized Compatibility',
+                style: TextStyle(
+                  fontSize: 14.5 * uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
               SizedBox(width: 4 * uiScale),
-              Icon(Icons.info_outline, size: 13 * uiScale, color: const Color(0xFFB0ACC2)),
+              Icon(Icons.auto_awesome, size: 14 * uiScale, color: const Color(0xFF9B7BFA)),
             ],
           ),
-          Text('Based on your health profile', style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B))),
+          Text(
+            'Dynamically calculated against your cloud profile & goals',
+            style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+          ),
+          if (hasAllergyRisk) ...[
+            SizedBox(height: 10 * uiScale),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 8 * uiScale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDE8E8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFF8B4B4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16 * uiScale, color: const Color(0xFFE0525C)),
+                  SizedBox(width: 6 * uiScale),
+                  Expanded(
+                    child: Text(
+                      compatibility!.allergyAlerts.join('; '),
+                      style: TextStyle(
+                        fontSize: 11 * uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFC53030),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(height: 14 * uiScale),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1431,34 +1653,52 @@ class _HealthCompatibilityCard extends StatelessWidget {
               ),
               SizedBox(width: 12 * uiScale),
               Container(
-                width: 118 * uiScale,
+                width: 120 * uiScale,
                 padding: EdgeInsets.all(12 * uiScale),
-                decoration: BoxDecoration(color: const Color(0xFFE4F5E9), borderRadius: BorderRadius.circular(18)),
+                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(18)),
                 child: Column(
                   children: [
                     AnimatedBuilder(
                       animation: gaugeAnim,
                       builder: (context, _) {
-                        final v = (percent * gaugeAnim.value).round();
+                        final v = (effectivePercent * gaugeAnim.value).round();
                         return SizedBox(
                           width: 62 * uiScale,
                           height: 62 * uiScale,
                           child: CustomPaint(
-                            painter: _CircularGaugePainter(progress: gaugeAnim.value * (percent / 100), color: const Color(0xFF1E8A4C)),
+                            painter: _CircularGaugePainter(
+                              progress: gaugeAnim.value * (effectivePercent / 100),
+                              color: statusColor,
+                            ),
                             child: Center(
-                              child: Text('$v%', style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                              child: Text(
+                                '$v%',
+                                style: TextStyle(
+                                  fontSize: 13.5 * uiScale,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1B1B2E),
+                                ),
+                              ),
                             ),
                           ),
                         );
                       },
                     ),
                     SizedBox(height: 8 * uiScale),
-                    Text('Great Match', textAlign: TextAlign.center, style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1E8A4C))),
+                    Text(
+                      status,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: statusColor,
+                      ),
+                    ),
                     SizedBox(height: 4 * uiScale),
                     Text(
-                      'This food is highly compatible with your health goals.',
+                      recommendation,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 9 * uiScale, height: 1.3, color: const Color(0xFF3B3B4F)),
+                      style: TextStyle(fontSize: 8.5 * uiScale, height: 1.3, color: const Color(0xFF3B3B4F)),
                     ),
                   ],
                 ),
@@ -1476,7 +1716,31 @@ class _CompatRow extends StatelessWidget {
   final double uiScale;
   final CompatibilityItem item;
 
-  Color get _color => item.rating == 'Excellent' ? const Color(0xFF1E8A4C) : const Color(0xFF3B82F6);
+  Color get _color {
+    final lower = item.rating.toLowerCase();
+    if (lower.contains('excellent') || lower == 'safe') {
+      return const Color(0xFF1E8A4C);
+    } else if (lower.contains('good')) {
+      return const Color(0xFF3B82F6);
+    } else if (lower.contains('consider')) {
+      return const Color(0xFFE0862E);
+    } else {
+      return const Color(0xFFE0525C);
+    }
+  }
+
+  IconData get _icon {
+    final lower = item.rating.toLowerCase();
+    if (lower.contains('excellent') || lower == 'safe') {
+      return Icons.check_circle;
+    } else if (lower.contains('good')) {
+      return Icons.check_circle_outline;
+    } else if (lower.contains('consider')) {
+      return Icons.help_outline;
+    } else {
+      return Icons.warning_amber_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1491,12 +1755,13 @@ class _CompatRow extends StatelessWidget {
           ),
           Text(item.rating, style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: _color)),
           SizedBox(width: 3 * uiScale),
-          Icon(Icons.check_circle, size: 12 * uiScale, color: _color),
+          Icon(_icon, size: 12 * uiScale, color: _color),
         ],
       ),
     );
   }
 }
+
 
 class _CircularGaugePainter extends CustomPainter {
   _CircularGaugePainter({required this.progress, required this.color});
@@ -1643,43 +1908,95 @@ class _ProsConsCard extends StatelessWidget {
 class _AlternativesSection extends StatelessWidget {
   const _AlternativesSection({
     required this.uiScale,
-    required this.items,
+    this.items = const [],
+    this.recommendations = const [],
     this.onViewAll,
     this.onTap,
+    this.onRecommendationTap,
   });
 
   final double uiScale;
   final List<AlternativeProduct> items;
+  final List<PersonalizedRecommendation> recommendations;
   final VoidCallback? onViewAll;
   final ValueChanged<int>? onTap;
+  final ValueChanged<PersonalizedRecommendation>? onRecommendationTap;
 
   @override
   Widget build(BuildContext context) {
+    final hasRecs = recommendations.isNotEmpty;
+    final count = hasRecs ? recommendations.length : items.length;
+
+    if (count == 0) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text('Better Alternatives for You', style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-            const Spacer(),
-            GestureDetector(
-              onTap: onViewAll,
-              child: Row(
-                children: [
-                  Text('View All', style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-                  Icon(Icons.chevron_right, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
-                ],
+            Text(
+              'Better Alternatives for You',
+              style: TextStyle(
+                fontSize: 14.5 * uiScale,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1B1B2E),
               ),
             ),
+            SizedBox(width: 4 * uiScale),
+            Icon(Icons.auto_awesome, size: 13 * uiScale, color: const Color(0xFF9B7BFA)),
+            const Spacer(),
+            if (onViewAll != null)
+              GestureDetector(
+                onTap: onViewAll,
+                child: Row(
+                  children: [
+                    Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 12 * uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF6C4EF5),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                  ],
+                ),
+              ),
           ],
         ),
         SizedBox(height: 10 * uiScale),
         Row(
-          children: List.generate(items.length, (i) {
+          children: List.generate(count, (i) {
+            final rec = hasRecs ? recommendations[i] : null;
+            final legacyItem = !hasRecs ? items[i] : null;
+
             return Expanded(
               child: Padding(
-                padding: EdgeInsets.only(right: i == items.length - 1 ? 0 : 10 * uiScale),
-                child: _AlternativeCard(uiScale: uiScale, item: items[i], onTap: () => onTap?.call(i)),
+                padding: EdgeInsets.only(right: i == count - 1 ? 0 : 10 * uiScale),
+                child: rec != null
+                    ? _PersonalizedRecommendationCard(
+                        uiScale: uiScale,
+                        item: rec,
+                        onTap: () {
+                          if (onRecommendationTap != null) {
+                            onRecommendationTap!(rec);
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ResultScreen(product: rec.product),
+                              ),
+                            );
+                          }
+                        },
+                      )
+                    : _AlternativeCard(
+                        uiScale: uiScale,
+                        item: legacyItem!,
+                        onTap: () => onTap?.call(i),
+                      ),
               ),
             );
           }),
@@ -1688,6 +2005,159 @@ class _AlternativesSection extends StatelessWidget {
     );
   }
 }
+
+class _PersonalizedRecommendationCard extends StatefulWidget {
+  const _PersonalizedRecommendationCard({
+    required this.uiScale,
+    required this.item,
+    this.onTap,
+  });
+
+  final double uiScale;
+  final PersonalizedRecommendation item;
+  final VoidCallback? onTap;
+
+  @override
+  State<_PersonalizedRecommendationCard> createState() =>
+      _PersonalizedRecommendationCardState();
+}
+
+class _PersonalizedRecommendationCardState
+    extends State<_PersonalizedRecommendationCard> {
+  double _scale = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final prod = widget.item.product;
+    final comp = widget.item.compatibility;
+    final score = comp.score;
+    final hasImage = prod.imageUrl.isNotEmpty && prod.imageUrl.startsWith('http');
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _scale = 0.96),
+      onTapUp: (_) => setState(() => _scale = 1.0),
+      onTapCancel: () => setState(() => _scale = 1.0),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: EdgeInsets.all(10 * widget.uiScale),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: AspectRatio(
+                  aspectRatio: 1.3,
+                  child: Container(
+                    color: const Color(0xFFF6F3FC),
+                    padding: EdgeInsets.all(4 * widget.uiScale),
+                    child: hasImage
+                        ? Image.network(
+                            prod.imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.eco_rounded,
+                              size: 28 * widget.uiScale,
+                              color: const Color(0xFF1E8A4C),
+                            ),
+                          )
+                        : Icon(
+                            Icons.eco_rounded,
+                            size: 28 * widget.uiScale,
+                            color: const Color(0xFF1E8A4C),
+                          ),
+
+                  ),
+                ),
+              ),
+              SizedBox(height: 6 * widget.uiScale),
+              Text(
+                prod.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11 * widget.uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              Text(
+                prod.brand.isNotEmpty ? prod.brand : 'Better Choice',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9 * widget.uiScale,
+                  color: const Color(0xFF9A96A8),
+                ),
+              ),
+              SizedBox(height: 4 * widget.uiScale),
+              Row(
+                children: [
+                  Container(
+                    width: 5 * widget.uiScale,
+                    height: 5 * widget.uiScale,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF1E8A4C),
+                    ),
+                  ),
+                  SizedBox(width: 4 * widget.uiScale),
+                  Text(
+                    '$score/100',
+                    style: TextStyle(
+                      fontSize: 9.5 * widget.uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E8A4C),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 3 * widget.uiScale),
+              Row(
+                children: [
+                  Icon(
+                    Icons.arrow_upward_rounded,
+                    size: 10 * widget.uiScale,
+                    color: const Color(0xFF6C4EF5),
+                  ),
+                  SizedBox(width: 2 * widget.uiScale),
+                  Expanded(
+                    child: Text(
+                      widget.item.differentiator.isNotEmpty
+                          ? widget.item.differentiator
+                          : 'Better Nutrition',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 8.5 * widget.uiScale,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF6C4EF5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _AlternativeCard extends StatefulWidget {
   const _AlternativeCard({required this.uiScale, required this.item, this.onTap});

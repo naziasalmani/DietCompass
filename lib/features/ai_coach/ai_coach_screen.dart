@@ -31,10 +31,16 @@ import '../home/home_screen.dart';
 ///     - assets/images/img_hydration_tips.png
 ///     - assets/images/img_protein_snacks.png
 /// ```
+import '../../core/services/ai_service.dart';
+import '../../core/services/voice_assistant_service.dart';
+import '../../core/model/ai_analysis_model.dart';
+import '../../core/model/food_product.dart';
+
 class AiCoachScreen extends StatefulWidget {
   const AiCoachScreen({
     super.key,
     this.userName = 'Nazia',
+    this.product,
     this.caloriesConsumed = 1420,
     this.caloriesGoal = 1800,
     this.fiberConsumed = 22,
@@ -50,6 +56,7 @@ class AiCoachScreen extends StatefulWidget {
   });
 
   final String userName;
+  final FoodProduct? product;
   final int caloriesConsumed;
   final int caloriesGoal;
   final int fiberConsumed;
@@ -74,6 +81,11 @@ class _AiCoachScreenState extends State<AiCoachScreen>
   late final AnimationController _ambientCtrl;
   late final AnimationController _dotsCtrl;
   final _inputCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+
+  final List<AiCoachChatMessage> _messages = [];
+  bool _isThinking = false;
+  bool _isListening = false;
 
   @override
   void initState() {
@@ -94,12 +106,16 @@ class _AiCoachScreenState extends State<AiCoachScreen>
 
   @override
   void dispose() {
+    VoiceAssistantService.instance.stopListening();
+    VoiceAssistantService.instance.stopSpeaking();
     _entranceCtrl.dispose();
     _ambientCtrl.dispose();
     _dotsCtrl.dispose();
     _inputCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
+
 
   Animation<double> _fade(double s, double e) => CurvedAnimation(
         parent: _entranceCtrl,
@@ -116,11 +132,113 @@ class _AiCoachScreenState extends State<AiCoachScreen>
         ),
       );
 
-  void _handleSend() {
-    final text = _inputCtrl.text.trim();
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _toggleVoiceInput() async {
+    if (_isListening) {
+      await VoiceAssistantService.instance.stopListening();
+      setState(() => _isListening = false);
+      if (_inputCtrl.text.trim().isNotEmpty) {
+        _handleSend();
+      }
+    } else {
+      setState(() => _isListening = true);
+      final ok = await VoiceAssistantService.instance.startListening(
+        onResult: (text, isFinal) {
+          if (!mounted) return;
+          setState(() {
+            _inputCtrl.text = text;
+          });
+          if (isFinal && text.trim().isNotEmpty) {
+            setState(() => _isListening = false);
+            _handleSend();
+          }
+        },
+        onError: (err) {
+          if (!mounted) return;
+          setState(() => _isListening = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(err)),
+          );
+        },
+        onDone: () {
+          if (!mounted) return;
+          setState(() => _isListening = false);
+          if (_inputCtrl.text.trim().isNotEmpty) {
+            _handleSend();
+          }
+        },
+      );
+      if (!ok && mounted) {
+        setState(() => _isListening = false);
+      }
+    }
+  }
+
+  Future<void> _handleSend([String? presetText]) async {
+
+    final text = (presetText ?? _inputCtrl.text).trim();
     if (text.isEmpty) return;
-    widget.onSend?.call(text);
     _inputCtrl.clear();
+
+    if (widget.onSend != null) {
+      widget.onSend!(text);
+    }
+
+    final userMsg = AiCoachChatMessage(
+      text: text,
+      isUser: true,
+      timestamp: DateTime.now(),
+    );
+
+    setState(() {
+      _messages.add(userMsg);
+      _isThinking = true;
+    });
+
+    _scrollToBottom();
+
+    try {
+      final reply = await AiService.instance.chatWithCoach(
+        text,
+        history: _messages,
+        product: widget.product,
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages.add(AiCoachChatMessage(
+            text: reply,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+          _isThinking = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(AiCoachChatMessage(
+            text: "I couldn't reach the AI nutrition service right now. Please check your connection and try again.",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+          _isThinking = false;
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
   @override
@@ -141,6 +259,7 @@ class _AiCoachScreenState extends State<AiCoachScreen>
               children: [
                 Expanded(
                   child: ListView(
+                    controller: _scrollCtrl,
                     padding: EdgeInsets.fromLTRB(
                       18 * scale,
                       8 * scale,
@@ -157,92 +276,109 @@ class _AiCoachScreenState extends State<AiCoachScreen>
                             uiScale: scale,
                             ambientCtrl: _ambientCtrl,
                             onBack: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => HomeScreen(),
-    ),
-  );
-},
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HomeScreen(),
+                                ),
+                              );
+                            },
                             onAvatarTap: widget.onAvatarTap,
                           ),
                         ),
                       ),
                       SizedBox(height: 14 * scale),
 
-                      FadeTransition(
-                        opacity: _fade(0.05, 0.36),
-                        child: SlideTransition(
-                          position: _slide(0.05, 0.4),
-                          child: _HeroCard(
-                            uiScale: scale,
-                            ambientCtrl: _ambientCtrl,
-                            dotsCtrl: _dotsCtrl,
-                            userName: widget.userName,
-                            onStartConversationTap: widget.onStartConversationTap,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 16 * scale),
-
-                      FadeTransition(
-                        opacity: _fade(0.16, 0.46),
-                        child: SlideTransition(
-                          position: _slide(0.16, 0.5),
-                          child: _GlassCard(
-                            uiScale: scale,
-                            child: _AskMeAboutSection(
+                      if (_messages.isEmpty) ...[
+                        FadeTransition(
+                          opacity: _fade(0.05, 0.36),
+                          child: SlideTransition(
+                            position: _slide(0.05, 0.4),
+                            child: _HeroCard(
                               uiScale: scale,
-                              onCategoryTap: widget.onCategoryTap,
+                              ambientCtrl: _ambientCtrl,
+                              dotsCtrl: _dotsCtrl,
+                              userName: widget.userName,
+                              onStartConversationTap: () => _handleSend("What should I focus on for my nutrition today?"),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 16 * scale),
+                        SizedBox(height: 16 * scale),
 
-                      FadeTransition(
-                        opacity: _fade(0.24, 0.54),
-                        child: SlideTransition(
-                          position: _slide(0.24, 0.58),
-                          child: _TodaysInsightsCard(
-                            uiScale: scale,
-                            caloriesConsumed: widget.caloriesConsumed,
-                            caloriesGoal: widget.caloriesGoal,
-                            fiberConsumed: widget.fiberConsumed,
-                            fiberGoal: widget.fiberGoal,
-                            glassesConsumed: widget.glassesConsumed,
-                            glassesGoal: widget.glassesGoal,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 20 * scale),
-
-                      FadeTransition(
-                        opacity: _fade(0.3, 0.58),
-                        child: SlideTransition(
-                          position: _slide(0.3, 0.62),
-                          child: Text(
-                            'Recommended for You',
-                            style: TextStyle(
-                              fontSize: 15.5 * scale,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF1B1B2E),
+                        FadeTransition(
+                          opacity: _fade(0.16, 0.46),
+                          child: SlideTransition(
+                            position: _slide(0.16, 0.5),
+                            child: _GlassCard(
+                              uiScale: scale,
+                              child: _AskMeAboutSection(
+                                uiScale: scale,
+                                onCategoryTap: (cat) => _handleSend("Tell me about $cat and what you recommend for me."),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 12 * scale),
+                        SizedBox(height: 16 * scale),
 
-                      FadeTransition(
-                        opacity: _fade(0.34, 0.64),
-                        child: SlideTransition(
-                          position: _slide(0.34, 0.68),
-                          child: _RecommendedSection(
-                            uiScale: scale,
-                            onRecommendedTap: widget.onRecommendedTap,
+                        FadeTransition(
+                          opacity: _fade(0.24, 0.54),
+                          child: SlideTransition(
+                            position: _slide(0.24, 0.58),
+                            child: _TodaysInsightsCard(
+                              uiScale: scale,
+                              caloriesConsumed: widget.caloriesConsumed,
+                              caloriesGoal: widget.caloriesGoal,
+                              fiberConsumed: widget.fiberConsumed,
+                              fiberGoal: widget.fiberGoal,
+                              glassesConsumed: widget.glassesConsumed,
+                              glassesGoal: widget.glassesGoal,
+                            ),
                           ),
                         ),
-                      ),
+                        SizedBox(height: 20 * scale),
+
+                        FadeTransition(
+                          opacity: _fade(0.3, 0.58),
+                          child: SlideTransition(
+                            position: _slide(0.3, 0.62),
+                            child: Text(
+                              'Recommended for You',
+                              style: TextStyle(
+                                fontSize: 15.5 * scale,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1B1B2E),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12 * scale),
+
+                        FadeTransition(
+                          opacity: _fade(0.34, 0.64),
+                          child: SlideTransition(
+                            position: _slide(0.34, 0.68),
+                            child: _RecommendedSection(
+                              uiScale: scale,
+                              onRecommendedTap: (title) => _handleSend("Give me details and tips about $title"),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        // Render Chat Bubble Feed
+                        ..._messages.map((m) => _ChatBubble(
+                              uiScale: scale,
+                              message: m,
+                              userName: widget.userName,
+                              onSpeakTap: !m.isUser
+                                  ? () => VoiceAssistantService.instance.speak(m.text)
+                                  : null,
+                            )),
+
+                        if (_isThinking)
+                          _ThinkingBubble(uiScale: scale, dotsCtrl: _dotsCtrl),
+                        
+                        SizedBox(height: 12 * scale),
+                      ],
                     ],
                   ),
                 ),
@@ -254,8 +390,201 @@ class _AiCoachScreenState extends State<AiCoachScreen>
                     child: _ComposeBar(
                       uiScale: scale,
                       controller: _inputCtrl,
-                      onSend: _handleSend,
+                      onSend: () => _handleSend(),
+                      onVoiceTap: _toggleVoiceInput,
+                      isListening: _isListening,
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Chat message bubble component
+// ---------------------------------------------------------------------------
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble({
+    required this.uiScale,
+    required this.message,
+    required this.userName,
+    this.onSpeakTap,
+  });
+
+  final double uiScale;
+  final AiCoachChatMessage message;
+  final String userName;
+  final VoidCallback? onSpeakTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = message.isUser;
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6 * uiScale),
+      child: Row(
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 34 * uiScale,
+              height: 34 * uiScale,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+                ),
+              ),
+              child: Icon(
+                Icons.smart_toy_rounded,
+                size: 18 * uiScale,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 8 * uiScale),
+          ],
+          Flexible(
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: 16 * uiScale,
+                vertical: 12 * uiScale,
+              ),
+              decoration: BoxDecoration(
+                color: isUser
+                    ? const Color(0xFF6C4EF5)
+                    : Colors.white.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(18 * uiScale),
+                  topRight: Radius.circular(18 * uiScale),
+                  bottomLeft: Radius.circular(isUser ? 18 * uiScale : 4 * uiScale),
+                  bottomRight: Radius.circular(isUser ? 4 * uiScale : 18 * uiScale),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.text,
+                    style: TextStyle(
+                      fontSize: 13.5 * uiScale,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                      color: isUser ? Colors.white : const Color(0xFF1B1B2E),
+                    ),
+                  ),
+                  if (!isUser && onSpeakTap != null) ...[
+                    SizedBox(height: 6 * uiScale),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: GestureDetector(
+                        onTap: onSpeakTap,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 4 * uiScale),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1ECFB),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.volume_up_rounded, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                              SizedBox(width: 4 * uiScale),
+                              Text(
+                                'Listen',
+                                style: TextStyle(
+                                  fontSize: 10 * uiScale,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF6C4EF5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// Thinking animation bubble
+// ---------------------------------------------------------------------------
+class _ThinkingBubble extends StatelessWidget {
+  const _ThinkingBubble({required this.uiScale, required this.dotsCtrl});
+
+  final double uiScale;
+  final AnimationController dotsCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6 * uiScale),
+      child: Row(
+        children: [
+          Container(
+            width: 34 * uiScale,
+            height: 34 * uiScale,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+              ),
+            ),
+            child: Icon(
+              Icons.smart_toy_rounded,
+              size: 18 * uiScale,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(width: 8 * uiScale),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16 * uiScale,
+              vertical: 12 * uiScale,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(18 * uiScale),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Coach is thinking',
+                  style: TextStyle(
+                    fontSize: 12 * uiScale,
+                    color: const Color(0xFF6B6B7B),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                SizedBox(width: 6 * uiScale),
+                SizedBox(
+                  width: 12 * uiScale,
+                  height: 12 * uiScale,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 1.8,
+                    valueColor: AlwaysStoppedAnimation(Color(0xFF6C4EF5)),
                   ),
                 ),
               ],
@@ -1223,10 +1552,18 @@ class _RecommendedSection extends StatelessWidget {
 // Bottom compose bar — glass pill text field + gradient send button
 // ---------------------------------------------------------------------------
 class _ComposeBar extends StatefulWidget {
-  const _ComposeBar({required this.uiScale, required this.controller, required this.onSend});
+  const _ComposeBar({
+    required this.uiScale,
+    required this.controller,
+    required this.onSend,
+    this.onVoiceTap,
+    this.isListening = false,
+  });
   final double uiScale;
   final TextEditingController controller;
   final VoidCallback onSend;
+  final VoidCallback? onVoiceTap;
+  final bool isListening;
 
   @override
   State<_ComposeBar> createState() => _ComposeBarState();
@@ -1234,6 +1571,7 @@ class _ComposeBar extends StatefulWidget {
 
 class _ComposeBarState extends State<_ComposeBar> {
   double _sendScale = 1.0;
+  double _micScale = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1249,10 +1587,15 @@ class _ComposeBarState extends State<_ComposeBar> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1.2),
+              border: Border.all(
+                color: widget.isListening ? const Color(0xFF1E8A4C) : Colors.white.withValues(alpha: 0.9),
+                width: widget.isListening ? 1.8 : 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.14),
+                  color: widget.isListening
+                      ? const Color(0xFF1E8A4C).withValues(alpha: 0.25)
+                      : const Color(0xFF6C4EF5).withValues(alpha: 0.14),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -1261,15 +1604,23 @@ class _ComposeBarState extends State<_ComposeBar> {
             child: Row(
               children: [
                 SizedBox(width: 8 * uiScale),
-                Icon(Icons.auto_awesome, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                Icon(
+                  widget.isListening ? Icons.mic_rounded : Icons.auto_awesome,
+                  size: 15 * uiScale,
+                  color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                ),
                 SizedBox(width: 8 * uiScale),
                 Expanded(
                   child: TextField(
                     controller: widget.controller,
                     style: TextStyle(fontSize: 12.5 * uiScale, color: const Color(0xFF1B1B2E)),
                     decoration: InputDecoration(
-                      hintText: 'Ask anything about nutrition...',
-                      hintStyle: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFFB0ACC2)),
+                      hintText: widget.isListening ? 'Listening... Speak your question' : 'Ask anything about nutrition...',
+                      hintStyle: TextStyle(
+                        fontSize: 12 * uiScale,
+                        color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFFB0ACC2),
+                        fontWeight: widget.isListening ? FontWeight.w600 : FontWeight.normal,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 12 * uiScale),
@@ -1277,6 +1628,32 @@ class _ComposeBarState extends State<_ComposeBar> {
                     onSubmitted: (_) => widget.onSend(),
                   ),
                 ),
+                if (widget.onVoiceTap != null) ...[
+                  GestureDetector(
+                    onTapDown: (_) => setState(() => _micScale = 0.88),
+                    onTapUp: (_) => setState(() => _micScale = 1.0),
+                    onTapCancel: () => setState(() => _micScale = 1.0),
+                    onTap: widget.onVoiceTap,
+                    child: AnimatedScale(
+                      scale: _micScale,
+                      duration: const Duration(milliseconds: 110),
+                      child: Container(
+                        width: 36 * uiScale,
+                        height: 36 * uiScale,
+                        decoration: BoxDecoration(
+                          color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFFF1ECFB),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          widget.isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
+                          size: 18 * uiScale,
+                          color: widget.isListening ? Colors.white : const Color(0xFF6C4EF5),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 6 * uiScale),
+                ],
                 GestureDetector(
                   onTapDown: (_) => setState(() => _sendScale = 0.88),
                   onTapUp: (_) => setState(() => _sendScale = 1.0),
@@ -1308,3 +1685,4 @@ class _ComposeBarState extends State<_ComposeBar> {
     );
   }
 }
+

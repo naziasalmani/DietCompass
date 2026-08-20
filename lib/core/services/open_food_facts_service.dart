@@ -134,10 +134,21 @@ class OpenFoodFactsService {
       print('Query: $trimmedName');
       print('URL: $url');
 
-      final response = await http.get(
-        url,
-        headers: _headers,
-      );
+      final response = await http
+          .get(
+            url,
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 7));
+
+      if (response.statusCode == 503 || response.statusCode >= 500) {
+        print(
+          'Name search HTTP status: '
+          '${response.statusCode} (server temporary failure)',
+        );
+
+        return [];
+      }
 
       if (response.statusCode != 200) {
         print(
