@@ -316,26 +316,100 @@ class FoodService {
   }
 
   // ============================================================
-  // MULTIPLE NAME SEARCH / OCR
+  // MULTIPLE NAME SEARCH / OCR / USER SEARCH
   //
   // Open Food Facts → multiple results
   // USDA → single fallback
   // UPC → single fallback
   // Local Database → single fallback
-  //
-  // This is used by ProductImageAnalyzer.
   // ============================================================
 
+  /// General product search across food databases (Open Food Facts, USDA, UPC, Local DB, AI)
+  Future<List<FoodProduct>> searchProducts(
+    String query, {
+    int pageSize = 20,
+  }) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return [];
+
+    print('🔎 [FoodService] Searching products: "$cleanQuery"');
+    final results = <FoodProduct>[];
+
+    // 1. Open Food Facts
+    try {
+      final offProducts = await _openFoodFactsService.getProductsByName(
+        cleanQuery,
+        pageSize: pageSize,
+      );
+      if (offProducts.isNotEmpty) {
+        results.addAll(offProducts);
+      }
+    } catch (e) {
+      print('Open Food Facts search error: $e');
+    }
+
+    // 2. USDA Fallback if empty
+    if (results.isEmpty) {
+      try {
+        final usdaProduct = await _usdaFoodService.getProductByName(cleanQuery);
+        if (usdaProduct != null) {
+          results.add(usdaProduct);
+        }
+      } catch (e) {
+        print('USDA search error: $e');
+      }
+    }
+
+    // 3. Local DB Fallback if still empty
+    if (results.isEmpty) {
+      try {
+        final localProduct = await _localDatabaseService.getProductByName(cleanQuery);
+        if (localProduct != null) {
+          results.add(localProduct);
+        }
+      } catch (e) {
+        print('Local DB search error: $e');
+      }
+    }
+
+    // 4. UPC Fallback
+    if (results.isEmpty) {
+      try {
+        final upcProduct = await _upcFoodService.getProductByName(cleanQuery);
+        if (upcProduct != null) {
+          results.add(upcProduct);
+        }
+      } catch (e) {
+        print('UPC search error: $e');
+      }
+    }
+
+    // 5. Gemini AI Fallback
+    if (results.isEmpty) {
+      try {
+        final geminiProduct = await AiService.instance.lookupProductWithGemini(name: cleanQuery);
+        if (geminiProduct != null) {
+          results.add(geminiProduct);
+        }
+      } catch (e) {
+        print('Gemini search error: $e');
+      }
+    }
+
+    return _removeDuplicates(results);
+  }
+
   Future<List<FoodProduct>> getFoodsByName(
-    String name,
-  ) async {
+    String name, {
+    bool isOcr = false,
+  }) async {
     final cleanName = name.trim();
 
     if (cleanName.isEmpty) {
       return [];
     }
 
-    if (!_isMeaningfulProductQuery(cleanName)) {
+    if (isOcr && !_isMeaningfulProductQuery(cleanName)) {
       print(
         '🚫 Ignoring noisy OCR product query: "$cleanName"',
       );
@@ -350,10 +424,6 @@ class FoodService {
 
     // ------------------------------------------------------------
     // 1. Open Food Facts
-    //
-    // IMPORTANT:
-    // This returns MULTIPLE products instead of only the first
-    // result. ProductImageAnalyzer will compare all of them.
     // ------------------------------------------------------------
 
     try {
@@ -376,15 +446,6 @@ class FoodService {
         'Open Food Facts multi-name search failed: $e',
       );
     }
-
-    // ------------------------------------------------------------
-    // If Open Food Facts returned products, those are enough
-    // for OCR matching.
-    //
-    // We don't immediately add USDA/UPC/local results because
-    // the OCR analyzer needs comparable product-name candidates,
-    // and Open Food Facts gives us the largest result set.
-    // ------------------------------------------------------------
 
     if (results.isNotEmpty) {
       return _removeDuplicates(results);
@@ -490,10 +551,6 @@ class FoodService {
 
   // ============================================================
   // SINGLE NAME SEARCH
-  //
-  // Kept for compatibility with the rest of the application.
-  //
-  // ProductImageAnalyzer should use getFoodsByName() instead.
   // ============================================================
 
   Future<FoodProduct?> getFoodByName(

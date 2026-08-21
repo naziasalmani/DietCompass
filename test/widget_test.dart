@@ -21,7 +21,7 @@ void main() {
     await tester.tap(find.text('Login'));
     await tester.pump();
 
-    expect(find.text('Enter a valid email address'), findsOneWidget);
+    expect(find.text('Enter a valid email, username, or phone number'), findsOneWidget);
     expect(find.text('Password must be at least 6 characters'), findsOneWidget);
   });
 }

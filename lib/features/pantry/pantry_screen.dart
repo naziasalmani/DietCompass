@@ -3,6 +3,7 @@ import '../home/home_screen.dart';
 import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../dashboard/DashboardScreen.dart';
+import '../recipe_generator/recipe_generator_screen.dart';
 
 /// DietCompass — My Pantry Screen
 /// -----------------------------------------------------------------------/// Reuses your existing product photos where available
@@ -393,7 +394,17 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
                 SizedBox(height: 16 * scale),
                 FadeTransition(
                   opacity: _fade(0.5, 0.85),
-                  child: _SmartTipBanner(uiScale: scale, onExploreRecipesTap: widget.onExploreRecipesTap),
+                  child: _SmartTipBanner(
+                    uiScale: scale,
+                    onExploreRecipesTap: widget.onExploreRecipesTap ?? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RecipeGeneratorScreen(),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

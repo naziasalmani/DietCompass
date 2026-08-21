@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/services/recommendation_service.dart';
 
 /// DietCompass — AI Result Screen
 /// -----------------------------------------------------------------------
@@ -87,67 +88,11 @@ double _nutritionValue(double? value) {
 }
 
 int _calculateScore(FoodProduct product) {
-  final protein = _nutritionValue(product.protein);
-  final fiber = _nutritionValue(product.fiber);
-  final sugar = _nutritionValue(product.sugar);
-  final fat = _nutritionValue(product.fat);
-  final sodium = _nutritionValue(product.sodium);
-
-  int score = 50;
-
-  if (protein > 5) {
-    score += 10;
-  }
-
-  if (fiber > 3) {
-    score += 10;
-  }
-
-  if (sugar > 12) {
-    score -= 10;
-  }
-
-  if (fat > 20) {
-    score -= 5;
-  }
-
-  if (sodium > 0.6) {
-    score -= 5;
-  }
-
-  return score.clamp(0, 100);
+  return RecommendationService.instance.calculateNutritionScore(product);
 }
 
 int _calculateCompatibility(FoodProduct product) {
-  final calories = _nutritionValue(product.calories);
-  final protein = _nutritionValue(product.protein);
-  final fiber = _nutritionValue(product.fiber);
-  final sugar = _nutritionValue(product.sugar);
-  final sodium = _nutritionValue(product.sodium);
-
-  int score = 70;
-
-  if (protein >= 8) {
-    score += 10;
-  }
-  if (fiber >= 4) {
-    score += 10;
-  }
-  if (sugar > 12) {
-    score -= 15;
-  } else if (sugar <= 3) {
-    score += 5;
-  }
-  if (sodium > 500) {
-    score -= 15;
-  } else if (sodium <= 140) {
-    score += 5;
-  }
-  if (calories > 350) {
-    score -= 8;
-  }
-
-  return score.clamp(10, 99);
+  return RecommendationService.instance.calculateCompatibilityScore(product);
 }
 
 
