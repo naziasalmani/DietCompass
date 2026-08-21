@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
 import '../scan/scan_screen.dart';
-import '../ai/ai_shopping_screen.dart';
+import '../ai/ai_recommendation_screen.dart';
 import '../pantry/pantry_screen.dart';
 
 /// DietCompass — Dashboard Screen

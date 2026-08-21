@@ -6,7 +6,7 @@ import 'ai_analysis_screen.dart';
 import 'camera_scan_screen.dart';
 import 'manual_entry_screen.dart';
 import '../home/home_screen.dart';
-import '../ai/ai_shopping_screen.dart';
+import '../ai/ai_recommendation_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../dashboard/DashboardScreen.dart';
 import '../../core/services/product_image_analyzer.dart';

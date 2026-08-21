@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
-import '../ai/ai_shopping_screen.dart';
+import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../scan/camera_scan_screen.dart';
 import '../pantry/pantry_screen.dart';
@@ -132,6 +132,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       limit: 2,
     );
 
+    if (!mounted) return;
+
     if (images.length != 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -141,10 +143,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
-    Navigator.pushReplacement(
+    Navigator.push(
   context,
   MaterialPageRoute(
     builder: (_) => CompareScreen(
+      onBack: () {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(userName: widget.userName),
+          ),
+        );
+      },
       productA: ComparisonProduct(
         image: FileImage(File(images[0].path)),
         name: "Product 1",
@@ -1028,8 +1037,8 @@ class _AiHubSection extends StatelessWidget {
       icon: Icons.add_shopping_cart_rounded,
       bg: Color(0xFFE4F5E9),
       fg: Color(0xFF1E8A4C),
-      title: 'Shopping Assistant',
-      subtitle: 'Get smart shopping\nsuggestions based on your needs.',
+      title: 'AI Product Recommendations',
+      subtitle: 'Find healthier products that match your goals.',
     ),
   ];
 

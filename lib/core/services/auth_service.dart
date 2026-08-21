@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../model/auth_user.dart';
 import '../model/user_model.dart';
@@ -165,9 +166,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Login with email or username and password
+  /// Login with email, username, or phone number and password
   Future<AuthUser> login({
-    required String email,
+    required String identifier,
     required String password,
   }) async {
     _setLoading(true);
@@ -176,7 +177,10 @@ class AuthService extends ChangeNotifier {
         '/auth/login',
         requiresAuth: false,
         body: {
-          'email': email.trim(),
+          'identifier': identifier.trim(),
+          // Keep the legacy field for deployed backends that have not yet
+          // been updated to accept the unified identifier field.
+          'email': identifier.trim(),
           'password': password,
           'deviceInfo': 'DietCompass Flutter Mobile',
         },
@@ -281,6 +285,15 @@ class AuthService extends ChangeNotifier {
       );
     } catch (e) {
       if (e is ApiException) rethrow;
+      if (e is PlatformException &&
+          e.code == 'sign_in_failed' &&
+          e.message?.contains('ApiException: 10') == true) {
+        throw const ApiException(
+          'Google Sign-In is not configured for this Android app. Register '
+          'package com.example.diet_compass and the debug SHA-1 certificate '
+          'in the same Google Cloud/Firebase project as the web client ID.',
+        );
+      }
       throw ApiException('Unable to sign in with Google: ${e.toString()}');
     } finally {
       _setLoading(false);

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/recipe_service.dart';
 import 'recipe_detail_screen.dart';
 import '../home/home_screen.dart';
+import '../pantry/pantry_screen.dart';
 import 'history_screen.dart';
 import 'pdf_service.dart';
 import 'calendar_service.dart';
@@ -28,69 +29,7 @@ class RecipeGeneratorScreen extends StatefulWidget {
       CustomizeChipData(icon: Icons.eco_rounded, label: 'Diet Preference', value: 'Vegetarian', color: Color(0xFF1E8A4C)),
       CustomizeChipData(icon: Icons.access_time_rounded, label: 'Cooking Time', value: 'Under 20 min', color: Color(0xFFE0862E)),
     ],
-    this.recipes = const [
-      RecipeCardData(
-        title: 'Banana Oats Power Bowl',
-        tagline: 'Healthy • Quick • Delicious',
-        description: 'A nutritious bowl packed with fiber, protein and natural energy to kickstart your day!',
-        timeMinutes: 15,
-        kcal: 320,
-        proteinGrams: 12,
-        imageAsset: 'assets/images/recipe_banana_oats_power_bowl.jpeg',
-        recommended: true,
-        whatsInside: [
-          WhatsInTag(icon: Icons.eco_rounded, title: 'High in Fiber', subtitle: 'Good for digestion', color: Color(0xFF1E8A4C)),
-          WhatsInTag(icon: Icons.bolt_rounded, title: 'Natural Energy', subtitle: 'Sustained energy', color: Color(0xFFE0862E)),
-          WhatsInTag(icon: Icons.favorite_rounded, title: 'Heart Healthy', subtitle: 'Good fats', color: Color(0xFFE0525C)),
-          WhatsInTag(icon: Icons.shopping_bag_rounded, title: 'Weight Friendly', subtitle: 'Low calorie', color: Color(0xFF6C4EF5)),
-        ],
-      ),
-      RecipeCardData(
-        title: 'Chocolate Banana Overnight Oats',
-        tagline: 'Make-ahead • Creamy • Kid-friendly',
-        description: 'Creamy oats with cocoa, banana and nuts. Perfect for a healthy make-ahead breakfast.',
-        timeMinutes: 10,
-        kcal: 320,
-        proteinGrams: 11,
-        imageAsset: 'assets/images/recipe_chocolate_banana_oats.jpeg',
-        whatsInside: [
-          WhatsInTag(icon: Icons.eco_rounded, title: 'High Fiber', subtitle: 'Keeps you full', color: Color(0xFF1E8A4C)),
-          WhatsInTag(icon: Icons.nightlight_round, title: 'Make-Ahead', subtitle: 'Ready overnight', color: Color(0xFF6C4EF5)),
-          WhatsInTag(icon: Icons.favorite_rounded, title: 'Antioxidants', subtitle: 'From cocoa', color: Color(0xFFE0525C)),
-          WhatsInTag(icon: Icons.shopping_bag_rounded, title: 'Portion Smart', subtitle: 'Balanced calories', color: Color(0xFFE0862E)),
-        ],
-      ),
-      RecipeCardData(
-        title: 'Apple Cinnamon Oatmeal',
-        tagline: 'Warm • Comforting • Wholesome',
-        description: 'Warm, comforting oats with apple, cinnamon and nuts. A perfect way to start your day.',
-        timeMinutes: 12,
-        kcal: 310,
-        proteinGrams: 9,
-        imageAsset: 'assets/images/recipe_apple_cinnamon_oatmeal.jpeg',
-        whatsInside: [
-          WhatsInTag(icon: Icons.favorite_rounded, title: 'Good for Heart', subtitle: 'Whole grain oats', color: Color(0xFFE0525C)),
-          WhatsInTag(icon: Icons.eco_rounded, title: 'Fiber Rich', subtitle: 'From apple + oats', color: Color(0xFF1E8A4C)),
-          WhatsInTag(icon: Icons.bolt_rounded, title: 'Steady Energy', subtitle: 'Low glycemic', color: Color(0xFFE0862E)),
-          WhatsInTag(icon: Icons.shopping_bag_rounded, title: 'No Added Sugar', subtitle: 'Naturally sweet', color: Color(0xFF6C4EF5)),
-        ],
-      ),
-      RecipeCardData(
-        title: 'Savory Veggie Oats',
-        tagline: 'Savory • Light • Filling',
-        description: 'A wholesome savory oats bowl packed with veggies and protein. Light, healthy and filling.',
-        timeMinutes: 15,
-        kcal: 280,
-        proteinGrams: 14,
-        imageAsset: 'assets/images/recipe_savory_veggie_oats.jpeg',
-        whatsInside: [
-          WhatsInTag(icon: Icons.fitness_center_rounded, title: 'High Protein', subtitle: 'Veggies + oats', color: Color(0xFFE0862E)),
-          WhatsInTag(icon: Icons.eco_rounded, title: 'Veggie Packed', subtitle: '3 servings of veg', color: Color(0xFF1E8A4C)),
-          WhatsInTag(icon: Icons.favorite_rounded, title: 'Low Fat', subtitle: 'Heart friendly', color: Color(0xFFE0525C)),
-          WhatsInTag(icon: Icons.shopping_bag_rounded, title: 'Weight Friendly', subtitle: 'Low calorie', color: Color(0xFF6C4EF5)),
-        ],
-      ),
-    ],
+    this.recipes = const [],
     this.moreIdeas = const [
       MoreIdeaData(title: 'Protein Pancakes', imageAsset: 'assets/images/recipe_protein_pancakes.jpeg', timeMinutes: 20, kcal: 375),
       MoreIdeaData(title: 'Berry Chia Pudding', imageAsset: 'assets/images/recipe_berry_chia_pudding.jpeg', timeMinutes: 10, kcal: 280),
@@ -271,7 +210,14 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
 
   Future<void> _fetchRecipes({String craving = ''}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    if (_recipePageCtrl.hasClients) {
+      _recipePageCtrl.jumpToPage(0);
+    }
+    setState(() {
+      _isLoading = true;
+      _recipes = [];
+      _recipePage = 0;
+    });
 
     try {
       final ingredients = _pantryItems.map((p) => p.label).toList();
@@ -324,6 +270,13 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
   void _removePantryItem(int index) {
     setState(() => _pantryItems.removeAt(index));
     _fetchRecipes();
+  }
+
+  void _openPantry() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PantryScreen()),
+    );
   }
 
   void _toggleSaveRecipe(int index) {
@@ -462,8 +415,8 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                       uiScale: scale,
                       items: _pantryItems,
                       onRemove: _removePantryItem,
-                      onAddMore: widget.onAddPantryItem,
-                      onViewPantry: widget.onViewPantryTap,
+                      onAddMore: widget.onAddPantryItem ?? _openPantry,
+                      onViewPantry: widget.onViewPantryTap ?? _openPantry,
                     ),
                   ),
                 ),
@@ -580,6 +533,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                                   return Transform.scale(
                                     scale: cardScale,
                                     child: Padding(
+                                      key: ValueKey(recipe.id ?? recipe.title),
                                       padding: EdgeInsets.symmetric(horizontal: 2 * scale),
                                       child: _RecipeCard(
                                         uiScale: scale,

@@ -165,7 +165,19 @@ const runTests = async () => {
     const loginUserData = await loginUserRes.json();
     assert(loginUserRes.status === 200 && loginUserData.success === true, '2.2 Login with valid username & password succeeds');
 
-    // 2.3 Wrong Password
+    // 2.3 Login with Phone
+    const loginPhoneRes = await fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier: '987 654 3210',
+        password: 'Password123!',
+      }),
+    });
+    const loginPhoneData = await loginPhoneRes.json();
+    assert(loginPhoneRes.status === 200 && loginPhoneData.success === true, '2.3 Login with valid phone succeeds');
+
+    // 2.4 Wrong Password
     const wrongPassRes = await fetch(`${baseUrl}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -174,9 +186,9 @@ const runTests = async () => {
         password: 'WrongPassword999!',
       }),
     });
-    assert(wrongPassRes.status === 401, '2.3 Wrong password returns 401 Unauthorized');
+    assert(wrongPassRes.status === 401, '2.4 Wrong password returns 401 Unauthorized');
 
-    // 2.4 Non-existent account
+    // 2.5 Non-existent account
     const nonExistentRes = await fetch(`${baseUrl}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -185,7 +197,7 @@ const runTests = async () => {
         password: 'Password123!',
       }),
     });
-    assert(nonExistentRes.status === 401, '2.4 Non-existent account returns 401 Unauthorized');
+    assert(nonExistentRes.status === 401, '2.5 Non-existent account returns 401 Unauthorized');
 
     // -------------------------------------------------------------------------
     // TEST GROUP 3: JWT Verification & Protected GET /api/auth/me

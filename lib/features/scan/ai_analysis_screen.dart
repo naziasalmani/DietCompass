@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:diet_compass/features/scan/result_screen.dart';
-import '../ai/ai_shopping_screen.dart';
+import '../ai/ai_recommendation_screen.dart';
 import 'manual_entry_screen.dart';
 import '../../core/model/food_product.dart';
 

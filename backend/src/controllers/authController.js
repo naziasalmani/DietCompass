@@ -138,8 +138,8 @@ const register = async (req, res, next) => {
  */
 const login = async (req, res, next) => {
   try {
-    const { email, username, password } = req.body;
-    const identifier = email || username;
+    const { email, username, identifier: requestIdentifier, password } = req.body;
+    const identifier = requestIdentifier || email || username;
 
     if (!identifier || !password) {
       return res.status(400).json({
@@ -149,10 +149,16 @@ const login = async (req, res, next) => {
     }
 
     const cleanIdentifier = identifier.toLowerCase().trim();
+    const phoneIdentifier = cleanIdentifier.replace(/[\s-]/g, '');
 
     // 1. Find user by email or username, explicitly selecting password hash
     const user = await User.findOne({
-      $or: [{ email: cleanIdentifier }, { username: cleanIdentifier }],
+      $or: [
+        { email: cleanIdentifier },
+        { username: cleanIdentifier },
+        { phone: cleanIdentifier },
+        { phone: phoneIdentifier },
+      ],
     }).select('+password');
 
     if (!user) {

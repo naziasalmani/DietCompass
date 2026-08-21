@@ -166,10 +166,10 @@ class _AppFlowState extends State<AppFlow> {
   // ── Auth callbacks ────────────────────────────────────────────────────────
 
   /// Called by LoginScreen.onLogin — authenticates and checks personalization.
-  Future<void> _handleLogin(String email, String password) async {
+  Future<void> _handleLogin(String identifier, String password) async {
     try {
       final user = await AuthService.instance
-          .login(email: email, password: password);
+          .login(identifier: identifier, password: password);
       if (!mounted) return;
       _user = user;
 

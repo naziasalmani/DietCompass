@@ -35,10 +35,10 @@ class LoginScreen extends StatefulWidget {
     this.onSignUpTap,
   });
 
-  /// Called with (email, password) when the user submits the form after
+  /// Called with (email, username, or phone, password) when the user submits the form after
   /// it passes validation. Return/await your auth call here; the button
   /// shows a spinner while this future is running.
-  final Future<void> Function(String email, String password)? onLogin;
+  final Future<void> Function(String identifier, String password)? onLogin;
 
   final VoidCallback? onGoogleTap;
   final VoidCallback? onAppleTap;
@@ -358,11 +358,13 @@ class _GlassCard extends StatelessWidget {
                         if (value.isEmpty) {
                           return 'Enter your email or phone number';
                         }
-                        final emailRegExp = RegExp(
-                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                        );
-                        if (!emailRegExp.hasMatch(value)) {
-                          return 'Enter a valid email address';
+                        final emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                        final usernameRegExp = RegExp(r'^[a-zA-Z0-9_]{3,30}$');
+                        final phoneRegExp = RegExp(r'^\+?[0-9\s-]{7,20}$');
+                        if (!emailRegExp.hasMatch(value) &&
+                            !usernameRegExp.hasMatch(value) &&
+                            !phoneRegExp.hasMatch(value)) {
+                          return 'Enter a valid email, username, or phone number';
                         }
                         return null;
                       },

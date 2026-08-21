@@ -1,8 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
-import '../ai/ai_shopping_screen.dart';
+import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../dashboard/DashboardScreen.dart';
 
@@ -184,6 +182,7 @@ enum _TabFilter { all, expiringSoon, expired, lowStock }
 
 class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
+  late List<PantryItem> _items;
   _TabFilter _tab = _TabFilter.all;
   PantryCategory? _category;
   bool _sortNewest = true;
@@ -192,6 +191,7 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    _items = [...widget.items];
     _navIndex = widget.initialNavIndex;
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
   }
@@ -205,8 +205,75 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
   Animation<double> _fade(double s, double e) =>
       CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOut));
 
+  Future<void> _showAddItemDialog() async {
+    final nameController = TextEditingController();
+    final quantityController = TextEditingController(text: '1');
+    var category = PantryCategory.grains;
+
+    final item = await showDialog<PantryItem>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add pantry item'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Ingredient or product'),
+              ),
+              TextField(
+                controller: quantityController,
+                decoration: const InputDecoration(labelText: 'Quantity'),
+              ),
+              DropdownButtonFormField<PantryCategory>(
+                initialValue: category,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: PantryCategory.values
+                    .map((value) => DropdownMenuItem(value: value, child: Text(value.label)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => category = value);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                Navigator.pop(
+                  context,
+                  PantryItem(
+                    imageAsset: '',
+                    name: name,
+                    category: category,
+                    addedOn: DateTime.now(),
+                    quantity: quantityController.text.trim().isEmpty ? '1' : quantityController.text.trim(),
+                    status: ItemStatus.fresh,
+                    statusDetail: 'Freshly added',
+                  ),
+                );
+              },
+              child: const Text('Add item'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    quantityController.dispose();
+    if (item != null && mounted) {
+      setState(() => _items.add(item));
+    }
+  }
+
   List<PantryItem> get _filtered {
-    var list = widget.items.where((item) {
+    var list = _items.where((item) {
       final tabOk = switch (_tab) {
         _TabFilter.all => true,
         _TabFilter.expiringSoon => item.status == ItemStatus.expiringSoon,
@@ -225,10 +292,10 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
-    final total = widget.items.length;
-    final expiringSoon = widget.items.where((i) => i.status == ItemStatus.expiringSoon).length;
-    final expired = widget.items.where((i) => i.status == ItemStatus.expired).length;
-    final lowStock = widget.items.where((i) => i.status == ItemStatus.lowStock).length;
+    final total = _items.length;
+    final expiringSoon = _items.where((i) => i.status == ItemStatus.expiringSoon).length;
+    final expired = _items.where((i) => i.status == ItemStatus.expired).length;
+    final lowStock = _items.where((i) => i.status == ItemStatus.lowStock).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
@@ -251,7 +318,7 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
               children: [
                 FadeTransition(
                   opacity: _fade(0.0, 0.3),
-                  child: _Header(uiScale: scale, onSearchTap: widget.onSearchTap, onFilterTap: widget.onFilterTap, onAddItemTap: widget.onAddItemTap),
+                  child: _Header(uiScale: scale, onSearchTap: widget.onSearchTap, onFilterTap: widget.onFilterTap, onAddItemTap: widget.onAddItemTap ?? _showAddItemDialog),
                 ),
                 SizedBox(height: 16 * scale),
 
@@ -467,6 +534,11 @@ class _Header extends StatelessWidget {
                   style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B))),
             ],
           ),
+        ),
+        IconButton(
+          onPressed: onAddItemTap,
+          tooltip: 'Add pantry item',
+          icon: Icon(Icons.add_circle_rounded, size: 30 * uiScale, color: const Color(0xFF6C4EF5)),
         ),
       ],
     );
