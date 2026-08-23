@@ -1,139 +1,33 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:diet_compass/features/scan/compare_screen.dart';
-import '../home/home_screen.dart';
+import '../../core/model/food_product.dart';
+import '../../core/model/ai_analysis_model.dart';
+import '../../core/services/recommendation_service.dart';
+import '../../core/services/ingredient_intelligence_service.dart';
+import 'result_screen.dart';
 
-/// DietCompass — Compare Products Screen
-/// -----------------------------------------------------------------------
-/// Reuses your existing assets:
-///   • assets/images/robot_badge.png       — DietCompass robot (AI banner)
-///   • assets/images/product_true_elements.png — Product 1
-///   • assets/images/product_quaker.png         — Product 2
-///
-/// Everything is data-driven via [ComparisonProduct] / [NutrientRow], so
-/// this screen can compare any two scanned products from your backend,
-/// not just the sample pair used for preview.
-///
-/// Add to pubspec.yaml (skip any already present):
-/// ```yaml
-/// flutter:
-///   assets:
-///     - assets/images/robot_badge.png
-///     - assets/images/product_true_elements.png
-///     - assets/images/product_quaker.png
-/// ```
-enum ProductTag { healthyChoice, considerLess }
-
-class ComparisonProduct {
-  const ComparisonProduct({
-    required this.image,
-    required this.name,
-    required this.brand,
-    required this.tag,
-    required this.servingInfo,
-    required this.scannedAt,
-    required this.score,
-    required this.scoreLabel,
-  });
-
-  final ImageProvider image;
-  final String name;
-  final String brand;
-  final ProductTag tag;
-  final String servingInfo;
-  final String scannedAt;
-  final int score;
-  final String scoreLabel;
-}
-
-enum Trend { higherIsBetter, lowerIsBetter, neutral }
-
-class NutrientRow {
-  const NutrientRow({
-    required this.icon,
-    required this.label,
-    required this.leftValue40g,
-    required this.rightValue40g,
-    required this.leftValue100g,
-    required this.rightValue100g,
-    required this.unit,
-    required this.trend,
-  });
-
-  final IconData icon;
-  final String label;
-  final num leftValue40g;
-  final num rightValue40g;
-  final num leftValue100g;
-  final num rightValue100g;
-  final String unit;
-  final Trend trend;
-}
-
+/// DietCompass — Product Comparison Screen
+/// ---------------------------------------------------------------------------
+/// Compares the currently analyzed product side-by-side with the single
+/// best alternative recommended by the DietCompass AI recommendation system.
 class CompareScreen extends StatefulWidget {
   const CompareScreen({
     super.key,
-    this.productA = const ComparisonProduct(
-      image: AssetImage('assets/images/product_true_elements.png'),
-      name: 'Steel Cut Oats',
-      brand: 'True Elements',
-      tag: ProductTag.healthyChoice,
-      servingInfo: '40 g (1 serving)',
-      scannedAt: 'Scanned today, 9:41 AM',
-      score: 89,
-      scoreLabel: 'Excellent',
-    ),
-    this.productB = const ComparisonProduct(
-      image: AssetImage('assets/images/product_quaker.png'),
-      name: 'Quaker Oats',
-      brand: 'Quaker',
-      tag: ProductTag.considerLess,
-      servingInfo: '40 g (1 serving)',
-      scannedAt: 'Scanned today, 9:40 AM',
-      score: 72,
-      scoreLabel: 'Good',
-    ),
-    this.nutrients = const [
-      NutrientRow(icon: Icons.local_fire_department, label: 'Calories', leftValue40g: 150, rightValue40g: 160, leftValue100g: 375, rightValue100g: 400, unit: 'kcal', trend: Trend.lowerIsBetter),
-      NutrientRow(icon: Icons.fitness_center, label: 'Protein', leftValue40g: 5.2, rightValue40g: 4.1, leftValue100g: 13.0, rightValue100g: 10.3, unit: 'g', trend: Trend.higherIsBetter),
-      NutrientRow(icon: Icons.grain, label: 'Carbohydrates', leftValue40g: 27, rightValue40g: 28, leftValue100g: 67.5, rightValue100g: 70, unit: 'g', trend: Trend.lowerIsBetter),
-      NutrientRow(icon: Icons.eco, label: 'Dietary Fiber', leftValue40g: 4.1, rightValue40g: 2.6, leftValue100g: 10.3, rightValue100g: 6.5, unit: 'g', trend: Trend.higherIsBetter),
-      NutrientRow(icon: Icons.icecream, label: 'Sugars', leftValue40g: 1.0, rightValue40g: 3.8, leftValue100g: 2.5, rightValue100g: 9.5, unit: 'g', trend: Trend.lowerIsBetter),
-      NutrientRow(icon: Icons.opacity, label: 'Total Fat', leftValue40g: 3.0, rightValue40g: 3.2, leftValue100g: 7.5, rightValue100g: 8.0, unit: 'g', trend: Trend.lowerIsBetter),
-      NutrientRow(icon: Icons.shield_outlined, label: 'Sodium', leftValue40g: 5, rightValue40g: 120, leftValue100g: 12.5, rightValue100g: 300, unit: 'mg', trend: Trend.lowerIsBetter),
-    ],
-    this.winnerName = 'Steel Cut Oats',
-    this.winnerReason = 'Better nutritional profile',
-    this.keyAdvantages = const ['More fiber', 'Less sugar', 'Lower sodium', 'No artificial additives'],
-    this.bestFor = const ['Weight management', 'Heart health', 'Better digestion', 'Sustained energy'],
-    this.aiRecommendation = 'Steel Cut Oats is the healthier choice! It has more fiber, '
-        'less sugar, and no added ingredients.',
+    required this.currentProduct,
+    this.alternativeProduct,
+    this.currentProductImage,
+    this.alternativeProductImage,
+    this.alternativeCompatibility,
+    this.nutritionComparison,
     this.onBack,
-    this.onHowItWorksTap,
-    this.onFavoriteA,
-    this.onFavoriteB,
-    this.onViewDetailsTap,
-    this.onAddBothToPantry,
-    this.onViewDetailedAnalysis,
   });
 
-  final ComparisonProduct productA;
-  final ComparisonProduct productB;
-  final List<NutrientRow> nutrients;
-  final String winnerName;
-  final String winnerReason;
-  final List<String> keyAdvantages;
-  final List<String> bestFor;
-  final String aiRecommendation;
-
+  final FoodProduct currentProduct;
+  final FoodProduct? alternativeProduct;
+  final ImageProvider? currentProductImage;
+  final ImageProvider? alternativeProductImage;
+  final ProductCompatibility? alternativeCompatibility;
+  final ProductNutritionComparison? nutritionComparison;
   final VoidCallback? onBack;
-  final VoidCallback? onHowItWorksTap;
-  final VoidCallback? onFavoriteA;
-  final VoidCallback? onFavoriteB;
-  final VoidCallback? onViewDetailsTap;
-  final VoidCallback? onAddBothToPantry;
-  final VoidCallback? onViewDetailedAnalysis;
 
   @override
   State<CompareScreen> createState() => _CompareScreenState();
@@ -142,15 +36,54 @@ class CompareScreen extends StatefulWidget {
 class _CompareScreenState extends State<CompareScreen> with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
-  bool _favA = false;
-  bool _favB = false;
-  bool _per100g = false;
+
+  FoodProduct? _bestAlternative;
+  ProductCompatibility? _altCompatibility;
+  ProductNutritionComparison? _nutritionComparison;
+  bool _isLoadingAlternative = false;
 
   @override
   void initState() {
     super.initState();
-    _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..forward();
-    _ambientCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))..repeat(reverse: true);
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward();
+
+    _ambientCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat(reverse: true);
+
+    _bestAlternative = widget.alternativeProduct;
+    _altCompatibility = widget.alternativeCompatibility;
+    _nutritionComparison = widget.nutritionComparison;
+
+    if (_bestAlternative == null) {
+      _fetchBestAlternative();
+    }
+  }
+
+  Future<void> _fetchBestAlternative() async {
+    setState(() => _isLoadingAlternative = true);
+    try {
+      final recs = await RecommendationService.instance.getCategoryAwareAlternatives(widget.currentProduct);
+      if (mounted) {
+        if (recs.isNotEmpty) {
+          final top = recs.first;
+          setState(() {
+            _bestAlternative = top.product;
+            _altCompatibility = top.compatibility;
+            _nutritionComparison = top.nutritionComparison;
+            _isLoadingAlternative = false;
+          });
+        } else {
+          setState(() => _isLoadingAlternative = false);
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingAlternative = false);
+    }
   }
 
   @override
@@ -160,11 +93,15 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
     super.dispose();
   }
 
-  Animation<double> _fade(double s, double e) =>
-      CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOut));
+  Animation<double> _fade(double s, double e) => CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: Interval(s, e, curve: Curves.easeOut),
+      );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-      .animate(CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOutCubic)));
+  Animation<Offset> _slide(double s, double e) => Tween<Offset>(
+        begin: const Offset(0, 0.06),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOutCubic)));
 
   @override
   Widget build(BuildContext context) {
@@ -178,117 +115,294 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
         children: [
           const _BackgroundGradient(),
           SafeArea(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(16 * scale, 8 * scale, 16 * scale, 28 * scale),
-              physics: const BouncingScrollPhysics(),
-              children: [
-                FadeTransition(
-                  opacity: _fade(0.0, 0.25),
-                  child: _TopBar(uiScale: scale, onBack: widget.onBack, onHowItWorksTap: widget.onHowItWorksTap),
-                ),
-                SizedBox(height: 16 * scale),
+            child: _isLoadingAlternative
+                ? _buildLoadingState(scale)
+                : (_bestAlternative == null ? _buildUnavailableState(scale) : _buildComparisonContent(scale)),
+          ),
+        ],
+      ),
+    );
+  }
 
-                FadeTransition(
-                  opacity: _fade(0.04, 0.4),
-                  child: SlideTransition(
-                    position: _slide(0.04, 0.42),
-                    child: _CompareCardsRow(
-                      uiScale: scale,
-                      entranceCtrl: _entranceCtrl,
-                      productA: widget.productA,
-                      productB: widget.productB,
-                      favA: _favA,
-                      favB: _favB,
-                      onFavA: () {
-                        setState(() => _favA = !_favA);
-                        widget.onFavoriteA?.call();
-                      },
-                      onFavB: () {
-                        setState(() => _favB = !_favB);
-                        widget.onFavoriteB?.call();
-                      },
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20 * scale),
-
-                FadeTransition(
-                  opacity: _fade(0.14, 0.5),
-                  child: SlideTransition(
-                    position: _slide(0.14, 0.52),
-                    child: _AiRecommendationBanner(
-                      uiScale: scale,
-                      ambientCtrl: _ambientCtrl,
-                      text: widget.aiRecommendation,
-                      onViewDetailsTap: widget.onViewDetailsTap,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20 * scale),
-
-                FadeTransition(
-                  opacity: _fade(0.22, 0.6),
-                  child: SlideTransition(
-                    position: _slide(0.22, 0.62),
-                    child: _NutritionComparisonCard(
-                      uiScale: scale,
-                      nutrients: widget.nutrients,
-                      per100g: _per100g,
-                      onToggle: (v) => setState(() => _per100g = v),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 18 * scale),
-
-                FadeTransition(
-                  opacity: _fade(0.32, 0.68),
-                  child: SlideTransition(
-                    position: _slide(0.32, 0.7),
-                    child: _WinnerBanner(
-                      uiScale: scale,
-                      ambientCtrl: _ambientCtrl,
-                      winnerName: widget.winnerName,
-                      reason: widget.winnerReason,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 12 * scale),
-
-                FadeTransition(
-                  opacity: _fade(0.4, 0.74),
-                  child: SlideTransition(
-                    position: _slide(0.4, 0.76),
-                    child: _InfoListsRow(
-                      uiScale: scale,
-                      keyAdvantages: widget.keyAdvantages,
-                      bestFor: widget.bestFor,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 18 * scale),
-
-                FadeTransition(
-                  opacity: _fade(0.5, 0.85),
-                  child: SlideTransition(
-                    position: _slide(0.5, 0.88),
-                    child: _BottomButtonsRow(
-                      uiScale: scale,
-                      onAddBothToPantry: widget.onAddBothToPantry,
-                      onViewDetailedAnalysis: widget.onViewDetailedAnalysis,
-                    ),
-                  ),
+  // ── 1. Loading State ────────────────────────────────────────────────────────
+  Widget _buildLoadingState(double scale) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.15),
+                  blurRadius: 20,
                 ),
               ],
+            ),
+            child: const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(Color(0xFF6C4EF5)),
+            ),
+          ),
+          SizedBox(height: 16 * scale),
+          Text(
+            'Finding the best healthier alternative...',
+            style: TextStyle(
+              fontSize: 14 * scale,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1B1B2E),
+            ),
+          ),
+          SizedBox(height: 4 * scale),
+          Text(
+            'Scanning same-category products with better nutrition profile',
+            style: TextStyle(
+              fontSize: 11.5 * scale,
+              color: const Color(0xFF6B6B7B),
             ),
           ),
         ],
       ),
     );
   }
+
+  // ── 2. Unavailable State ────────────────────────────────────────────────────
+  Widget _buildUnavailableState(double scale) {
+    return Padding(
+      padding: EdgeInsets.all(24 * scale),
+      child: Column(
+        children: [
+          _TopBar(uiScale: scale, onBack: widget.onBack),
+          const Spacer(),
+          Container(
+            padding: EdgeInsets.all(24 * scale),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 56 * scale,
+                  height: 56 * scale,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF3F0FB),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.compare_arrows_rounded,
+                    size: 28 * scale,
+                    color: const Color(0xFF6C4EF5),
+                  ),
+                ),
+                SizedBox(height: 16 * scale),
+                Text(
+                  'Comparison unavailable',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17 * scale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
+                SizedBox(height: 8 * scale),
+                Text(
+                  "We couldn't find a suitable alternative with enough product information to compare for ${widget.currentProduct.name}.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13 * scale,
+                    color: const Color(0xFF6B6B7B),
+                    height: 1.4,
+                  ),
+                ),
+                SizedBox(height: 20 * scale),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46 * scale,
+                  child: ElevatedButton(
+                    onPressed: widget.onBack ?? () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6C4EF5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Back to Product Analysis',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  // ── 3. Full Comparison Content ──────────────────────────────────────────────
+  Widget _buildComparisonContent(double scale) {
+    final current = widget.currentProduct;
+    final alt = _bestAlternative!;
+
+    final currentScore = RecommendationService.instance.calculateNutritionScore(current);
+    final altScore = RecommendationService.instance.calculateNutritionScore(alt);
+
+    final currentCompat = RecommendationService.instance.calculateCompatibilityScore(current);
+    final altCompat = _altCompatibility?.score ?? RecommendationService.instance.calculateCompatibilityScore(alt);
+
+    final currentIntel = IngredientIntelligenceService.instance.analyze(current);
+    final altIntel = IngredientIntelligenceService.instance.analyze(alt);
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(16 * scale, 8 * scale, 16 * scale, 32 * scale),
+      physics: const BouncingScrollPhysics(),
+      children: [
+        // 1. Top Bar
+        FadeTransition(
+          opacity: _fade(0.0, 0.25),
+          child: _TopBar(uiScale: scale, onBack: widget.onBack),
+        ),
+        SizedBox(height: 14 * scale),
+
+        // 2. Side-by-Side Product Cards
+        FadeTransition(
+          opacity: _fade(0.04, 0.35),
+          child: SlideTransition(
+            position: _slide(0.04, 0.37),
+            child: _DualProductCardsRow(
+              uiScale: scale,
+              currentProduct: current,
+              altProduct: alt,
+              currentImage: widget.currentProductImage,
+              altImage: widget.alternativeProductImage,
+              currentScore: currentScore,
+              altScore: altScore,
+              currentCompat: currentCompat,
+              altCompat: altCompat,
+              onViewAltDetails: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ResultScreen(
+                      product: alt,
+                      initialCompatibility: _altCompatibility,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        SizedBox(height: 16 * scale),
+
+        // 3. Why This Alternative Card
+        FadeTransition(
+          opacity: _fade(0.12, 0.45),
+          child: SlideTransition(
+            position: _slide(0.12, 0.47),
+            child: _WhyThisAlternativeCard(
+              uiScale: scale,
+              ambientCtrl: _ambientCtrl,
+              currentProduct: current,
+              altProduct: alt,
+              nutritionComparison: _nutritionComparison,
+              altCompatibility: _altCompatibility,
+              currentScore: currentScore,
+              altScore: altScore,
+            ),
+          ),
+        ),
+        SizedBox(height: 18 * scale),
+
+        // 4. Detailed Nutrition Comparison Table
+        FadeTransition(
+          opacity: _fade(0.20, 0.55),
+          child: SlideTransition(
+            position: _slide(0.20, 0.57),
+            child: _NutritionTableCard(
+              uiScale: scale,
+              currentProduct: current,
+              altProduct: alt,
+            ),
+          ),
+        ),
+        SizedBox(height: 18 * scale),
+
+        // 5. Health Compatibility Factors Comparison
+        FadeTransition(
+          opacity: _fade(0.28, 0.65),
+          child: SlideTransition(
+            position: _slide(0.28, 0.67),
+            child: _HealthCompatibilityComparisonCard(
+              uiScale: scale,
+              currentProduct: current,
+              altProduct: alt,
+            ),
+          ),
+        ),
+        SizedBox(height: 18 * scale),
+
+        // 6. Ingredient Insights Comparison
+        if (currentIntel.hasMeaningfulInsights || altIntel.hasMeaningfulInsights) ...[
+          FadeTransition(
+            opacity: _fade(0.36, 0.75),
+            child: SlideTransition(
+              position: _slide(0.36, 0.77),
+              child: _IngredientInsightsComparisonCard(
+                uiScale: scale,
+                currentIntel: currentIntel,
+                altIntel: altIntel,
+                currentName: current.name,
+                altName: alt.name,
+              ),
+            ),
+          ),
+          SizedBox(height: 18 * scale),
+        ],
+
+        // 7. Action Footer: Switch to Alternative
+        FadeTransition(
+          opacity: _fade(0.44, 0.85),
+          child: SlideTransition(
+            position: _slide(0.44, 0.87),
+            child: _SwitchToAlternativeButton(
+              uiScale: scale,
+              altName: alt.name,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ResultScreen(
+                      product: alt,
+                      initialCompatibility: _altCompatibility,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Background
+// Background Gradient
 // ---------------------------------------------------------------------------
 class _BackgroundGradient extends StatelessWidget {
   const _BackgroundGradient();
@@ -300,7 +414,7 @@ class _BackgroundGradient extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF1EDFB), Color(0xFFEFFAF3)],
+          colors: [Color(0xFFF1EDFB), Color(0xFFEFF8F3)],
         ),
       ),
     );
@@ -308,276 +422,486 @@ class _BackgroundGradient extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Top bar
+// Top Bar
 // ---------------------------------------------------------------------------
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.uiScale, this.onBack, this.onHowItWorksTap});
+  const _TopBar({required this.uiScale, this.onBack});
+
   final double uiScale;
   final VoidCallback? onBack;
-  final VoidCallback? onHowItWorksTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _RoundButton(
-  uiScale: uiScale,
-  icon: Icons.arrow_back,
-  onTap: () {
-    if (onBack != null) {
-      onBack!();
-    } else {
-      Navigator.of(context).maybePop();
-    }
-  },
-),
+        GestureDetector(
+          onTap: onBack ?? () => Navigator.pop(context),
+          child: Container(
+            width: 38 * uiScale,
+            height: 38 * uiScale,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.arrow_back,
+              size: 18 * uiScale,
+              color: const Color(0xFF1B1B2E),
+            ),
+          ),
+        ),
+        SizedBox(width: 12 * uiScale),
         Expanded(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.balance_rounded, size: 17 * uiScale, color: const Color(0xFF6C4EF5)),
+                  Icon(Icons.compare_arrows_rounded, size: 18 * uiScale, color: const Color(0xFF6C4EF5)),
                   SizedBox(width: 6 * uiScale),
-                  Text('Compare Products',
-                      style: TextStyle(fontSize: 16.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                  Text(
+                    'Product Comparison',
+                    style: TextStyle(
+                      fontSize: 17 * uiScale,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1B1B2E),
+                    ),
+                  ),
                 ],
               ),
-              Text('Choose the healthier option for you',
-                  style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B))),
+              Text(
+                'See how your choice compares with a healthier alternative',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
+              ),
             ],
           ),
         ),
-        _HowItWorksPill(uiScale: uiScale, onTap: onHowItWorksTap),
       ],
     );
   }
 }
 
-class _RoundButton extends StatefulWidget {
-  const _RoundButton({required this.uiScale, required this.icon, this.onTap, this.iconColor = const Color(0xFF1B1B2E)});
-  final double uiScale;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color iconColor;
-
-  @override
-  State<_RoundButton> createState() => _RoundButtonState();
-}
-
-class _RoundButtonState extends State<_RoundButton> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.9),
-      onTapUp: (_) => setState(() => _scale = 1.0),
-      onTapCancel: () => setState(() => _scale = 1.0),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: 40 * widget.uiScale,
-          height: 40 * widget.uiScale,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: Icon(widget.icon, size: 18 * widget.uiScale, color: widget.iconColor),
-        ),
-      ),
-    );
-  }
-}
-
-class _HowItWorksPill extends StatefulWidget {
-  const _HowItWorksPill({required this.uiScale, this.onTap});
-  final double uiScale;
-  final VoidCallback? onTap;
-
-  @override
-  State<_HowItWorksPill> createState() => _HowItWorksPillState();
-}
-
-class _HowItWorksPillState extends State<_HowItWorksPill> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.94),
-      onTapUp: (_) => setState(() => _scale = 1.0),
-      onTapCancel: () => setState(() => _scale = 1.0),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.help_outline, size: 14 * widget.uiScale, color: const Color(0xFF6C4EF5)),
-              SizedBox(width: 5 * widget.uiScale),
-              Text('How it works',
-                  style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Product comparison cards + VS badge
+// Side-by-Side Dual Product Cards
 // ---------------------------------------------------------------------------
-class _CompareCardsRow extends StatelessWidget {
-  const _CompareCardsRow({
+class _DualProductCardsRow extends StatelessWidget {
+  const _DualProductCardsRow({
     required this.uiScale,
-    required this.entranceCtrl,
-    required this.productA,
-    required this.productB,
-    required this.favA,
-    required this.favB,
-    required this.onFavA,
-    required this.onFavB,
+    required this.currentProduct,
+    required this.altProduct,
+    this.currentImage,
+    this.altImage,
+    required this.currentScore,
+    required this.altScore,
+    required this.currentCompat,
+    required this.altCompat,
+    required this.onViewAltDetails,
   });
 
   final double uiScale;
-  final AnimationController entranceCtrl;
-  final ComparisonProduct productA;
-  final ComparisonProduct productB;
-  final bool favA;
-  final bool favB;
-  final VoidCallback onFavA;
-  final VoidCallback onFavB;
+  final FoodProduct currentProduct;
+  final FoodProduct altProduct;
+  final ImageProvider? currentImage;
+  final ImageProvider? altImage;
+  final int currentScore;
+  final int altScore;
+  final int currentCompat;
+  final int altCompat;
+  final VoidCallback onViewAltDetails;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
+    final ImageProvider? resolvedCurrentImg = currentImage ??
+        (currentProduct.imageUrl.trim().isNotEmpty ? NetworkImage(currentProduct.imageUrl.trim()) : null);
+
+    final ImageProvider? resolvedAltImg = altImage ??
+        (altProduct.imageUrl.trim().isNotEmpty ? NetworkImage(altProduct.imageUrl.trim()) : null);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _ProductCompareCard(
-                uiScale: uiScale,
-                entranceCtrl: entranceCtrl,
-                product: productA,
-                badgeLabel: 'Product 1',
-                badgeColor: const Color(0xFF1E8A4C),
-                cardTint: const Color(0xFFEAF7EF),
-                borderTint: const Color(0xFFBFE6CC),
-                gaugeColor: const Color(0xFF1E8A4C),
-                favorited: favA,
-                onFavTap: onFavA,
-                gaugeDelay: 0.1,
-              ),
-            ),
-            SizedBox(width: 12 * uiScale),
-            Expanded(
-              child: _ProductCompareCard(
-                uiScale: uiScale,
-                entranceCtrl: entranceCtrl,
-                product: productB,
-                badgeLabel: 'Product 2',
-                badgeColor: const Color(0xFFE0525C),
-                cardTint: const Color(0xFFFCEFEF),
-                borderTint: const Color(0xFFF3CBCB),
-                gaugeColor: const Color(0xFFE0525C),
-                favorited: favB,
-                onFavTap: onFavB,
-                gaugeDelay: 0.2,
-              ),
-            ),
-          ],
+        // Product 1: Current Choice
+        Expanded(
+          child: _ProductMiniCard(
+            uiScale: uiScale,
+            tag: 'Your Choice',
+            tagColor: const Color(0xFF6C4EF5),
+            name: currentProduct.name,
+            brand: currentProduct.brand,
+            image: resolvedCurrentImg,
+            nutritionScore: currentScore,
+            compatScore: currentCompat,
+            isBestAlternative: false,
+          ),
         ),
-        _VsBadge(uiScale: uiScale, entranceCtrl: entranceCtrl),
+
+        // Middle VS circle
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 40 * uiScale),
+          child: Container(
+            width: 28 * uiScale,
+            height: 28 * uiScale,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE4E0F2), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                'VS',
+                style: TextStyle(
+                  fontSize: 10 * uiScale,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Product 2: Best Alternative
+        Expanded(
+          child: _ProductMiniCard(
+            uiScale: uiScale,
+            tag: '⭐ Best Alternative',
+            tagColor: const Color(0xFF1E8A4C),
+            name: altProduct.name,
+            brand: altProduct.brand,
+            image: resolvedAltImg,
+            nutritionScore: altScore,
+            compatScore: altCompat,
+            isBestAlternative: true,
+            onTapDetails: onViewAltDetails,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _VsBadge extends StatelessWidget {
-  const _VsBadge({required this.uiScale, required this.entranceCtrl});
-  final double uiScale;
-  final AnimationController entranceCtrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final scaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: entranceCtrl, curve: const Interval(0.1, 0.4, curve: Curves.easeOutBack)),
-    );
-    return ScaleTransition(
-      scale: scaleAnim,
-      child: Container(
-        width: 40 * uiScale,
-        height: 40 * uiScale,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE4E0F2), width: 1.4),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Center(
-          child: Text('VS', style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5))),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductCompareCard extends StatelessWidget {
-  const _ProductCompareCard({
+class _ProductMiniCard extends StatelessWidget {
+  const _ProductMiniCard({
     required this.uiScale,
-    required this.entranceCtrl,
-    required this.product,
-    required this.badgeLabel,
-    required this.badgeColor,
-    required this.cardTint,
-    required this.borderTint,
-    required this.gaugeColor,
-    required this.favorited,
-    required this.onFavTap,
-    required this.gaugeDelay,
+    required this.tag,
+    required this.tagColor,
+    required this.name,
+    required this.brand,
+    this.image,
+    required this.nutritionScore,
+    required this.compatScore,
+    required this.isBestAlternative,
+    this.onTapDetails,
   });
 
   final double uiScale;
-  final AnimationController entranceCtrl;
-  final ComparisonProduct product;
-  final String badgeLabel;
-  final Color badgeColor;
-  final Color cardTint;
-  final Color borderTint;
-  final Color gaugeColor;
-  final bool favorited;
-  final VoidCallback onFavTap;
-  final double gaugeDelay;
+  final String tag;
+  final Color tagColor;
+  final String name;
+  final String brand;
+  final ImageProvider? image;
+  final int nutritionScore;
+  final int compatScore;
+  final bool isBestAlternative;
+  final VoidCallback? onTapDetails;
 
   @override
   Widget build(BuildContext context) {
-    final isHealthy = product.tag == ProductTag.healthyChoice;
-    final gaugeAnim = CurvedAnimation(
-      parent: entranceCtrl,
-      curve: Interval(gaugeDelay, gaugeDelay + 0.4, curve: Curves.easeOutCubic),
-    );
-
     return Container(
       padding: EdgeInsets.all(12 * uiScale),
       decoration: BoxDecoration(
-        color: cardTint,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderTint),
+        border: Border.all(
+          color: isBestAlternative ? const Color(0xFF1E8A4C).withValues(alpha: 0.35) : const Color(0xFFE8E4F2),
+          width: isBestAlternative ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isBestAlternative
+                ? const Color(0xFF1E8A4C).withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Badge
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
+            decoration: BoxDecoration(
+              color: tagColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              tag,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5 * uiScale,
+                fontWeight: FontWeight.w700,
+                color: tagColor,
+              ),
+            ),
+          ),
+          SizedBox(height: 8 * uiScale),
+
+          // Thumbnail
+          Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 70 * uiScale,
+                height: 70 * uiScale,
+                color: const Color(0xFFF7F5FC),
+                padding: EdgeInsets.all(4 * uiScale),
+                child: image != null
+                    ? Image(
+                        image: image!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.fastfood_rounded,
+                          color: const Color(0xFFB0ACC2),
+                          size: 30 * uiScale,
+                        ),
+                      )
+                    : Icon(
+                        Icons.fastfood_rounded,
+                        color: const Color(0xFFB0ACC2),
+                        size: 30 * uiScale,
+                      ),
+              ),
+            ),
+          ),
+          SizedBox(height: 8 * uiScale),
+
+          // Title & Brand
+          Text(
+            name.trim().isNotEmpty ? name : 'Food Product',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5 * uiScale,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1B1B2E),
+              height: 1.2,
+            ),
+          ),
+          if (brand.trim().isNotEmpty) ...[
+            SizedBox(height: 2 * uiScale),
+            Text(
+              brand.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5 * uiScale,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6C4EF5),
+              ),
+            ),
+          ],
+          SizedBox(height: 10 * uiScale),
+
+          // Score Chips
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 5 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F5FC),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$nutritionScore',
+                        style: TextStyle(
+                          fontSize: 14 * uiScale,
+                          fontWeight: FontWeight.w900,
+                          color: nutritionScore >= 75 ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                        ),
+                      ),
+                      Text(
+                        'Score',
+                        style: TextStyle(
+                          fontSize: 8.5 * uiScale,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF6B6B7B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(width: 6 * uiScale),
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 5 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F5FC),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$compatScore%',
+                        style: TextStyle(
+                          fontSize: 14 * uiScale,
+                          fontWeight: FontWeight.w900,
+                          color: compatScore >= 75 ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                        ),
+                      ),
+                      Text(
+                        'Match',
+                        style: TextStyle(
+                          fontSize: 8.5 * uiScale,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF6B6B7B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Why this alternative? Card
+// ---------------------------------------------------------------------------
+class _WhyThisAlternativeCard extends StatelessWidget {
+  const _WhyThisAlternativeCard({
+    required this.uiScale,
+    required this.ambientCtrl,
+    required this.currentProduct,
+    required this.altProduct,
+    this.nutritionComparison,
+    this.altCompatibility,
+    required this.currentScore,
+    required this.altScore,
+  });
+
+  final double uiScale;
+  final AnimationController ambientCtrl;
+  final FoodProduct currentProduct;
+  final FoodProduct altProduct;
+  final ProductNutritionComparison? nutritionComparison;
+  final ProductCompatibility? altCompatibility;
+  final int currentScore;
+  final int altScore;
+
+  String _generatePersonalizedReason() {
+    final diffs = <String>[];
+
+    // Sugar
+    if (currentProduct.sugar != null && altProduct.sugar != null) {
+      final sugarDiff = currentProduct.sugar! - altProduct.sugar!;
+      if (sugarDiff >= 3.0) {
+        diffs.add('contains ${sugarDiff.toStringAsFixed(0)}g less sugar');
+      }
+    }
+
+    // Fiber
+    if (currentProduct.fiber != null && altProduct.fiber != null) {
+      final fiberDiff = altProduct.fiber! - currentProduct.fiber!;
+      if (fiberDiff >= 1.5) {
+        diffs.add('provides +${fiberDiff.toStringAsFixed(1)}g more dietary fiber');
+      }
+    }
+
+    // Protein
+    if (currentProduct.protein != null && altProduct.protein != null) {
+      final proteinDiff = altProduct.protein! - currentProduct.protein!;
+      if (proteinDiff >= 2.0) {
+        diffs.add('offers +${proteinDiff.toStringAsFixed(1)}g higher protein');
+      }
+    }
+
+    // Sodium
+    if (currentProduct.sodium != null && altProduct.sodium != null) {
+      final curMg = currentProduct.sodium! <= 10.0 ? currentProduct.sodium! * 1000 : currentProduct.sodium!;
+      final altMg = altProduct.sodium! <= 10.0 ? altProduct.sodium! * 1000 : altProduct.sodium!;
+      final sodiumDiff = curMg - altMg;
+      if (sodiumDiff >= 150) {
+        diffs.add('has ${sodiumDiff.toStringAsFixed(0)}mg lower sodium');
+      }
+    }
+
+    // Calories
+    if (currentProduct.calories != null && altProduct.calories != null) {
+      final calDiff = (currentProduct.calories! - altProduct.calories!).round();
+      if (calDiff >= 50) {
+        diffs.add('saves ~$calDiff calories per serving');
+      }
+    }
+
+    if (diffs.isNotEmpty) {
+      final reasonPart = diffs.join(', ');
+      return '${altProduct.name} is a healthier choice for your profile because it $reasonPart while keeping you in the same product category.';
+    }
+
+    if (altCompatibility?.summary.trim().isNotEmpty == true) {
+      return altCompatibility!.summary.trim();
+    }
+
+    if (altScore > currentScore) {
+      return '${altProduct.name} provides a superior overall nutritional profile (+${altScore - currentScore} points higher) with cleaner ingredients.';
+    }
+
+    return '${altProduct.name} is recommended as a wholesome, category-aligned alternative tailored for your dietary preferences.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reasonText = _generatePersonalizedReason();
+    final differentiator = nutritionComparison?.differentiator ?? (altScore > currentScore ? '+${altScore - currentScore} pts Higher Score' : 'Cleaner Ingredients');
+
+    return Container(
+      padding: EdgeInsets.all(16 * uiScale),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF6C4EF5).withValues(alpha: 0.08),
+            const Color(0xFF1E8A4C).withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF6C4EF5).withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6C4EF5).withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,463 +909,398 @@ class _ProductCompareCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
-                decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                child: Text(badgeLabel, style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: badgeColor)),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onFavTap,
-                child: Icon(
-                  favorited ? Icons.favorite : Icons.favorite_border,
-                  size: 16 * uiScale,
-                  color: favorited ? const Color(0xFFE0525C) : const Color(0xFF9A96A8),
+                padding: EdgeInsets.all(6 * uiScale),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6C4EF5),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
               ),
-            ],
-          ),
-          SizedBox(height: 8 * uiScale),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: double.infinity,
-              height: 84 * uiScale,
-              color: Colors.white,
-              padding: EdgeInsets.all(6 * uiScale),
-              child: Image(image: product.image, fit: BoxFit.contain),
-            ),
-          ),
-          SizedBox(height: 8 * uiScale),
-          Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-          Text(product.brand, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B))),
-          SizedBox(height: 5 * uiScale),
-          Row(
-            children: [
-              Icon(isHealthy ? Icons.eco : Icons.error_outline, size: 11 * uiScale, color: badgeColor),
-              SizedBox(width: 4 * uiScale),
+              SizedBox(width: 8 * uiScale),
               Expanded(
                 child: Text(
-                  isHealthy ? 'Healthy Choice' : 'Consider Less',
-                  style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: badgeColor),
+                  'Why this alternative?',
+                  style: TextStyle(
+                    fontSize: 14 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 6 * uiScale),
-          Row(
-            children: [
-              Icon(Icons.local_dining_outlined, size: 10.5 * uiScale, color: const Color(0xFF9A96A8)),
-              SizedBox(width: 4 * uiScale),
-              Expanded(
-                child: Text(product.servingInfo, style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF9A96A8))),
-              ),
-            ],
-          ),
-          SizedBox(height: 3 * uiScale),
-          Row(
-            children: [
-              Icon(Icons.calendar_today_outlined, size: 10 * uiScale, color: const Color(0xFF9A96A8)),
-              SizedBox(width: 4 * uiScale),
-              Expanded(
-                child: Text(product.scannedAt, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9 * uiScale, color: const Color(0xFF9A96A8))),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E8A4C),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  differentiator,
+                  style: TextStyle(
+                    fontSize: 10 * uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ],
           ),
           SizedBox(height: 10 * uiScale),
+          Text(
+            reasonText,
+            style: TextStyle(
+              fontSize: 12.5 * uiScale,
+              color: const Color(0xFF2E2D3E),
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detailed Nutrition Comparison Table
+// ---------------------------------------------------------------------------
+class _NutritionTableCard extends StatelessWidget {
+  const _NutritionTableCard({
+    required this.uiScale,
+    required this.currentProduct,
+    required this.altProduct,
+  });
+
+  final double uiScale;
+  final FoodProduct currentProduct;
+  final FoodProduct altProduct;
+
+  @override
+  Widget build(BuildContext context) {
+    // Generate nutrient comparison rows strictly preserving nulls
+    final rows = <_NutrientComparisonRowData>[];
+
+    // 1. Calories (Lower is generally favored for snack/general comparison)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Calories',
+        unit: 'kcal',
+        valA: currentProduct.calories,
+        valB: altProduct.calories,
+        isHigherBetter: false,
+        icon: Icons.local_fire_department,
+        color: const Color(0xFF6C4EF5),
+      ),
+    );
+
+    // 2. Protein (Higher is better)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Protein',
+        unit: 'g',
+        valA: currentProduct.protein,
+        valB: altProduct.protein,
+        isHigherBetter: true,
+        icon: Icons.fitness_center,
+        color: const Color(0xFF1E8A4C),
+      ),
+    );
+
+    // 3. Carbohydrates (Lower is generally favored)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Carbohydrates',
+        unit: 'g',
+        valA: currentProduct.carbohydrates,
+        valB: altProduct.carbohydrates,
+        isHigherBetter: false,
+        icon: Icons.grain,
+        color: const Color(0xFFE0862E),
+      ),
+    );
+
+    // 4. Sugar (Lower is better)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Sugar',
+        unit: 'g',
+        valA: currentProduct.sugar,
+        valB: altProduct.sugar,
+        isHigherBetter: false,
+        icon: Icons.icecream,
+        color: const Color(0xFFE0525C),
+      ),
+    );
+
+    // 5. Fat (Lower is better)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Total Fat',
+        unit: 'g',
+        valA: currentProduct.fat,
+        valB: altProduct.fat,
+        isHigherBetter: false,
+        icon: Icons.opacity,
+        color: const Color(0xFFE0862E),
+      ),
+    );
+
+    // 6. Fiber (Higher is better)
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Fiber',
+        unit: 'g',
+        valA: currentProduct.fiber,
+        valB: altProduct.fiber,
+        isHigherBetter: true,
+        icon: Icons.eco_outlined,
+        color: const Color(0xFF1E8A4C),
+      ),
+    );
+
+    // 7. Sodium (Lower is better)
+    double? sodA = currentProduct.sodium;
+    if (sodA != null && sodA <= 10.0) sodA = sodA * 1000.0;
+    double? sodB = altProduct.sodium;
+    if (sodB != null && sodB <= 10.0) sodB = sodB * 1000.0;
+
+    rows.add(
+      _NutrientComparisonRowData(
+        label: 'Sodium',
+        unit: 'mg',
+        valA: sodA,
+        valB: sodB,
+        isHigherBetter: false,
+        icon: Icons.water_drop_outlined,
+        color: const Color(0xFF3B82F6),
+      ),
+    );
+
+    return Container(
+      padding: EdgeInsets.all(16 * uiScale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8E4F2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.table_chart_rounded, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+              SizedBox(width: 6 * uiScale),
+              Text(
+                'Nutrition Comparison',
+                style: TextStyle(
+                  fontSize: 14 * uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Per 100g / Serving',
+                style: TextStyle(
+                  fontSize: 10 * uiScale,
+                  color: const Color(0xFF8A889A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12 * uiScale),
+
+          // Table Header
           Container(
-            padding: EdgeInsets.symmetric(vertical: 10 * uiScale, horizontal: 8 * uiScale),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 8 * uiScale),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F5FC),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               children: [
-                AnimatedBuilder(
-                  animation: gaugeAnim,
-                  builder: (context, _) {
-                    final v = (product.score * gaugeAnim.value).round();
-                    return SizedBox(
-                      width: 52 * uiScale,
-                      height: 52 * uiScale,
-                      child: CustomPaint(
-                        painter: _ScoreArcPainter(progress: gaugeAnim.value * (product.score / 100), color: gaugeColor),
-                        child: Center(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(text: '$v', style: TextStyle(fontSize: 15 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                                TextSpan(text: '\n/100', style: TextStyle(fontSize: 7 * uiScale, color: const Color(0xFF9A96A8))),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                SizedBox(width: 8 * uiScale),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Overall Score', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B))),
-                      SizedBox(height: 3 * uiScale),
-                      Row(
-                        children: [
-                          Icon(Icons.auto_awesome, size: 10 * uiScale, color: gaugeColor),
-                          SizedBox(width: 3 * uiScale),
-                          Flexible(
-                            child: Text(product.scoreLabel, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: gaugeColor)),
-                          ),
-                        ],
-                      ),
-                    ],
+                  flex: 3,
+                  child: Text(
+                    'Nutrient',
+                    style: TextStyle(
+                      fontSize: 11 * uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF6B6B7B),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Your Choice',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11 * uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF6C4EF5),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Best Alternative',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11 * uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E8A4C),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          SizedBox(height: 6 * uiScale),
+
+          // Table Rows
+          ...rows.map((row) => _buildNutrientTableRow(row)),
         ],
       ),
     );
   }
-}
 
-class _ScoreArcPainter extends CustomPainter {
-  _ScoreArcPainter({required this.progress, required this.color});
-  final double progress;
-  final Color color;
+  Widget _buildNutrientTableRow(_NutrientComparisonRowData data) {
+    final hasA = data.valA != null;
+    final hasB = data.valB != null;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 4;
-    final bg = Paint()
-      ..color = const Color(0xFFEDEAF7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), math.pi * 0.75, math.pi * 1.5, false, bg);
+    final strA = hasA ? '${data.valA!.toStringAsFixed(data.unit == 'mg' || data.unit == 'kcal' ? 0 : 1)} ${data.unit}' : 'Not available';
+    final strB = hasB ? '${data.valB!.toStringAsFixed(data.unit == 'mg' || data.unit == 'kcal' ? 0 : 1)} ${data.unit}' : 'Not available';
 
-    final fg = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), math.pi * 0.75, math.pi * 1.5 * progress, false, fg);
-  }
+    bool aIsWinner = false;
+    bool bIsWinner = false;
 
-  @override
-  bool shouldRepaint(covariant _ScoreArcPainter oldDelegate) => oldDelegate.progress != progress;
-}
-
-// ---------------------------------------------------------------------------
-// AI recommendation banner
-// ---------------------------------------------------------------------------
-class _AiRecommendationBanner extends StatelessWidget {
-  const _AiRecommendationBanner({
-    required this.uiScale,
-    required this.ambientCtrl,
-    required this.text,
-    this.onViewDetailsTap,
-  });
-
-  final double uiScale;
-  final AnimationController ambientCtrl;
-  final String text;
-  final VoidCallback? onViewDetailsTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(14 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFF1ECFB), borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnimatedBuilder(
-            animation: ambientCtrl,
-            builder: (context, child) {
-              final bob = math.sin(ambientCtrl.value * math.pi) * 4;
-              return Transform.translate(offset: Offset(0, -bob), child: child);
-            },
-            child: Container(
-              width: 46 * uiScale,
-              height: 46 * uiScale,
-              padding: EdgeInsets.all(3 * uiScale),
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: Image.asset('assets/images/robot_badge.png'),
-            ),
-          ),
-          SizedBox(width: 12 * uiScale),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
-                    SizedBox(width: 5 * uiScale),
-                    Text('AI Recommendation',
-                        style: TextStyle(fontSize: 13 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5))),
-                  ],
-                ),
-                SizedBox(height: 4 * uiScale),
-                Text(text, style: TextStyle(fontSize: 11 * uiScale, height: 1.4, color: const Color(0xFF3B3B4F))),
-                SizedBox(height: 10 * uiScale),
-                _ViewDetailsButton(uiScale: uiScale, onTap: onViewDetailsTap),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ViewDetailsButton extends StatefulWidget {
-  const _ViewDetailsButton({required this.uiScale, this.onTap});
-  final double uiScale;
-  final VoidCallback? onTap;
-
-  @override
-  State<_ViewDetailsButton> createState() => _ViewDetailsButtonState();
-}
-
-class _ViewDetailsButtonState extends State<_ViewDetailsButton> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.95),
-      onTapUp: (_) => setState(() => _scale = 1.0),
-      onTapCancel: () => setState(() => _scale = 1.0),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14 * widget.uiScale, vertical: 9 * widget.uiScale),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('View Details', style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-              SizedBox(width: 4 * widget.uiScale),
-              Icon(Icons.chevron_right, size: 15 * widget.uiScale, color: const Color(0xFF6C4EF5)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Nutrition comparison table
-// ---------------------------------------------------------------------------
-class _NutritionComparisonCard extends StatelessWidget {
-  const _NutritionComparisonCard({
-    required this.uiScale,
-    required this.nutrients,
-    required this.per100g,
-    required this.onToggle,
-  });
-
-  final double uiScale;
-  final List<NutrientRow> nutrients;
-  final bool per100g;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(14 * uiScale),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 18, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 8 * uiScale,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.bar_chart_rounded, size: 15 * uiScale, color: const Color(0xFF9B7BFA)),
-                  SizedBox(width: 6 * uiScale),
-                  Text('Nutrition Comparison',
-                      style: TextStyle(fontSize: 14 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                ],
-              ),
-              SizedBox(width: 12 * uiScale),
-              _ServingToggle(uiScale: uiScale, per100g: per100g, onToggle: onToggle),
-            ],
-          ),
-          SizedBox(height: 12 * uiScale),
-          ...List.generate(nutrients.length, (i) {
-            final n = nutrients[i];
-            return _NutrientCompareRow(uiScale: uiScale, nutrient: n, per100g: per100g, isLast: i == nutrients.length - 1);
-          }),
-          SizedBox(height: 10 * uiScale),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 14 * uiScale,
-            runSpacing: 4 * uiScale,
-            children: [
-              _Legend(uiScale: uiScale, icon: Icons.arrow_upward_rounded, color: const Color(0xFF1E8A4C), label: 'Higher is better'),
-              _Legend(uiScale: uiScale, icon: Icons.arrow_downward_rounded, color: const Color(0xFFE0525C), label: 'Lower is better'),
-              _Legend(uiScale: uiScale, icon: Icons.remove_rounded, color: const Color(0xFF9A96A8), label: 'Neutral'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServingToggle extends StatelessWidget {
-  const _ServingToggle({required this.uiScale, required this.per100g, required this.onToggle});
-  final double uiScale;
-  final bool per100g;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(3 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFF1EEF9), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleOption(uiScale: uiScale, label: 'Per 40 g (1 serving)', selected: !per100g, onTap: () => onToggle(false)),
-          _ToggleOption(uiScale: uiScale, label: 'Per 100 g', selected: per100g, onTap: () => onToggle(true)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleOption extends StatelessWidget {
-  const _ToggleOption({required this.uiScale, required this.label, required this.selected, required this.onTap});
-  final double uiScale;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 7 * uiScale),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF6C4EF5) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10 * uiScale,
-            fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : const Color(0xFF6B6B7B),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NutrientCompareRow extends StatelessWidget {
-  const _NutrientCompareRow({
-    required this.uiScale,
-    required this.nutrient,
-    required this.per100g,
-    required this.isLast,
-  });
-
-  final double uiScale;
-  final NutrientRow nutrient;
-  final bool per100g;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final left = per100g ? nutrient.leftValue100g : nutrient.leftValue40g;
-    final right = per100g ? nutrient.rightValue100g : nutrient.rightValue40g;
-
-    final leftBetter = nutrient.trend == Trend.neutral
-        ? null
-        : nutrient.trend == Trend.higherIsBetter
-            ? left >= right
-            : left <= right;
-
-    Color colorFor(bool? isBetter) {
-      if (isBetter == null) return const Color(0xFF1B1B2E);
-      return isBetter ? const Color(0xFF1E8A4C) : const Color(0xFFE0525C);
-    }
-
-    IconData trendIcon() {
-      switch (nutrient.trend) {
-        case Trend.higherIsBetter:
-          return Icons.arrow_upward_rounded;
-        case Trend.lowerIsBetter:
-          return Icons.arrow_downward_rounded;
-        case Trend.neutral:
-          return Icons.remove_rounded;
+    if (hasA && hasB) {
+      if (data.isHigherBetter) {
+        if (data.valA! > data.valB! + 0.2) aIsWinner = true;
+        if (data.valB! > data.valA! + 0.2) bIsWinner = true;
+      } else {
+        if (data.valA! + 0.2 < data.valB!) aIsWinner = true;
+        if (data.valB! + 0.2 < data.valA!) bIsWinner = true;
       }
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10 * uiScale),
-      decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1EEF9))),
+      padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 9 * uiScale),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF1EEF8)),
+        ),
       ),
       child: Row(
         children: [
+          // Label + Icon
           Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text.rich(
-                TextSpan(children: [
-                  TextSpan(text: '$left', style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: colorFor(leftBetter))),
-                  TextSpan(text: ' ${nutrient.unit}', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF9A96A8))),
-                ]),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 96 * uiScale,
-            child: Column(
+            flex: 3,
+            child: Row(
               children: [
-                Icon(nutrient.icon, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
-                SizedBox(height: 2 * uiScale),
-                Text(nutrient.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF3B3B4F))),
+                Icon(data.icon, size: 13 * uiScale, color: data.color),
+                SizedBox(width: 6 * uiScale),
+                Expanded(
+                  child: Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5 * uiScale,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2D2B3D),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
+
+          // Value A (Your Choice)
           Expanded(
-            child: Text.rich(
-              TextSpan(children: [
-                TextSpan(text: '$right', style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: colorFor(leftBetter == null ? null : !leftBetter))),
-                TextSpan(text: ' ${nutrient.unit}', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF9A96A8))),
-              ]),
+            flex: 3,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 4 * uiScale, vertical: 2 * uiScale),
+              decoration: BoxDecoration(
+                color: aIsWinner ? const Color(0xFFE8F8EE) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (aIsWinner) ...[
+                    const Icon(Icons.check_rounded, size: 11, color: Color(0xFF1E8A4C)),
+                    const SizedBox(width: 2),
+                  ],
+                  Flexible(
+                    child: Text(
+                      strA,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11 * uiScale,
+                        fontWeight: hasA ? (aIsWinner ? FontWeight.w800 : FontWeight.w600) : FontWeight.w400,
+                        color: hasA
+                            ? (aIsWinner ? const Color(0xFF1E8A4C) : const Color(0xFF1B1B2E))
+                            : const Color(0xFF9A96A8),
+                        fontStyle: hasA ? FontStyle.normal : FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          SizedBox(width: 6 * uiScale),
-          Container(
-            width: 22 * uiScale,
-            height: 22 * uiScale,
-            decoration: BoxDecoration(color: const Color(0xFFE4F5E9), shape: BoxShape.circle),
-            child: Icon(trendIcon(), size: 12 * uiScale, color: const Color(0xFF1E8A4C)),
+
+          // Value B (Best Alternative)
+          Expanded(
+            flex: 3,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 4 * uiScale, vertical: 2 * uiScale),
+              decoration: BoxDecoration(
+                color: bIsWinner ? const Color(0xFFE8F8EE) : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (bIsWinner) ...[
+                    const Icon(Icons.check_rounded, size: 11, color: Color(0xFF1E8A4C)),
+                    const SizedBox(width: 2),
+                  ],
+                  Flexible(
+                    child: Text(
+                      strB,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11 * uiScale,
+                        fontWeight: hasB ? (bIsWinner ? FontWeight.w800 : FontWeight.w600) : FontWeight.w400,
+                        color: hasB
+                            ? (bIsWinner ? const Color(0xFF1E8A4C) : const Color(0xFF1B1B2E))
+                            : const Color(0xFF9A96A8),
+                        fontStyle: hasB ? FontStyle.normal : FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1049,170 +1308,330 @@ class _NutrientCompareRow extends StatelessWidget {
   }
 }
 
-class _Legend extends StatelessWidget {
-  const _Legend({required this.uiScale, required this.icon, required this.color, required this.label});
-  final double uiScale;
+class _NutrientComparisonRowData {
+  const _NutrientComparisonRowData({
+    required this.label,
+    required this.unit,
+    required this.valA,
+    required this.valB,
+    required this.isHigherBetter,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String unit;
+  final double? valA;
+  final double? valB;
+  final bool isHigherBetter;
   final IconData icon;
   final Color color;
-  final String label;
+}
+
+// ---------------------------------------------------------------------------
+// Health Compatibility Comparison Card
+// ---------------------------------------------------------------------------
+class _HealthCompatibilityComparisonCard extends StatelessWidget {
+  const _HealthCompatibilityComparisonCard({
+    required this.uiScale,
+    required this.currentProduct,
+    required this.altProduct,
+  });
+
+  final double uiScale;
+  final FoodProduct currentProduct;
+  final FoodProduct altProduct;
+
+  String _calcRating(FoodProduct p, String factor) {
+    if (factor == 'Weight Management') {
+      final cal = p.calories;
+      if (cal == null) return 'Moderate';
+      return cal <= 220 ? 'Good' : 'Consider';
+    } else if (factor == 'Heart Health') {
+      final raw = p.sodium;
+      if (raw == null) return 'Good';
+      final mg = raw <= 10 ? raw * 1000 : raw;
+      return mg <= 400 ? 'Good' : 'Consider';
+    } else if (factor == 'Blood Sugar Control') {
+      final sug = p.sugar;
+      if (sug == null) return 'Moderate';
+      return sug <= 5 ? 'Good' : 'Consider';
+    } else if (factor == 'Digestive Health') {
+      final fib = p.fiber;
+      if (fib == null) return 'Good';
+      return fib >= 3 ? 'Excellent' : 'Good';
+    }
+    return 'Good';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12 * uiScale, color: color),
-        SizedBox(width: 4 * uiScale),
-        Text(label, style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B))),
-      ],
+    const factors = [
+      {'label': 'Weight Management', 'icon': Icons.monitor_weight_outlined},
+      {'label': 'Heart Health', 'icon': Icons.favorite_outline},
+      {'label': 'Blood Sugar Control', 'icon': Icons.water_drop_outlined},
+      {'label': 'Digestive Health', 'icon': Icons.eco_outlined},
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(16 * uiScale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8E4F2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.health_and_safety_outlined, size: 16 * uiScale, color: const Color(0xFF1E8A4C)),
+              SizedBox(width: 6 * uiScale),
+              Text(
+                'Personal Health Compatibility',
+                style: TextStyle(
+                  fontSize: 14 * uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12 * uiScale),
+
+          ...factors.map((f) {
+            final label = f['label'] as String;
+            final icon = f['icon'] as IconData;
+            final rateA = _calcRating(currentProduct, label);
+            final rateB = _calcRating(altProduct, label);
+
+            final isGoodA = rateA == 'Excellent' || rateA == 'Good';
+            final isGoodB = rateB == 'Excellent' || rateB == 'Good';
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: 8 * uiScale),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 8 * uiScale),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F5FC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                    SizedBox(width: 6 * uiScale),
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11.5 * uiScale,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                        decoration: BoxDecoration(
+                          color: (isGoodA ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E)).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          rateA,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10 * uiScale,
+                            fontWeight: FontWeight.w700,
+                            color: isGoodA ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 6 * uiScale),
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                        decoration: BoxDecoration(
+                          color: (isGoodB ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E)).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          rateB,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10 * uiScale,
+                            fontWeight: FontWeight.w700,
+                            color: isGoodB ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Winner banner
+// Ingredient Insights Comparison Card
 // ---------------------------------------------------------------------------
-class _WinnerBanner extends StatelessWidget {
-  const _WinnerBanner({required this.uiScale, required this.ambientCtrl, required this.winnerName, required this.reason});
+class _IngredientInsightsComparisonCard extends StatelessWidget {
+  const _IngredientInsightsComparisonCard({
+    required this.uiScale,
+    required this.currentIntel,
+    required this.altIntel,
+    required this.currentName,
+    required this.altName,
+  });
+
   final double uiScale;
-  final AnimationController ambientCtrl;
-  final String winnerName;
-  final String reason;
+  final IngredientIntelligenceResult currentIntel;
+  final IngredientIntelligenceResult altIntel;
+  final String currentName;
+  final String altName;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFE9F7EE), borderRadius: BorderRadius.circular(20)),
-      child: Stack(
-        children: [
-          AnimatedBuilder(
-            animation: ambientCtrl,
-            builder: (context, _) {
-              return Positioned(
-                right: 8,
-                top: 6 + math.sin(ambientCtrl.value * math.pi) * 3,
-                child: Icon(Icons.auto_awesome, size: 14 * uiScale, color: const Color(0xFF1E8A4C).withValues(alpha: 0.4)),
-              );
-            },
-          ),
-          Positioned(right: 30, bottom: 10, child: Icon(Icons.circle, size: 8 * uiScale, color: const Color(0xFF1E8A4C).withValues(alpha: 0.2))),
-          Row(
-            children: [
-              Container(
-                width: 48 * uiScale,
-                height: 48 * uiScale,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: Icon(Icons.emoji_events_rounded, color: const Color(0xFFE0862E), size: 24 * uiScale),
-              ),
-              SizedBox(width: 12 * uiScale),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Winner', style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF3B3B4F))),
-                  Text(winnerName, style: TextStyle(fontSize: 19 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1E8A4C))),
-                  Text(reason, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Key Advantage / Best For
-// ---------------------------------------------------------------------------
-class _InfoListsRow extends StatelessWidget {
-  const _InfoListsRow({required this.uiScale, required this.keyAdvantages, required this.bestFor});
-  final double uiScale;
-  final List<String> keyAdvantages;
-  final List<String> bestFor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _InfoListCard(
-            uiScale: uiScale,
-            icon: Icons.star_rounded,
-            iconColor: const Color(0xFFE0862E),
-            title: 'Key Advantage',
-            items: keyAdvantages,
-            checkColor: const Color(0xFF1E8A4C),
-          ),
-        ),
-        SizedBox(width: 12 * uiScale),
-        Expanded(
-          child: _InfoListCard(
-            uiScale: uiScale,
-            icon: Icons.person_rounded,
-            iconColor: const Color(0xFF6C4EF5),
-            title: 'Best For',
-            items: bestFor,
-            checkColor: const Color(0xFF6C4EF5),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoListCard extends StatelessWidget {
-  const _InfoListCard({
-    required this.uiScale,
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.items,
-    required this.checkColor,
-  });
-
-  final double uiScale;
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final List<String> items;
-  final Color checkColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12 * uiScale),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8E4F2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 15 * uiScale, color: iconColor),
+              Icon(Icons.science_outlined, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
               SizedBox(width: 6 * uiScale),
-              Text(title, style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+              Text(
+                'Ingredient Insights',
+                style: TextStyle(
+                  fontSize: 14 * uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
             ],
           ),
-          SizedBox(height: 8 * uiScale),
-          ...items.map(
-            (item) => Padding(
-              padding: EdgeInsets.only(bottom: 6 * uiScale),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.check_circle, size: 13 * uiScale, color: checkColor),
-                  SizedBox(width: 6 * uiScale),
-                  Expanded(
-                    child: Text(item, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
+          SizedBox(height: 12 * uiScale),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Current Product Ingredients Findings
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(10 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFEF3C7)),
                   ),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Choice',
+                        style: TextStyle(
+                          fontSize: 11 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFB45309),
+                        ),
+                      ),
+                      SizedBox(height: 6 * uiScale),
+                      if (currentIntel.sugarRelatedIngredients.isNotEmpty)
+                        Text(
+                          '• ${currentIntel.sugarRelatedIngredients.length} Sugar source(s) detected',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                        ),
+                      if (currentIntel.additives.isNotEmpty)
+                        Text(
+                          '• ${currentIntel.additives.length} Additive(s) flagged',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                        ),
+                      if (!currentIntel.hasSugarRelated && !currentIntel.hasAdditives)
+                        Text(
+                          '• Standard ingredient profile',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              SizedBox(width: 10 * uiScale),
+
+              // Alternative Product Ingredients Findings
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(10 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFDCFCE7)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Alternative',
+                        style: TextStyle(
+                          fontSize: 11 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF15803D),
+                        ),
+                      ),
+                      SizedBox(height: 6 * uiScale),
+                      if (altIntel.wholeFoodIngredients.isNotEmpty)
+                        Text(
+                          '• Rich in whole food ingredients',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                        ),
+                      if (!altIntel.hasAdditives)
+                        Text(
+                          '• Free from controversial additives',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                        )
+                      else
+                        Text(
+                          '• ${altIntel.additives.length} Additive(s)',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                        ),
+                      if (!altIntel.hasSugarRelated)
+                        Text(
+                          '• Minimal or zero hidden sugars',
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1221,130 +1640,45 @@ class _InfoListCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bottom buttons
+// Switch To Alternative Action Button
 // ---------------------------------------------------------------------------
-class _BottomButtonsRow extends StatelessWidget {
-  const _BottomButtonsRow({required this.uiScale, this.onAddBothToPantry, this.onViewDetailedAnalysis});
+class _SwitchToAlternativeButton extends StatelessWidget {
+  const _SwitchToAlternativeButton({
+    required this.uiScale,
+    required this.altName,
+    required this.onTap,
+  });
+
   final double uiScale;
-  final VoidCallback? onAddBothToPantry;
-  final VoidCallback? onViewDetailedAnalysis;
+  final String altName;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _OutlineButton(uiScale: uiScale, icon: Icons.inventory_2_outlined, label: 'Add Both to Pantry', onTap: onAddBothToPantry),
-        ),
-        SizedBox(width: 12 * uiScale),
-        Expanded(
-          child: _PrimaryButton(uiScale: uiScale, icon: Icons.bar_chart_rounded, label: 'View Detailed Analysis', onTap: onViewDetailedAnalysis),
-        ),
-      ],
-    );
-  }
-}
-
-class _OutlineButton extends StatefulWidget {
-  const _OutlineButton({required this.uiScale, required this.icon, required this.label, this.onTap});
-  final double uiScale;
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  State<_OutlineButton> createState() => _OutlineButtonState();
-}
-
-class _OutlineButtonState extends State<_OutlineButton> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.96),
-      onTapUp: (_) => setState(() => _scale = 1.0),
-      onTapCancel: () => setState(() => _scale = 1.0),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 14 * widget.uiScale, horizontal: 8 * widget.uiScale),
-          decoration: BoxDecoration(
+    return SizedBox(
+      width: double.infinity,
+      height: 50 * uiScale,
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
+        label: Text(
+          'View Full Analysis for $altName',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13.5 * uiScale,
+            fontWeight: FontWeight.w700,
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE4E0F2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 16 * widget.uiScale, color: const Color(0xFF6C4EF5)),
-              SizedBox(width: 6 * widget.uiScale),
-              Flexible(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
-                ),
-              ),
-            ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PrimaryButton extends StatefulWidget {
-  const _PrimaryButton({required this.uiScale, required this.icon, required this.label, this.onTap});
-  final double uiScale;
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  State<_PrimaryButton> createState() => _PrimaryButtonState();
-}
-
-class _PrimaryButtonState extends State<_PrimaryButton> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _scale = 0.96),
-      onTapUp: (_) => setState(() => _scale = 1.0),
-      onTapCancel: () => setState(() => _scale = 1.0),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 14 * widget.uiScale, horizontal: 8 * widget.uiScale),
-          decoration: BoxDecoration(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E8A4C),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)]),
-            boxShadow: [BoxShadow(color: const Color(0xFF6C4EF5).withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 8))],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 16 * widget.uiScale, color: Colors.white),
-              SizedBox(width: 6 * widget.uiScale),
-              Flexible(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
-              SizedBox(width: 4 * widget.uiScale),
-              Icon(Icons.arrow_forward, size: 13 * widget.uiScale, color: Colors.white),
-            ],
-          ),
+          shadowColor: const Color(0xFF1E8A4C).withValues(alpha: 0.3),
         ),
       ),
     );

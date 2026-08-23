@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../core/services/storage_service.dart';
 import '../../core/model/user_profile.dart';
 import '../../core/model/personalization_profile.dart';
 import '../../core/services/profile_service.dart';
@@ -53,6 +54,7 @@ class ProfileScreen extends StatefulWidget {
     this.onPrivacyTap,
     this.onHelpSupportTap,
     this.onAboutTap,
+
     /// Callback invoked when the user confirms logout.
     /// Should revoke the session and navigate to the login screen.
     this.onLogout,
@@ -90,6 +92,7 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onPrivacyTap;
   final VoidCallback? onHelpSupportTap;
   final VoidCallback? onAboutTap;
+
   /// Real logout callback — revokes the session on the backend and
   /// clears secure credentials before returning to the login screen.
   final Future<void> Function()? onLogout;
@@ -105,6 +108,21 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   UserProfile? _profile;
   PersonalizationProfile? _personalization;
+
+  String _monthName(int month) => const [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][month - 1];
 
   @override
   void initState() {
@@ -123,7 +141,14 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _loadCloudProfile() async {
     try {
-      final p = await ProfileService.instance.getProfile();
+      final token = await StorageService.instance.getAccessToken();
+      debugPrint(
+        '[PROFILE LOAD AUTH DEBUG] tokenExists = ${token?.isNotEmpty == true}',
+      );
+      debugPrint(
+        '[PROFILE LOAD AUTH DEBUG] tokenLength = ${token?.length ?? 0}',
+      );
+      final p = await ProfileService.instance.getProfile(forceRefresh: true);
       final pers = await PersonalizationService.instance.getPersonalization();
       if (mounted) {
         setState(() {
@@ -135,22 +160,33 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   String get _displayName => _profile?.displayName ?? widget.name;
-  String get _email => _profile?.email.isNotEmpty == true ? _profile!.email : widget.email;
+  String get _email =>
+      _profile?.email.isNotEmpty == true ? _profile!.email : widget.email;
   String get _phone => _profile?.phone.isNotEmpty == true
       ? '${_profile!.countryCode} ${_profile!.phone}'
       : widget.phone;
   String get _avatarInitial => _profile?.avatarInitial ?? widget.avatarInitial;
-  String get _badgeLabel => _profile?.badgeLabel.isNotEmpty == true ? _profile!.badgeLabel : widget.badgeLabel;
+  String get _badgeLabel => _profile?.badgeLabel.isNotEmpty == true
+      ? _profile!.badgeLabel
+      : widget.badgeLabel;
   String get _dietType => _profile?.dietType.isNotEmpty == true
       ? _profile!.dietType
-      : (_personalization?.dietType?.isNotEmpty == true ? _personalization!.dietType! : widget.dietType);
+      : (_personalization?.dietType?.isNotEmpty == true
+            ? _personalization!.dietType!
+            : widget.dietType);
   String get _height => _profile?.height.isNotEmpty == true
       ? '${_profile!.height} cm'
-      : (_personalization?.height.isNotEmpty == true ? '${_personalization!.height} cm' : widget.height);
+      : (_personalization?.height.isNotEmpty == true
+            ? '${_personalization!.height} cm'
+            : widget.height);
   String get _weight => _profile?.weight.isNotEmpty == true
       ? '${_profile!.weight} kg'
-      : (_personalization?.weight.isNotEmpty == true ? '${_personalization!.weight} kg' : widget.weight);
-  String get _goal => _personalization?.goals.isNotEmpty == true ? _personalization!.goals.first : widget.goal;
+      : (_personalization?.weight.isNotEmpty == true
+            ? '${_personalization!.weight} kg'
+            : widget.weight);
+  String get _goal => _personalization?.goals.isNotEmpty == true
+      ? _personalization!.goals.first
+      : widget.goal;
 
   @override
   void dispose() {
@@ -160,14 +196,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Animation<double> _fade(double s, double e) => CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: Interval(s, e, curve: Curves.easeOut),
-      );
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(
-        begin: const Offset(0, 0.12),
-        end: Offset.zero,
-      ).animate(
+  Animation<Offset> _slide(double s, double e) =>
+      Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _entranceCtrl,
           curve: Interval(s, e, curve: Curves.easeOutCubic),
@@ -224,9 +258,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                         phone: _phone,
                         avatarInitial: _avatarInitial,
                         badgeLabel: _badgeLabel,
-                        memberSince: widget.memberSince,
-                        healthScore: _profile?.healthScore ?? widget.healthScore,
-                        streakDays: _profile?.streakDays ?? widget.streakDays,
+                        memberSince: _profile?.createdAt == null
+                            ? '—'
+                            : '${_monthName(_profile!.createdAt!.month)} ${_profile!.createdAt!.year}',
+                        healthScore: _profile?.healthScore ?? 0,
+                        streakDays: _profile?.streakDays ?? 0,
                         onEditAvatarTap: widget.onEditAvatarTap,
                       ),
                     ),
@@ -241,7 +277,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: _CompleteProfileBanner(
                       uiScale: scale,
                       entranceCtrl: _entranceCtrl,
-                      completion: _profile?.isPersonalizationComplete == true ? 1.0 : widget.profileCompletion,
+                      completion: _profile?.isPersonalizationComplete == true
+                          ? 1.0
+                          : widget.profileCompletion,
                       onCompleteNowTap: widget.onCompleteNowTap,
                     ),
                   ),
@@ -313,9 +351,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     email: _email,
                                     phone: _profile?.phone ?? widget.phone,
                                     countryCode: _profile?.countryCode ?? '+91',
-                                    dateOfBirth: _profile?.dateOfBirth.isNotEmpty == true ? _profile!.dateOfBirth : '15 May 2005',
-                                    gender: _profile?.gender.isNotEmpty == true ? _profile!.gender : 'Female',
-                                    country: _profile?.country.isNotEmpty == true ? _profile!.country : 'India',
+                                    dateOfBirth:
+                                        _profile?.dateOfBirth.isNotEmpty == true
+                                        ? _profile!.dateOfBirth
+                                        : '15 May 2005',
+                                    gender: _profile?.gender.isNotEmpty == true
+                                        ? _profile!.gender
+                                        : 'Female',
+                                    country:
+                                        _profile?.country.isNotEmpty == true
+                                        ? _profile!.country
+                                        : 'India',
                                     city: _profile?.city ?? 'Mumbai',
                                     address: _profile?.address ?? '',
                                     occupation: _profile?.occupation ?? '',
@@ -343,7 +389,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 MaterialPageRoute(
                                   builder: (_) => HealthProfileScreen(
                                     fullName: _displayName,
-                                    gender: _profile?.gender.isNotEmpty == true ? _profile!.gender : 'Female',
+                                    gender: _profile?.gender.isNotEmpty == true
+                                        ? _profile!.gender
+                                        : 'Female',
                                     height: _height,
                                     weight: _weight,
                                   ),
@@ -373,22 +421,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                           const _TileDivider(),
 
-_ProfileMenuTile(
-  uiScale: scale,
-  icon: Icons.bookmark_rounded,
-  iconBg: const Color(0xFFEDE7FA),
-  iconColor: const Color(0xFF6C4EF5),
-  title: 'Saved Recipes',
-  subtitle: 'View your bookmarked recipes',
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SavedRecipesScreen(),
-      ),
-    );
-  },
-),
+                          _ProfileMenuTile(
+                            uiScale: scale,
+                            icon: Icons.bookmark_rounded,
+                            iconBg: const Color(0xFFEDE7FA),
+                            iconColor: const Color(0xFF6C4EF5),
+                            title: 'Saved Recipes',
+                            subtitle: 'View your bookmarked recipes',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SavedRecipesScreen(),
+                                ),
+                              );
+                            },
+                          ),
                           const _TileDivider(),
                           _ProfileMenuTile(
                             uiScale: scale,
@@ -515,18 +563,18 @@ class _GlassBackdrop extends StatelessWidget {
   }
 
   Widget _blob(double size, Color color) => ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.22),
-            ),
-          ),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.22),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -549,7 +597,10 @@ class _GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.62),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 1.2),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.75),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF6C4EF5).withValues(alpha: 0.08),
@@ -585,9 +636,15 @@ class _PressableState extends State<_Pressable> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: widget.onTap == null ? null : (_) => setState(() => _scale = widget.minScale),
-      onTapUp: widget.onTap == null ? null : (_) => setState(() => _scale = 1.0),
-      onTapCancel: widget.onTap == null ? null : () => setState(() => _scale = 1.0),
+      onTapDown: widget.onTap == null
+          ? null
+          : (_) => setState(() => _scale = widget.minScale),
+      onTapUp: widget.onTap == null
+          ? null
+          : (_) => setState(() => _scale = 1.0),
+      onTapCancel: widget.onTap == null
+          ? null
+          : () => setState(() => _scale = 1.0),
       onTap: widget.onTap,
       child: AnimatedScale(
         scale: _scale,
@@ -619,6 +676,14 @@ class _TopHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _Pressable(
+          onTap: () => Navigator.of(context).pop(),
+          child: _HeaderIconButton(
+            uiScale: uiScale,
+            icon: Icons.arrow_back_rounded,
+          ),
+        ),
+        SizedBox(width: 10 * uiScale),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,7 +699,10 @@ class _TopHeader extends StatelessWidget {
               SizedBox(height: 2 * uiScale),
               Text(
                 'Manage your account and preferences',
-                style: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(
+                  fontSize: 12 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
               ),
             ],
           ),
@@ -670,7 +738,10 @@ class _TopHeader extends StatelessWidget {
         SizedBox(width: 10 * uiScale),
         _Pressable(
           onTap: onSettingsTap,
-          child: _HeaderIconButton(uiScale: uiScale, icon: Icons.settings_outlined),
+          child: _HeaderIconButton(
+            uiScale: uiScale,
+            icon: Icons.settings_outlined,
+          ),
         ),
       ],
     );
@@ -678,7 +749,11 @@ class _TopHeader extends StatelessWidget {
 }
 
 class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({required this.uiScale, required this.icon, this.child});
+  const _HeaderIconButton({
+    required this.uiScale,
+    required this.icon,
+    this.child,
+  });
   final double uiScale;
   final IconData icon;
   final Widget? child;
@@ -701,7 +776,13 @@ class _HeaderIconButton extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Center(child: Icon(icon, size: 20 * uiScale, color: const Color(0xFF1B1B2E))),
+          Center(
+            child: Icon(
+              icon,
+              size: 20 * uiScale,
+              color: const Color(0xFF1B1B2E),
+            ),
+          ),
           if (child != null) child!,
         ],
       ),
@@ -753,7 +834,11 @@ class _ProfileHeaderSection extends StatelessWidget {
             opacity: 0.35,
             child: Transform.rotate(
               angle: 0.35,
-              child: Icon(Icons.spa_rounded, size: 78 * uiScale, color: const Color(0xFF6C4EF5)),
+              child: Icon(
+                Icons.spa_rounded,
+                size: 78 * uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
             ),
           ),
         ),
@@ -764,7 +849,11 @@ class _ProfileHeaderSection extends StatelessWidget {
             opacity: 0.22,
             child: Transform.rotate(
               angle: -0.2,
-              child: Icon(Icons.eco_rounded, size: 34 * uiScale, color: const Color(0xFF6C4EF5)),
+              child: Icon(
+                Icons.eco_rounded,
+                size: 34 * uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
             ),
           ),
         ),
@@ -956,7 +1045,10 @@ class _Avatar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFF3F0FB), width: 2.5),
+                  border: Border.all(
+                    color: const Color(0xFFF3F0FB),
+                    width: 2.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.1),
@@ -965,7 +1057,11 @@ class _Avatar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(Icons.edit_rounded, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
+                child: Icon(
+                  Icons.edit_rounded,
+                  size: 13 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
               ),
             ),
           ),
@@ -983,7 +1079,10 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 9 * uiScale, vertical: 5 * uiScale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 9 * uiScale,
+        vertical: 5 * uiScale,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFE3F5EA),
         borderRadius: BorderRadius.circular(14),
@@ -991,7 +1090,11 @@ class _Badge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.eco_rounded, size: 12 * uiScale, color: const Color(0xFF1E8A4C)),
+          Icon(
+            Icons.eco_rounded,
+            size: 12 * uiScale,
+            color: const Color(0xFF1E8A4C),
+          ),
           SizedBox(width: 4 * uiScale),
           Text(
             label,
@@ -1008,7 +1111,11 @@ class _Badge extends StatelessWidget {
 }
 
 class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.uiScale, required this.icon, required this.text});
+  const _ContactRow({
+    required this.uiScale,
+    required this.icon,
+    required this.text,
+  });
   final double uiScale;
   final IconData icon;
   final String text;
@@ -1023,7 +1130,10 @@ class _ContactRow extends StatelessWidget {
           child: Text(
             text,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFF6B6B7B)),
+            style: TextStyle(
+              fontSize: 12 * uiScale,
+              color: const Color(0xFF6B6B7B),
+            ),
           ),
         ),
       ],
@@ -1054,7 +1164,10 @@ class _StatMiniCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 12 * uiScale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 10 * uiScale,
+        vertical: 12 * uiScale,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(14),
@@ -1067,7 +1180,10 @@ class _StatMiniCard extends StatelessWidget {
           Container(
             width: 26 * uiScale,
             height: 26 * uiScale,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Icon(icon, size: 14 * uiScale, color: iconColor),
           ),
           SizedBox(height: 8 * uiScale),
@@ -1075,7 +1191,10 @@ class _StatMiniCard extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B)),
+            style: TextStyle(
+              fontSize: 9.5 * uiScale,
+              color: const Color(0xFF6B6B7B),
+            ),
           ),
           SizedBox(height: 2 * uiScale),
           valueBuilder != null
@@ -1137,8 +1256,11 @@ class _CompleteProfileBanner extends StatelessWidget {
                       color: Color(0xFFCDEEDA),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.track_changes_rounded,
-                        size: 21 * uiScale, color: const Color(0xFF1E8A4C)),
+                    child: Icon(
+                      Icons.track_changes_rounded,
+                      size: 21 * uiScale,
+                      color: const Color(0xFF1E8A4C),
+                    ),
                   ),
                   SizedBox(width: 12 * uiScale),
                   Expanded(
@@ -1156,7 +1278,10 @@ class _CompleteProfileBanner extends StatelessWidget {
                         SizedBox(height: 2 * uiScale),
                         Text(
                           'Help us give you better recommendations',
-                          style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF4E7A5F)),
+                          style: TextStyle(
+                            fontSize: 11 * uiScale,
+                            color: const Color(0xFF4E7A5F),
+                          ),
                         ),
                       ],
                     ),
@@ -1199,18 +1324,22 @@ class _CompleteProfileBanner extends StatelessWidget {
                           tween: Tween(begin: 0, end: completion),
                           duration: const Duration(milliseconds: 1300),
                           curve: Curves.easeOutCubic,
-                          builder: (context, val, child) => FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: val,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF1E8A4C), Color(0xFF3FBE7E)],
+                          builder: (context, val, child) =>
+                              FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: val,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF1E8A4C),
+                                        Color(0xFF3FBE7E),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
                         ),
                       ),
                     ),
@@ -1277,7 +1406,11 @@ class _SectionHeaderRow extends StatelessWidget {
                     color: const Color(0xFF6C4EF5),
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
               ],
             ),
           ),
@@ -1340,12 +1473,19 @@ class _HealthSummaryRow extends StatelessWidget {
             customIcon: Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(Icons.person_rounded, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+                Icon(
+                  Icons.person_rounded,
+                  size: 16 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
                 Positioned(
                   right: -2 * uiScale,
                   bottom: -2 * uiScale,
-                  child: Icon(Icons.check_circle_rounded,
-                      size: 10 * uiScale, color: const Color(0xFF1E8A4C)),
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    size: 10 * uiScale,
+                    color: const Color(0xFF1E8A4C),
+                  ),
                 ),
               ],
             ),
@@ -1429,9 +1569,13 @@ class _HealthSummaryItem extends StatelessWidget {
           Container(
             width: 38 * uiScale,
             height: 38 * uiScale,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
             alignment: Alignment.center,
-            child: customIcon ?? Icon(icon, size: 18 * uiScale, color: iconColor),
+            child:
+                customIcon ?? Icon(icon, size: 18 * uiScale, color: iconColor),
           ),
           SizedBox(height: 8 * uiScale),
           Text(
@@ -1458,7 +1602,11 @@ class _HealthSummaryItem extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, size: 13 * uiScale, color: valueColor),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 13 * uiScale,
+                color: valueColor,
+              ),
             ],
           ),
         ],
@@ -1508,7 +1656,10 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         color: _pressed ? const Color(0xFFF1ECFB) : Colors.transparent,
-        padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 12 * uiScale),
+        padding: EdgeInsets.symmetric(
+          horizontal: 10 * uiScale,
+          vertical: 12 * uiScale,
+        ),
         child: Row(
           children: [
             Container(
@@ -1518,7 +1669,11 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
                 color: widget.iconBg,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(widget.icon, size: 19 * uiScale, color: widget.iconColor),
+              child: Icon(
+                widget.icon,
+                size: 19 * uiScale,
+                color: widget.iconColor,
+              ),
             ),
             SizedBox(width: 12 * uiScale),
             Expanded(
@@ -1536,7 +1691,10 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
                   SizedBox(height: 2 * uiScale),
                   Text(
                     widget.subtitle,
-                    style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B)),
+                    style: TextStyle(
+                      fontSize: 11 * uiScale,
+                      color: const Color(0xFF6B6B7B),
+                    ),
                   ),
                 ],
               ),
@@ -1544,8 +1702,11 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
             AnimatedSlide(
               offset: _pressed ? const Offset(0.06, 0) : Offset.zero,
               duration: const Duration(milliseconds: 140),
-              child: Icon(Icons.chevron_right_rounded,
-                  size: 18 * uiScale, color: const Color(0xFFB0ACC2)),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18 * uiScale,
+                color: const Color(0xFFB0ACC2),
+              ),
             ),
           ],
         ),
@@ -1641,8 +1802,7 @@ class _LogoutTileState extends State<_LogoutTile> {
                       padding: EdgeInsets.all(10 * s),
                       child: const CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation(Color(0xFFE0525C)),
+                        valueColor: AlwaysStoppedAnimation(Color(0xFFE0525C)),
                       ),
                     )
                   : Icon(

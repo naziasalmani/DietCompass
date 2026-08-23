@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../scan/camera_scan_screen.dart';
+import '../scan/result_screen.dart';
+import '../scan/scan_history_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/compare_screen.dart';
@@ -12,6 +14,9 @@ import '../dashboard/DashboardScreen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
 import '../ai_coach/ai_coach_screen.dart';
 import '../ai_coach/voice_assistant_modal.dart';
+import '../../core/model/food_product.dart';
+import '../../core/model/scan_history_item.dart';
+import '../../core/services/scan_history_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -28,26 +33,7 @@ class HomeScreen extends StatefulWidget {
       MacroStat(label: 'Water', value: 6, target: 8, unit: 'glasses', icon: Icons.water_drop, color: Color(0xFF3B82F6)),
       MacroStat(label: 'Sodium', value: 1180, target: 2000, unit: 'mg', icon: Icons.grain, color: Color(0xFFE0862E)),
     ],
-    this.recentScans = const [
-      RecentScan(
-        name: 'Maggi 2-Minute Noodles',
-        time: 'Today, 9:30 AM',
-        score: 89,
-        asset: 'assets/images/product_maggi.png',
-      ),
-      RecentScan(
-        name: 'Amul Taaza Toned Milk',
-        time: 'Today, 8:45 AM',
-        score: 92,
-        asset: 'assets/images/product_amul.png',
-      ),
-      RecentScan(
-        name: 'Quaker Oats 500 g',
-        time: 'Yesterday',
-        score: 98,
-        asset: 'assets/images/product_quaker.png',
-      ),
-    ],
+    this.recentScans = const [],
     this.onScanTap,
     this.onNotificationTap,
     this.onSearchSubmitted,
@@ -111,18 +97,57 @@ class RecentScan {
     required this.time,
     required this.score,
     required this.asset,
+    this.barcode = '',
+    this.brand = '',
+    this.product,
   });
 
   final String name;
   final String time;
   final int score;
   final String asset;
+  final String barcode;
+  final String brand;
+  final FoodProduct? product;
+
+  factory RecentScan.fromHistoryItem(ScanHistoryItem item) {
+    return RecentScan(
+      name: item.productName,
+      time: item.formattedTime,
+      score: item.score,
+      asset: item.imageUrl.isNotEmpty ? item.imageUrl : '',
+      barcode: item.barcode,
+      brand: item.brand,
+      product: item.toFoodProduct(),
+    );
+  }
+
+  FoodProduct toFoodProduct() {
+    if (product != null) return product!;
+    return FoodProduct(
+      barcode: barcode,
+      name: name,
+      brand: brand,
+      imageUrl: asset.startsWith('http') ? asset : '',
+      ingredients: '',
+      allergens: const [],
+      calories: null,
+      protein: null,
+      carbohydrates: null,
+      fat: null,
+      fiber: null,
+      sugar: null,
+      sodium: null,
+    );
+  }
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
   late int _navIndex;
+  List<RecentScan> _liveRecentScans = [];
+  bool _isLoadingScans = false;
 
    Future<void> _pickCompareImages() async {
 
@@ -143,40 +168,55 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
+    final prod1 = FoodProduct(
+      barcode: '',
+      name: "Product 1",
+      brand: "Selected Image",
+      imageUrl: '',
+      ingredients: '',
+      allergens: const [],
+      calories: null,
+      protein: null,
+      carbohydrates: null,
+      fat: null,
+      fiber: null,
+      sugar: null,
+      sodium: null,
+    );
+    final prod2 = FoodProduct(
+      barcode: '',
+      name: "Product 2",
+      brand: "Selected Image",
+      imageUrl: '',
+      ingredients: '',
+      allergens: const [],
+      calories: null,
+      protein: null,
+      carbohydrates: null,
+      fat: null,
+      fiber: null,
+      sugar: null,
+      sodium: null,
+    );
+
     Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => CompareScreen(
-      onBack: () {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(userName: widget.userName),
-          ),
-        );
-      },
-      productA: ComparisonProduct(
-        image: FileImage(File(images[0].path)),
-        name: "Product 1",
-        brand: "Scanned Product",
-        tag: ProductTag.healthyChoice,
-        servingInfo: "-",
-        scannedAt: "Just now",
-        score: 0,
-        scoreLabel: "Analyzing...",
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompareScreen(
+          currentProduct: prod1,
+          currentProductImage: FileImage(File(images[0].path)),
+          alternativeProduct: prod2,
+          alternativeProductImage: FileImage(File(images[1].path)),
+          onBack: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => HomeScreen(userName: widget.userName),
+              ),
+            );
+          },
+        ),
       ),
-      productB: ComparisonProduct(
-        image: FileImage(File(images[1].path)),
-        name: "Product 2",
-        brand: "Scanned Product",
-        tag: ProductTag.considerLess,
-        servingInfo: "-",
-        scannedAt: "Just now",
-        score: 0,
-        scoreLabel: "Analyzing...",
-      ),
-    ),
-  ),
-);
+    );
   }
 
 
@@ -192,6 +232,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     )..repeat(reverse: true);
+    if (widget.recentScans.isNotEmpty) {
+      _liveRecentScans = widget.recentScans;
+    } else if (ScanHistoryService.instance.currentHistory.isNotEmpty) {
+      _liveRecentScans = ScanHistoryService.instance.currentHistory
+          .take(3)
+          .map((i) => RecentScan.fromHistoryItem(i))
+          .toList();
+    }
+    ScanHistoryService.instance.addListener(_onScanHistoryChanged);
+    _loadRecentScans();
+  }
+
+  void _onScanHistoryChanged() {
+    if (widget.recentScans.isNotEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _liveRecentScans = ScanHistoryService.instance.currentHistory
+          .take(3)
+          .map((i) => RecentScan.fromHistoryItem(i))
+          .toList();
+      _isLoadingScans = false;
+    });
+  }
+
+  Future<void> _loadRecentScans() async {
+    if (widget.recentScans.isNotEmpty) {
+      if (mounted) {
+        setState(() => _liveRecentScans = widget.recentScans);
+      }
+      return;
+    }
+
+    setState(() => _isLoadingScans = _liveRecentScans.isEmpty);
+    try {
+      final items = await ScanHistoryService.instance.getScanHistory(limit: 3);
+      if (mounted) {
+        setState(() {
+          _liveRecentScans =
+              items.map((i) => RecentScan.fromHistoryItem(i)).toList();
+          _isLoadingScans = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingScans = false);
+    }
   }
 
   void _openVoiceAssistant() {
@@ -201,9 +286,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-
   @override
   void dispose() {
+    ScanHistoryService.instance.removeListener(_onScanHistoryChanged);
     _entranceCtrl.dispose();
     _ambientCtrl.dispose();
     super.dispose();
@@ -376,9 +461,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     position: _slide(0.4, 0.8),
                     child: _RecentScansSection(
                       uiScale: scale,
-                      scans: widget.recentScans,
-                      onViewAll: widget.onViewAllScans,
-                      onProductTap: widget.onProductTap,
+                      scans: _liveRecentScans.isNotEmpty
+                          ? _liveRecentScans
+                          : widget.recentScans,
+                      onViewAll: widget.onViewAllScans ??
+                          () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ScanHistoryScreen(),
+                                ),
+                              ).then((_) => _loadRecentScans()),
+                      onProductTap: (index) {
+                        if (widget.onProductTap != null) {
+                          widget.onProductTap!(index);
+                          return;
+                        }
+                        final list = _liveRecentScans.isNotEmpty
+                            ? _liveRecentScans
+                            : widget.recentScans;
+                        if (list.length > index) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ResultScreen(
+                                product: list[index].toFoodProduct(),
+                              ),
+                            ),
+                          ).then((_) => _loadRecentScans());
+                        }
+                      },
+                      onScanProductTap: widget.onScanTap ??
+                          () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CameraScanScreen(
+                                    source: CameraSource.home,
+                                  ),
+                                ),
+                              ).then((_) => _loadRecentScans()),
                     ),
                   ),
                 ),
@@ -391,7 +511,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: _CoachPromptBanner(
                       uiScale: scale,
                       ambientCtrl: _ambientCtrl,
-                      onChatNow: widget.onChatNowTap,
+                      onChatNow: widget.onChatNowTap ?? () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AiCoachScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1338,33 +1465,36 @@ class _NutritionScoreCard extends StatelessWidget {
                               ),
                             ),
                             SizedBox(height: 2 * uiScale),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8 * uiScale,
-                                vertical: 2 * uiScale,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE4F5E9),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.auto_awesome,
-                                    size: 10 * uiScale,
-                                    color: const Color(0xFF1E8A4C),
-                                  ),
-                                  SizedBox(width: 3 * uiScale),
-                                  Text(
-                                    'Excellent',
-                                    style: TextStyle(
-                                      fontSize: 9.5 * uiScale,
-                                      fontWeight: FontWeight.w700,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8 * uiScale,
+                                  vertical: 2 * uiScale,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE4F5E9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_awesome,
+                                      size: 10 * uiScale,
                                       color: const Color(0xFF1E8A4C),
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 3 * uiScale),
+                                    Text(
+                                      'Excellent',
+                                      style: TextStyle(
+                                        fontSize: 9.5 * uiScale,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1E8A4C),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -1529,12 +1659,14 @@ class _RecentScansSection extends StatelessWidget {
     required this.scans,
     this.onViewAll,
     this.onProductTap,
+    this.onScanProductTap,
   });
 
   final double uiScale;
   final List<RecentScan> scans;
   final VoidCallback? onViewAll;
   final ValueChanged<int>? onProductTap;
+  final VoidCallback? onScanProductTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1581,22 +1713,104 @@ class _RecentScansSection extends StatelessWidget {
           ],
         ),
         SizedBox(height: 12 * uiScale),
-        Row(
-          children: List.generate(scans.length, (i) {
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: i == scans.length - 1 ? 0 : 10 * uiScale,
+        if (scans.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: 16 * uiScale,
+              vertical: 16 * uiScale,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-                child: _ProductCard(
-                  uiScale: uiScale,
-                  scan: scans[i],
-                  onTap: () => onProductTap?.call(i),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E8A4C).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: const Color(0xFF1E8A4C),
+                    size: 20 * uiScale,
+                  ),
                 ),
-              ),
-            );
-          }),
-        ),
+                SizedBox(width: 12 * uiScale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No scans yet',
+                        style: TextStyle(
+                          fontSize: 13.5 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                      ),
+                      SizedBox(height: 2 * uiScale),
+                      Text(
+                        'Scan a product to see your scan history here.',
+                        style: TextStyle(
+                          fontSize: 11.5 * uiScale,
+                          color: const Color(0xFF8C8CA1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: onScanProductTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E8A4C),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14 * uiScale,
+                      vertical: 8 * uiScale,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'Scan',
+                    style: TextStyle(
+                      fontSize: 12.5 * uiScale,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Row(
+            children: List.generate(scans.length, (i) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: i == scans.length - 1 ? 0 : 10 * uiScale,
+                  ),
+                  child: _ProductCard(
+                    uiScale: uiScale,
+                    scan: scans[i],
+                    onTap: () => onProductTap?.call(i),
+                  ),
+                ),
+              );
+            }),
+          ),
       ],
     );
   }
@@ -1661,7 +1875,27 @@ class _ProductCardState extends State<_ProductCard> {
                   child: Container(
                     color: Colors.white,
                     padding: EdgeInsets.all(6 * widget.uiScale),
-                    child: Image.asset(widget.scan.asset, fit: BoxFit.contain),
+                    child: widget.scan.asset.startsWith('http')
+                        ? Image.network(
+                            widget.scan.asset,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                size: 32 * widget.uiScale,
+                                color: const Color(0xFFB0B0C4),
+                              ),
+                            ),
+                          )
+                        : (widget.scan.asset.isNotEmpty && widget.scan.asset.startsWith('assets/')
+                            ? Image.asset(widget.scan.asset, fit: BoxFit.contain)
+                            : Center(
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 32 * widget.uiScale,
+                                  color: const Color(0xFFB0B0C4),
+                                ),
+                              )),
                   ),
                 ),
               ),

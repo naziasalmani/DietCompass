@@ -9,6 +9,10 @@ import '../home/home_screen.dart';
 import '../ai/ai_recommendation_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../dashboard/DashboardScreen.dart';
+import 'result_screen.dart';
+import 'scan_history_screen.dart';
+import '../../core/model/scan_history_item.dart';
+import '../../core/services/scan_history_service.dart';
 import '../../core/services/product_image_analyzer.dart';
 
 /// DietCompass — Scan Screen
@@ -84,12 +88,8 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   late final AnimationController _breatheCtrl;
   late final AnimationController _ambientCtrl;
   late int _navIndex;
-
-  static const _recentScans = [
-    (name: 'Maggi 2-Minute Noodles', time: 'Today, 9:30 AM', score: 89, asset: 'assets/images/product_maggi.png'),
-    (name: 'Amul Taaza Toned Milk', time: 'Today, 8:45 AM', score: 92, asset: 'assets/images/product_amul.png'),
-    (name: 'Quaker Oats 500 g', time: 'Yesterday', score: 98, asset: 'assets/images/product_quaker.png'),
-  ];
+  List<ScanHistoryItem> _liveScans = [];
+  bool _isLoadingScans = false;
 
   @override
   void initState() {
@@ -107,10 +107,39 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
+    if (ScanHistoryService.instance.currentHistory.isNotEmpty) {
+      _liveScans = ScanHistoryService.instance.currentHistory.take(5).toList();
+    }
+    ScanHistoryService.instance.addListener(_onScanHistoryChanged);
+    _loadScans();
+  }
+
+  void _onScanHistoryChanged() {
+    if (!mounted) return;
+    setState(() {
+      _liveScans = ScanHistoryService.instance.currentHistory.take(5).toList();
+      _isLoadingScans = false;
+    });
+  }
+
+  Future<void> _loadScans() async {
+    setState(() => _isLoadingScans = _liveScans.isEmpty);
+    try {
+      final items = await ScanHistoryService.instance.getScanHistory(limit: 5);
+      if (mounted) {
+        setState(() {
+          _liveScans = items;
+          _isLoadingScans = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingScans = false);
+    }
   }
 
   @override
   void dispose() {
+    ScanHistoryService.instance.removeListener(_onScanHistoryChanged);
     _entranceCtrl.dispose();
     _breatheCtrl.dispose();
     _ambientCtrl.dispose();
@@ -276,7 +305,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   Navigator.pushReplacement(
     context,
     MaterialPageRoute(
-      builder: (_) => const ManualEntryScreen(),
+      builder: (_) => ManualEntryScreen(),
     ),
   );
 },
@@ -291,9 +320,38 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                     position: _slide(0.38, 0.74),
                     child: _RecentScansSection(
                       uiScale: scale,
-                      scans: _recentScans,
-                      onViewAll: widget.onViewAllScans,
-                      onProductTap: widget.onProductTap,
+                      scans: _liveScans,
+                      onViewAll: widget.onViewAllScans ??
+                          () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ScanHistoryScreen(),
+                                ),
+                              ).then((_) => _loadScans()),
+                      onProductTap: (index) {
+                        if (widget.onProductTap != null) {
+                          widget.onProductTap!(index);
+                          return;
+                        }
+                        if (_liveScans.length > index) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ResultScreen(
+                                product: _liveScans[index].toFoodProduct(),
+                              ),
+                            ),
+                          ).then((_) => _loadScans());
+                        }
+                      },
+                      onScanProductTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CameraScanScreen(
+                            source: CameraSource.scan,
+                          ),
+                        ),
+                      ).then((_) => _loadScans()),
                     ),
                   ),
                 ),
@@ -323,7 +381,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
 case 0:
   Navigator.pushReplacement(
     context,
-    MaterialPageRoute(builder: (_) => const HomeScreen()),
+    MaterialPageRoute(builder: (_) => HomeScreen(userName: widget.userName)),
   );
   break;
 
@@ -824,12 +882,14 @@ class _RecentScansSection extends StatelessWidget {
     required this.scans,
     this.onViewAll,
     this.onProductTap,
+    this.onScanProductTap,
   });
 
   final double uiScale;
-  final List<({String name, String time, int score, String asset})> scans;
+  final List<ScanHistoryItem> scans;
   final VoidCallback? onViewAll;
   final ValueChanged<int>? onProductTap;
+  final VoidCallback? onScanProductTap;
 
   @override
   Widget build(BuildContext context) {
@@ -876,29 +936,108 @@ class _RecentScansSection extends StatelessWidget {
           ],
         ),
         SizedBox(height: 12 * uiScale),
-        SizedBox(
-          height: 178 * uiScale,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: scans.length,
-            separatorBuilder: (_, __) => SizedBox(width: 10 * uiScale),
-            itemBuilder: (context, i) {
-              final s = scans[i];
-              return SizedBox(
-                width: 118 * uiScale,
-                child: _ProductCard(
-                  uiScale: uiScale,
-                  name: s.name,
-                  time: s.time,
-                  score: s.score,
-                  asset: s.asset,
-                  onTap: () => onProductTap?.call(i),
+        if (scans.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16 * uiScale),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              );
-            },
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E8A4C).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: const Color(0xFF1E8A4C),
+                    size: 20 * uiScale,
+                  ),
+                ),
+                SizedBox(width: 12 * uiScale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No scans yet',
+                        style: TextStyle(
+                          fontSize: 13.5 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                      ),
+                      SizedBox(height: 2 * uiScale),
+                      Text(
+                        'Scan a product to see your history.',
+                        style: TextStyle(
+                          fontSize: 11.5 * uiScale,
+                          color: const Color(0xFF8C8CA1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: onScanProductTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E8A4C),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14 * uiScale,
+                      vertical: 8 * uiScale,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'Scan',
+                    style: TextStyle(
+                      fontSize: 12.5 * uiScale,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 178 * uiScale,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: scans.length,
+              separatorBuilder: (_, __) => SizedBox(width: 10 * uiScale),
+              itemBuilder: (context, i) {
+                final s = scans[i];
+                return SizedBox(
+                  width: 118 * uiScale,
+                  child: _ProductCard(
+                    uiScale: uiScale,
+                    name: s.productName,
+                    time: s.formattedTime,
+                    score: s.score,
+                    imageUrl: s.imageUrl,
+                    onTap: () => onProductTap?.call(i),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -910,7 +1049,7 @@ class _ProductCard extends StatefulWidget {
     required this.name,
     required this.time,
     required this.score,
-    required this.asset,
+    required this.imageUrl,
     this.onTap,
   });
 
@@ -918,7 +1057,7 @@ class _ProductCard extends StatefulWidget {
   final String name;
   final String time;
   final int score;
-  final String asset;
+  final String imageUrl;
   final VoidCallback? onTap;
 
   @override
@@ -950,7 +1089,7 @@ class _ProductCardState extends State<_ProductCard> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -968,7 +1107,27 @@ class _ProductCardState extends State<_ProductCard> {
                   child: Container(
                     color: Colors.white,
                     padding: EdgeInsets.all(6 * widget.uiScale),
-                    child: Image.asset(widget.asset, fit: BoxFit.contain),
+                    child: widget.imageUrl.startsWith('http')
+                        ? Image.network(
+                            widget.imageUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                size: 28 * widget.uiScale,
+                                color: const Color(0xFFB0B0C4),
+                              ),
+                            ),
+                          )
+                        : (widget.imageUrl.isNotEmpty && widget.imageUrl.startsWith('assets/')
+                            ? Image.asset(widget.imageUrl, fit: BoxFit.contain)
+                            : Center(
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 28 * widget.uiScale,
+                                  color: const Color(0xFFB0B0C4),
+                                ),
+                              )),
                   ),
                 ),
               ),

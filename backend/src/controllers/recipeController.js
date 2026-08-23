@@ -1,43 +1,54 @@
 const User = require('../models/User');
 const Personalization = require('../models/Personalization');
-const spoonacularService = require('../services/spoonacularService');
+const recipePipelineService = require('../services/recipePipelineService');
 
 /**
- * @desc    Generate personalized recipes based on pantry ingredients
+ * @desc    Generate personalized recipes based on pantry ingredients & source product
  * @route   POST /api/recipes/generate
  * @access  Private (Protected by JWT)
  */
 const generateRecipes = async (req, res, next) => {
   try {
-    const { ingredients, pantryItems, mealType, maxTime, craving, number } = req.body;
+    const { mode, ingredients, pantryItems, mealType, maxTime, craving, sourceProduct, primaryIngredient, number } = req.body;
 
     const [userProfile, personalization] = await Promise.all([
       User.findById(req.user._id).select('-password'),
       Personalization.findOne({ userId: req.user._id }),
     ]);
 
-    const result = await spoonacularService.generatePantryRecipes({
+    const result = await recipePipelineService.generatePersonalizedRecipes({
+      mode: mode || (sourceProduct ? 'product' : 'pantry'),
       ingredients: Array.isArray(ingredients) ? ingredients : [],
       pantryItems: Array.isArray(pantryItems) ? pantryItems : [],
       mealType: mealType || '',
       maxTime: typeof maxTime === 'number' ? maxTime : null,
-      craving: craving || '',
+      craving: craving || primaryIngredient || '',
+      sourceProduct: sourceProduct || null,
       userProfile,
       personalization,
       number: typeof number === 'number' ? number : 6,
     });
 
+
+    console.log('\n[BACKEND RECIPE RESPONSE]');
+    console.log('status = 200');
+    console.log(`responseKeys = [${Object.keys(result || {}).join(', ')}]`);
+    console.log(`recipeCount = ${(result?.recipes || []).length}`);
+    console.log(`source = ${result?.recipeSource || 'none'}`);
+    console.log(`finalResponseShape = { success: true, data: { recipes: [${(result?.recipes || []).length}], totalFound: ${result?.totalFound ?? 0}, recipeSource: "${result?.recipeSource}" } }`);
+
     res.status(200).json({
       success: true,
       data: result,
     });
+
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * @desc    Get detailed recipe information by ID
+ * @desc    Get detailed recipe information by ID or URI
  * @route   GET /api/recipes/:id
  * @access  Private (Protected by JWT)
  */
@@ -57,7 +68,14 @@ const getRecipeDetails = async (req, res, next) => {
       Personalization.findOne({ userId: req.user._id }),
     ]);
 
-    const recipe = await spoonacularService.getRecipeDetails(id, userProfile, personalization);
+    const recipe = await recipePipelineService.getRecipeDetails(id, userProfile, personalization);
+
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recipe not found.',
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -72,3 +90,4 @@ module.exports = {
   generateRecipes,
   getRecipeDetails,
 };
+

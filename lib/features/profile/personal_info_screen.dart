@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../core/services/profile_service.dart';
+import '../../core/services/personalization_service.dart';
+import '../../core/services/recommendation_service.dart';
 
 /// DietCompass — Personal Information Screen
 /// -----------------------------------------------------------------------
@@ -78,7 +80,8 @@ class PersonalInfoScreen extends StatefulWidget {
   State<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
 }
 
-class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProviderStateMixin {
+class _PersonalInfoScreenState extends State<PersonalInfoScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late final TextEditingController _fullNameCtrl;
   late final TextEditingController _usernameCtrl;
@@ -88,20 +91,29 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
 
   Country _selectedCountry = Country.parse('IN');
 
-late String _countryCode;
-late String _countryFlag;
-late String _countryName;
+  late String _countryCode;
+  late String _countryFlag;
+  late String _countryName;
 
-late String _selectedState;
-late String _selectedCity;
+  late String _selectedState;
+  late String _selectedCity;
+  late String _dateOfBirth;
+  late String _gender;
+  late String _occupation;
+  late String _dietType;
+  late String _height;
+  late String _weight;
 
-List<String> _states = [];
-List<String> _cities = [];
+  List<String> _states = [];
+  List<String> _cities = [];
 
   @override
   void initState() {
     super.initState();
-    _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))..forward();
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..forward();
     _fullNameCtrl = TextEditingController(text: widget.fullName);
     _usernameCtrl = TextEditingController(text: widget.username);
     _emailCtrl = TextEditingController(text: widget.email);
@@ -111,7 +123,13 @@ List<String> _cities = [];
     _countryFlag = widget.countryFlag;
     _countryName = widget.country;
     _selectedState = "";
-_selectedCity = widget.city;
+    _selectedCity = widget.city;
+    _dateOfBirth = widget.dateOfBirth;
+    _gender = widget.gender;
+    _occupation = widget.occupation;
+    _dietType = widget.dietType;
+    _height = widget.height;
+    _weight = widget.weight;
   }
 
   @override
@@ -126,35 +144,153 @@ _selectedCity = widget.city;
   }
 
   void _selectCountry() {
-  showCountryPicker(
-    context: context,
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      favorite: const ['IN', 'US', 'GB', 'AE', 'CA'],
+      onSelect: (Country country) {
+        setState(() {
+          _selectedCountry = country;
+          _countryCode = "+${country.phoneCode}";
+          _countryFlag = country.flagEmoji;
+          _countryName = country.name;
+        });
+      },
+    );
+  }
 
-    showPhoneCode: true,
+  Future<void> _selectDateOfBirth() async {
+    final initialDate =
+        DateTime.tryParse(_dateOfBirth) ?? DateTime(2005, 5, 15);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      helpText: 'Select date of birth',
+    );
+    if (picked == null || !mounted) return;
+    setState(
+      () => _dateOfBirth =
+          '${picked.day} ${_monthName(picked.month)} ${picked.year}',
+    );
+  }
 
-    favorite: const [
-      'IN',
-      'US',
-      'GB',
-      'AE',
-      'CA',
-    ],
+  String _monthName(int month) => const [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][month - 1];
 
-    onSelect: (Country country) {
-      setState(() {
-        _selectedCountry = country;
-        _countryCode = "+${country.phoneCode}";
-        _countryFlag = country.flagEmoji;
-        _countryName = country.name;
-      });
-    },
+  Future<void> _selectOption({
+    required String field,
+    required String currentValue,
+    required List<String> options,
+    required ValueChanged<String> onSelected,
+  }) async {
+    if (widget.onFieldTap != null) {
+      widget.onFieldTap!(field);
+      return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+              child: Text(
+                'Select ${field == 'dietType' ? 'diet type' : field}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ...options.map(
+              (option) => ListTile(
+                title: Text(option),
+                trailing: option == currentValue
+                    ? const Icon(Icons.check, color: Color(0xFF6C4EF5))
+                    : null,
+                onTap: () => Navigator.pop(context, option),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == 'Custom') {
+      final customValue = await _enterCustomMeasurement(
+        field == 'height' ? 'Height' : 'Weight',
+        field == 'height' ? 'cm' : 'kg',
+      );
+      if (customValue != null && mounted) {
+        setState(() => onSelected(customValue));
+      }
+    } else if (selected != null && mounted) {
+      setState(() => onSelected(selected));
+    }
+  }
+
+  Future<String?> _enterCustomMeasurement(String label, String unit) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Enter $label'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: label, suffixText: unit),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Use value'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.isEmpty) return null;
+    return '$value $unit';
+  }
+
+  String _withoutUnit(String value, String unit) => value.trim().replaceFirst(
+    RegExp(r'\s*' + RegExp.escape(unit) + r'\s*$', caseSensitive: false),
+    '',
   );
-}
 
-  Animation<double> _fade(double s, double e) =>
-      CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOut));
+  Animation<double> _fade(double s, double e) => CurvedAnimation(
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-      .animate(CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOutCubic)));
+  Animation<Offset> _slide(double s, double e) =>
+      Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _entranceCtrl,
+          curve: Interval(s, e, curve: Curves.easeOutCubic),
+        ),
+      );
 
   void _handleSave() async {
     final updates = {
@@ -164,6 +300,12 @@ _selectedCity = widget.city;
       'country': _countryName,
       'city': _selectedCity,
       'address': _addressCtrl.text.trim(),
+      'dateOfBirth': _dateOfBirth,
+      'gender': _gender,
+      'occupation': _occupation,
+      'dietType': _dietType,
+      'height': _withoutUnit(_height, 'cm'),
+      'weight': _withoutUnit(_weight, 'kg'),
     };
 
     if (widget.onSave != null) {
@@ -171,6 +313,13 @@ _selectedCity = widget.city;
     } else {
       try {
         await ProfileService.instance.updateProfile(updates);
+        await PersonalizationService.instance.updatePersonalization({
+          'gender': _gender,
+          'dietType': _dietType,
+          'height': _withoutUnit(_height, 'cm'),
+          'weight': _withoutUnit(_weight, 'kg'),
+        });
+        RecommendationService.instance.clearCompatibilityCache();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -202,14 +351,23 @@ _selectedCity = widget.city;
       backgroundColor: const Color(0xFFF6F3FC),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 28 * scale),
+          padding: EdgeInsets.fromLTRB(
+            18 * scale,
+            8 * scale,
+            18 * scale,
+            28 * scale,
+          ),
           physics: const BouncingScrollPhysics(),
           children: [
             FadeTransition(
               opacity: _fade(0.0, 0.3),
-              child: _TopBar(uiScale: scale, onBack: () {
-  Navigator.pop(context);
-}, onSave: _handleSave),
+              child: _TopBar(
+                uiScale: scale,
+                onBack: () {
+                  Navigator.pop(context);
+                },
+                onSave: _handleSave,
+              ),
             ),
             SizedBox(height: 16 * scale),
 
@@ -234,7 +392,11 @@ _selectedCity = widget.city;
               opacity: _fade(0.12, 0.46),
               child: SlideTransition(
                 position: _slide(0.12, 0.48),
-                child: _SectionHeader(uiScale: scale, icon: Icons.person_outline, title: 'Basic Information'),
+                child: _SectionHeader(
+                  uiScale: scale,
+                  icon: Icons.person_outline,
+                  title: 'Basic Information',
+                ),
               ),
             ),
             SizedBox(height: 10 * scale),
@@ -247,29 +409,51 @@ _selectedCity = widget.city;
                     Row(
                       children: [
                         Expanded(
-                          child: _TextField(uiScale: scale, controller: _fullNameCtrl, label: 'Full Name', icon: Icons.person_outline),
+                          child: _TextField(
+                            uiScale: scale,
+                            controller: _fullNameCtrl,
+                            label: 'Full Name',
+                            icon: Icons.person_outline,
+                          ),
                         ),
                         SizedBox(width: 10 * scale),
                         Expanded(
-                          child: _TextField(uiScale: scale, controller: _usernameCtrl, label: 'Username', icon: Icons.alternate_email),
+                          child: _TextField(
+                            uiScale: scale,
+                            controller: _usernameCtrl,
+                            label: 'Username',
+                            icon: Icons.alternate_email,
+                          ),
                         ),
                       ],
                     ),
                     SizedBox(height: 10 * scale),
-                    _TextField(uiScale: scale, controller: _emailCtrl, label: 'Email Address', icon: Icons.mail_outline, keyboardType: TextInputType.emailAddress),
+                    _TextField(
+                      uiScale: scale,
+                      controller: _emailCtrl,
+                      label: 'Email Address',
+                      icon: Icons.mail_outline,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     SizedBox(height: 10 * scale),
                     Row(
                       children: [
                         Expanded(
-                          child: _TextField(uiScale: scale, controller: _phoneCtrl, label: 'Phone Number', icon: Icons.call_outlined, keyboardType: TextInputType.phone),
+                          child: _TextField(
+                            uiScale: scale,
+                            controller: _phoneCtrl,
+                            label: 'Phone Number',
+                            icon: Icons.call_outlined,
+                            keyboardType: TextInputType.phone,
+                          ),
                         ),
                         SizedBox(width: 10 * scale),
                         _CountryCodeChip(
-  uiScale: scale,
-  flag: _countryFlag,
-  code: _countryCode,
-  onTap: _selectCountry,
-),
+                          uiScale: scale,
+                          flag: _countryFlag,
+                          code: _countryCode,
+                          onTap: _selectCountry,
+                        ),
                       ],
                     ),
                     SizedBox(height: 10 * scale),
@@ -279,9 +463,9 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Date of Birth',
-                            value: widget.dateOfBirth,
+                            value: _dateOfBirth,
                             icon: Icons.calendar_today_outlined,
-                            onTap: () => widget.onFieldTap?.call('dateOfBirth'),
+                            onTap: _selectDateOfBirth,
                           ),
                         ),
                         SizedBox(width: 10 * scale),
@@ -289,9 +473,14 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Gender',
-                            value: widget.gender,
+                            value: _gender,
                             icon: Icons.person_outline,
-                            onTap: () => widget.onFieldTap?.call('gender'),
+                            onTap: () => _selectOption(
+                              field: 'gender',
+                              currentValue: _gender,
+                              options: const ['Male', 'Female', 'Other'],
+                              onSelected: (value) => _gender = value,
+                            ),
                           ),
                         ),
                       ],
@@ -306,7 +495,11 @@ _selectedCity = widget.city;
               opacity: _fade(0.22, 0.56),
               child: SlideTransition(
                 position: _slide(0.22, 0.58),
-                child: _SectionHeader(uiScale: scale, icon: Icons.location_on_outlined, title: 'Location'),
+                child: _SectionHeader(
+                  uiScale: scale,
+                  icon: Icons.location_on_outlined,
+                  title: 'Location',
+                ),
               ),
             ),
             SizedBox(height: 10 * scale),
@@ -327,7 +520,7 @@ _selectedCity = widget.city;
                             onTap: _selectCountry,
                           ),
                         ),
-                        
+
                         SizedBox(width: 10 * scale),
                         Expanded(
                           child: _DropdownField(
@@ -352,7 +545,12 @@ _selectedCity = widget.city;
                       ],
                     ),
                     SizedBox(height: 10 * scale),
-                    _TextField(uiScale: scale, controller: _addressCtrl, label: 'Address (Optional)', icon: Icons.home_outlined),
+                    _TextField(
+                      uiScale: scale,
+                      controller: _addressCtrl,
+                      label: 'Address (Optional)',
+                      icon: Icons.home_outlined,
+                    ),
                   ],
                 ),
               ),
@@ -363,7 +561,11 @@ _selectedCity = widget.city;
               opacity: _fade(0.32, 0.66),
               child: SlideTransition(
                 position: _slide(0.32, 0.68),
-                child: _SectionHeader(uiScale: scale, icon: Icons.favorite_border, title: 'About You'),
+                child: _SectionHeader(
+                  uiScale: scale,
+                  icon: Icons.favorite_border,
+                  title: 'About You',
+                ),
               ),
             ),
             SizedBox(height: 10 * scale),
@@ -379,9 +581,21 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Occupation',
-                            value: widget.occupation,
+                            value: _occupation,
                             icon: Icons.work_outline,
-                            onTap: () => widget.onFieldTap?.call('occupation'),
+                            onTap: () => _selectOption(
+                              field: 'occupation',
+                              currentValue: _occupation,
+                              options: const [
+                                'Student',
+                                'Employed',
+                                'Self-employed',
+                                'Homemaker',
+                                'Retired',
+                                'Other',
+                              ],
+                              onSelected: (value) => _occupation = value,
+                            ),
                           ),
                         ),
                         SizedBox(width: 10 * scale),
@@ -389,9 +603,20 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Diet Type',
-                            value: widget.dietType,
+                            value: _dietType,
                             icon: Icons.restaurant_outlined,
-                            onTap: () => widget.onFieldTap?.call('dietType'),
+                            onTap: () => _selectOption(
+                              field: 'dietType',
+                              currentValue: _dietType,
+                              options: const [
+                                'Vegetarian',
+                                'Non-vegetarian',
+                                'Vegan',
+                                'Eggetarian',
+                                'Pescatarian',
+                              ],
+                              onSelected: (value) => _dietType = value,
+                            ),
                           ),
                         ),
                       ],
@@ -403,9 +628,25 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Height',
-                            value: widget.height,
+                            value: _height,
                             icon: Icons.straighten,
-                            onTap: () => widget.onFieldTap?.call('height'),
+                            onTap: () => _selectOption(
+                              field: 'height',
+                              currentValue: _height,
+                              options: const [
+                                '150 cm',
+                                '155 cm',
+                                '160 cm',
+                                '165 cm',
+                                '170 cm',
+                                '175 cm',
+                                '180 cm',
+                                '185 cm',
+                                '190 cm',
+                                'Custom',
+                              ],
+                              onSelected: (value) => _height = value,
+                            ),
                           ),
                         ),
                         SizedBox(width: 10 * scale),
@@ -413,9 +654,27 @@ _selectedCity = widget.city;
                           child: _DropdownField(
                             uiScale: scale,
                             label: 'Weight',
-                            value: widget.weight,
+                            value: _weight,
                             icon: Icons.monitor_weight_outlined,
-                            onTap: () => widget.onFieldTap?.call('weight'),
+                            onTap: () => _selectOption(
+                              field: 'weight',
+                              currentValue: _weight,
+                              options: const [
+                                '45 kg',
+                                '50 kg',
+                                '55 kg',
+                                '58 kg',
+                                '60 kg',
+                                '65 kg',
+                                '70 kg',
+                                '75 kg',
+                                '80 kg',
+                                '85 kg',
+                                '90 kg',
+                                'Custom',
+                              ],
+                              onSelected: (value) => _weight = value,
+                            ),
                           ),
                         ),
                       ],
@@ -430,7 +689,10 @@ _selectedCity = widget.city;
               opacity: _fade(0.45, 0.85),
               child: SlideTransition(
                 position: _slide(0.45, 0.88),
-                child: _TrustFooter(uiScale: scale, onLearnMoreTap: widget.onLearnMoreTap),
+                child: _TrustFooter(
+                  uiScale: scale,
+                  onLearnMoreTap: widget.onLearnMoreTap,
+                ),
               ),
             ),
           ],
@@ -462,9 +724,22 @@ class _TopBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Personal Information', style: TextStyle(fontSize: 20 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                Text(
+                  'Personal Information',
+                  style: TextStyle(
+                    fontSize: 20 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
                 SizedBox(height: 2 * uiScale),
-                Text('Update your personal details', style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF6B6B7B))),
+                Text(
+                  'Update your personal details',
+                  style: TextStyle(
+                    fontSize: 11.5 * uiScale,
+                    color: const Color(0xFF6B6B7B),
+                  ),
+                ),
               ],
             ),
           ),
@@ -504,9 +779,19 @@ class _RoundButtonState extends State<_RoundButton> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Icon(widget.icon, size: 19 * widget.uiScale, color: const Color(0xFF1B1B2E)),
+          child: Icon(
+            widget.icon,
+            size: 19 * widget.uiScale,
+            color: const Color(0xFF1B1B2E),
+          ),
         ),
       ),
     );
@@ -536,18 +821,40 @@ class _SaveButtonState extends State<_SaveButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16 * widget.uiScale, vertical: 12 * widget.uiScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 16 * widget.uiScale,
+            vertical: 12 * widget.uiScale,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8A6CF5)]),
-            boxShadow: [BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))],
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6C4EF5), Color(0xFF8A6CF5)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6C4EF5).withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_box_outlined, size: 15 * widget.uiScale, color: Colors.white),
+              Icon(
+                Icons.check_box_outlined,
+                size: 15 * widget.uiScale,
+                color: Colors.white,
+              ),
               SizedBox(width: 6 * widget.uiScale),
-              Text('Save', style: TextStyle(color: Colors.white, fontSize: 13.5 * widget.uiScale, fontWeight: FontWeight.w700)),
+              Text(
+                'Save',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5 * widget.uiScale,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),
@@ -594,7 +901,11 @@ class _ProfileCard extends StatelessWidget {
             bottom: -10,
             child: Opacity(
               opacity: 0.35,
-              child: Icon(Icons.eco_rounded, size: 110 * uiScale, color: const Color(0xFFB9A6F2)),
+              child: Icon(
+                Icons.eco_rounded,
+                size: 110 * uiScale,
+                color: const Color(0xFFB9A6F2),
+              ),
             ),
           ),
           Row(
@@ -608,14 +919,27 @@ class _ProfileCard extends StatelessWidget {
                     height: 76 * uiScale,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)]),
-                      image: avatarImage != null ? DecorationImage(image: avatarImage!, fit: BoxFit.cover) : null,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+                      ),
+                      image: avatarImage != null
+                          ? DecorationImage(
+                              image: avatarImage!,
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
                     child: avatarImage == null
                         ? Center(
                             child: Text(
-                              fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 26 * uiScale),
+                              fullName.isNotEmpty
+                                  ? fullName[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 26 * uiScale,
+                              ),
                             ),
                           )
                         : null,
@@ -637,16 +961,40 @@ class _ProfileCard extends StatelessWidget {
                       spacing: 8 * uiScale,
                       runSpacing: 4 * uiScale,
                       children: [
-                        Text(fullName, style: TextStyle(fontSize: 18 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                        Text(
+                          fullName,
+                          style: TextStyle(
+                            fontSize: 18 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1B1B2E),
+                          ),
+                        ),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
-                          decoration: BoxDecoration(color: const Color(0xFFE4F5E9), borderRadius: BorderRadius.circular(10)),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * uiScale,
+                            vertical: 3 * uiScale,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE4F5E9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.eco, size: 11 * uiScale, color: const Color(0xFF1E8A4C)),
+                              Icon(
+                                Icons.eco,
+                                size: 11 * uiScale,
+                                color: const Color(0xFF1E8A4C),
+                              ),
                               SizedBox(width: 4 * uiScale),
-                              Text(badgeLabel, style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1E8A4C))),
+                              Text(
+                                badgeLabel,
+                                style: TextStyle(
+                                  fontSize: 10 * uiScale,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1E8A4C),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -655,17 +1003,39 @@ class _ProfileCard extends StatelessWidget {
                     SizedBox(height: 10 * uiScale),
                     Row(
                       children: [
-                        Icon(Icons.mail_outline, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                        Icon(
+                          Icons.mail_outline,
+                          size: 14 * uiScale,
+                          color: const Color(0xFF6C4EF5),
+                        ),
                         SizedBox(width: 6 * uiScale),
-                        Expanded(child: Text(email, style: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFF3B3B4F)))),
+                        Expanded(
+                          child: Text(
+                            email,
+                            style: TextStyle(
+                              fontSize: 12 * uiScale,
+                              color: const Color(0xFF3B3B4F),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     SizedBox(height: 6 * uiScale),
                     Row(
                       children: [
-                        Icon(Icons.call_outlined, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                        Icon(
+                          Icons.call_outlined,
+                          size: 14 * uiScale,
+                          color: const Color(0xFF6C4EF5),
+                        ),
                         SizedBox(width: 6 * uiScale),
-                        Text(phone, style: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFF3B3B4F))),
+                        Text(
+                          phone,
+                          style: TextStyle(
+                            fontSize: 12 * uiScale,
+                            color: const Color(0xFF3B3B4F),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -708,9 +1078,19 @@ class _CameraButtonState extends State<_CameraButton> {
             shape: BoxShape.circle,
             color: Colors.white,
             border: Border.all(color: const Color(0xFFF1ECFB), width: 2.4),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Icon(Icons.camera_alt, size: 13 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+          child: Icon(
+            Icons.camera_alt,
+            size: 13 * widget.uiScale,
+            color: const Color(0xFF6C4EF5),
+          ),
         ),
       ),
     );
@@ -721,7 +1101,11 @@ class _CameraButtonState extends State<_CameraButton> {
 // Section header
 // ---------------------------------------------------------------------------
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.uiScale, required this.icon, required this.title});
+  const _SectionHeader({
+    required this.uiScale,
+    required this.icon,
+    required this.title,
+  });
   final double uiScale;
   final IconData icon;
   final String title;
@@ -733,11 +1117,21 @@ class _SectionHeader extends StatelessWidget {
         Container(
           width: 34 * uiScale,
           height: 34 * uiScale,
-          decoration: const BoxDecoration(color: Color(0xFFEDE7FA), shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: Color(0xFFEDE7FA),
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
         ),
         SizedBox(width: 10 * uiScale),
-        Text(title, style: TextStyle(fontSize: 15 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 15 * uiScale,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF1B1B2E),
+          ),
+        ),
       ],
     );
   }
@@ -772,7 +1166,9 @@ class _TextFieldState extends State<_TextField> {
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() => setState(() => _focused = _focusNode.hasFocus));
+    _focusNode.addListener(
+      () => setState(() => _focused = _focusNode.hasFocus),
+    );
   }
 
   @override
@@ -785,28 +1181,60 @@ class _TextFieldState extends State<_TextField> {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      padding: EdgeInsets.symmetric(horizontal: 14 * widget.uiScale, vertical: 6 * widget.uiScale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * widget.uiScale,
+        vertical: 6 * widget.uiScale,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _focused ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2), width: _focused ? 1.6 : 1.2),
-        boxShadow: _focused ? [BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))] : [],
+        border: Border.all(
+          color: _focused ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2),
+          width: _focused ? 1.6 : 1.2,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF6C4EF5).withOpacity(0.12),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [],
       ),
       child: Row(
         children: [
-          Icon(widget.icon, size: 17 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+          Icon(
+            widget.icon,
+            size: 17 * widget.uiScale,
+            color: const Color(0xFF6C4EF5),
+          ),
           SizedBox(width: 10 * widget.uiScale),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.label, style: TextStyle(fontSize: 10 * widget.uiScale, color: const Color(0xFF9A96A8))),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 10 * widget.uiScale,
+                    color: const Color(0xFF9A96A8),
+                  ),
+                ),
                 TextField(
                   controller: widget.controller,
                   focusNode: _focusNode,
                   keyboardType: widget.keyboardType,
-                  style: TextStyle(fontSize: 13.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
-                  decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                  style: TextStyle(
+                    fontSize: 13.5 * widget.uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
               ],
             ),
@@ -853,7 +1281,10 @@ class _DropdownFieldState extends State<_DropdownField> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14 * widget.uiScale, vertical: 12 * widget.uiScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 14 * widget.uiScale,
+            vertical: 12 * widget.uiScale,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -861,18 +1292,39 @@ class _DropdownFieldState extends State<_DropdownField> {
           ),
           child: Row(
             children: [
-              Icon(widget.icon, size: 17 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(
+                widget.icon,
+                size: 17 * widget.uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
               SizedBox(width: 10 * widget.uiScale),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.label, style: TextStyle(fontSize: 10 * widget.uiScale, color: const Color(0xFF9A96A8))),
-                    Text(widget.value, style: TextStyle(fontSize: 13.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E))),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: 10 * widget.uiScale,
+                        color: const Color(0xFF9A96A8),
+                      ),
+                    ),
+                    Text(
+                      widget.value,
+                      style: TextStyle(
+                        fontSize: 13.5 * widget.uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1B1B2E),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.keyboard_arrow_down, size: 18 * widget.uiScale, color: const Color(0xFF9A96A8)),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 18 * widget.uiScale,
+                color: const Color(0xFF9A96A8),
+              ),
             ],
           ),
         ),
@@ -882,7 +1334,12 @@ class _DropdownFieldState extends State<_DropdownField> {
 }
 
 class _CountryCodeChip extends StatefulWidget {
-  const _CountryCodeChip({required this.uiScale, required this.flag, required this.code, this.onTap});
+  const _CountryCodeChip({
+    required this.uiScale,
+    required this.flag,
+    required this.code,
+    this.onTap,
+  });
   final double uiScale;
   final String flag;
   final String code;
@@ -916,10 +1373,24 @@ class _CountryCodeChipState extends State<_CountryCodeChip> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.flag, style: TextStyle(fontSize: 16 * widget.uiScale)),
+              Text(
+                widget.flag,
+                style: TextStyle(fontSize: 16 * widget.uiScale),
+              ),
               SizedBox(width: 4 * widget.uiScale),
-              Text(widget.code, style: TextStyle(fontSize: 13.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E))),
-              Icon(Icons.keyboard_arrow_down, size: 16 * widget.uiScale, color: const Color(0xFF9A96A8)),
+              Text(
+                widget.code,
+                style: TextStyle(
+                  fontSize: 13.5 * widget.uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 16 * widget.uiScale,
+                color: const Color(0xFF9A96A8),
+              ),
             ],
           ),
         ),
@@ -940,22 +1411,45 @@ class _TrustFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFE9F7EE), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9F7EE),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           Container(
             width: 34 * uiScale,
             height: 34 * uiScale,
-            decoration: const BoxDecoration(color: Color(0xFF1E8A4C), shape: BoxShape.circle),
-            child: Icon(Icons.verified_user, size: 16 * uiScale, color: Colors.white),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E8A4C),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.verified_user,
+              size: 16 * uiScale,
+              color: Colors.white,
+            ),
           ),
           SizedBox(width: 10 * uiScale),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Your information is safe with us.', style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1E8A4C))),
-                Text('We never share your personal details with anyone.', style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFF3B3B4F))),
+                Text(
+                  'Your information is safe with us.',
+                  style: TextStyle(
+                    fontSize: 12 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1E8A4C),
+                  ),
+                ),
+                Text(
+                  'We never share your personal details with anyone.',
+                  style: TextStyle(
+                    fontSize: 10 * uiScale,
+                    color: const Color(0xFF3B3B4F),
+                  ),
+                ),
               ],
             ),
           ),
@@ -990,7 +1484,10 @@ class _LearnMoreButtonState extends State<_LearnMoreButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 * widget.uiScale,
+            vertical: 9 * widget.uiScale,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -999,9 +1496,20 @@ class _LearnMoreButtonState extends State<_LearnMoreButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline, size: 12 * widget.uiScale, color: const Color(0xFF1E8A4C)),
+              Icon(
+                Icons.lock_outline,
+                size: 12 * widget.uiScale,
+                color: const Color(0xFF1E8A4C),
+              ),
               SizedBox(width: 5 * widget.uiScale),
-              Text('Learn More', style: TextStyle(fontSize: 10.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1E8A4C))),
+              Text(
+                'Learn More',
+                style: TextStyle(
+                  fontSize: 10.5 * widget.uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1E8A4C),
+                ),
+              ),
             ],
           ),
         ),

@@ -185,8 +185,7 @@ const runTests = async () => {
     assert(resGen.status === 200, 'Recipe generation returns 200 OK');
     assert(Array.isArray(dataGen.data.recipes) && dataGen.data.recipes.length > 0, `Generated ${dataGen.data.recipes.length} recipes from pantry`);
 
-    const firstRecipe = dataGen.data.recipes[0];
-    assert(typeof firstRecipe.id === 'number', 'Recipe has valid numeric ID');
+    assert((typeof firstRecipe.id === 'number' || typeof firstRecipe.id === 'string') && String(firstRecipe.id).length > 0, 'Recipe has valid ID');
     assert(typeof firstRecipe.title === 'string' && firstRecipe.title.length > 0, 'Recipe has authentic title');
     assert(firstRecipe.imageAsset.startsWith('http') || firstRecipe.imageAsset.startsWith('assets/'), 'Recipe has real image URL or valid asset fallback');
     assert(typeof firstRecipe.timeMinutes === 'number' && firstRecipe.timeMinutes > 0, 'Recipe has cooking time in minutes');

@@ -8,7 +8,8 @@ void main() {
   testWidgets('DietCompass app launches splash screen', (tester) async {
     await tester.pumpWidget(const DietCompassApp());
     expect(find.byType(SplashScreen), findsOneWidget);
-    expect(find.text('Loading your healthy journey...'), findsOneWidget);
+    expect(find.text('Preparing your personalized experience...'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1500));
   });
 
   testWidgets('Login form validates email and password format', (tester) async {

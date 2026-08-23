@@ -15,21 +15,36 @@ import '../../core/services/profile_service.dart';
 /// you can persist selections to a backend). Medical/Lifestyle/Health
 /// Metrics tiles are data-driven lists, not hardcoded.
 class GoalOption {
-  const GoalOption({required this.icon, required this.label, required this.color});
+  const GoalOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
   final IconData icon;
   final String label;
   final Color color;
 }
 
 class DietOption {
-  const DietOption({required this.icon, required this.label, required this.color});
+  const DietOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
   final IconData icon;
   final String label;
   final Color color;
 }
 
 class InfoTile {
-  const InfoTile({required this.icon, required this.iconBg, required this.iconColor, required this.label, required this.value, this.valueColor});
+  const InfoTile({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
   final IconData icon;
   final Color iconBg;
   final Color iconColor;
@@ -39,7 +54,13 @@ class InfoTile {
 }
 
 class MetricTile {
-  const MetricTile({this.icon, required this.label, required this.value, this.status, this.statusColor});
+  const MetricTile({
+    this.icon,
+    required this.label,
+    required this.value,
+    this.status,
+    this.statusColor,
+  });
   final IconData? icon;
   final String label;
   final String value;
@@ -59,39 +80,138 @@ class HealthProfileScreen extends StatefulWidget {
     this.weight = '58 kg',
     this.profileCompleteness = 78,
     this.goalOptions = const [
-      GoalOption(icon: Icons.card_travel, label: 'Weight Loss', color: Color(0xFF6C4EF5)),
-      GoalOption(icon: Icons.fitness_center, label: 'Muscle Gain', color: Color(0xFF1E8A4C)),
-      GoalOption(icon: Icons.bolt, label: 'Improve Energy', color: Color(0xFFE0862E)),
-      GoalOption(icon: Icons.nightlight_round, label: 'Better Sleep', color: Color(0xFF6C4EF5)),
-      GoalOption(icon: Icons.sentiment_satisfied_outlined, label: 'Other', color: Color(0xFFE0525C)),
+      GoalOption(
+        icon: Icons.card_travel,
+        label: 'Weight Loss',
+        color: Color(0xFF6C4EF5),
+      ),
+      GoalOption(
+        icon: Icons.fitness_center,
+        label: 'Muscle Gain',
+        color: Color(0xFF1E8A4C),
+      ),
+      GoalOption(
+        icon: Icons.bolt,
+        label: 'Improve Energy',
+        color: Color(0xFFE0862E),
+      ),
+      GoalOption(
+        icon: Icons.nightlight_round,
+        label: 'Better Sleep',
+        color: Color(0xFF6C4EF5),
+      ),
+      GoalOption(
+        icon: Icons.sentiment_satisfied_outlined,
+        label: 'Other',
+        color: Color(0xFFE0525C),
+      ),
     ],
     this.selectedGoals = const {0},
     this.goalSummary = 'Your Goal: Lose 4-5 kg in the next 3 months',
     this.dietOptions = const [
-      DietOption(icon: Icons.eco, label: 'Vegetarian', color: Color(0xFF1E8A4C)),
-      DietOption(icon: Icons.egg_outlined, label: 'No Eggs', color: Color(0xFF1B1B2E)),
-      DietOption(icon: Icons.set_meal_outlined, label: 'No Seafood', color: Color(0xFF1B1B2E)),
-      DietOption(icon: Icons.lunch_dining_outlined, label: 'No Beef', color: Color(0xFF1B1B2E)),
+      DietOption(
+        icon: Icons.eco,
+        label: 'Vegetarian',
+        color: Color(0xFF1E8A4C),
+      ),
+      DietOption(
+        icon: Icons.egg_outlined,
+        label: 'No Eggs',
+        color: Color(0xFF1B1B2E),
+      ),
+      DietOption(
+        icon: Icons.set_meal_outlined,
+        label: 'No Seafood',
+        color: Color(0xFF1B1B2E),
+      ),
+      DietOption(
+        icon: Icons.lunch_dining_outlined,
+        label: 'No Beef',
+        color: Color(0xFF1B1B2E),
+      ),
     ],
     this.selectedDiets = const {0},
     this.allergiesSummary = 'Allergies: None',
     this.medicalTiles = const [
-      InfoTile(icon: Icons.masks_outlined, iconBg: Color(0xFFEDE7FA), iconColor: Color(0xFF6C4EF5), label: 'Allergies', value: 'None'),
-      InfoTile(icon: Icons.extension_outlined, iconBg: Color(0xFFE4F5E9), iconColor: Color(0xFF1E8A4C), label: 'Chronic Conditions', value: 'None'),
-      InfoTile(icon: Icons.medication_outlined, iconBg: Color(0xFFFCF2E0), iconColor: Color(0xFFE0862E), label: 'Medications', value: 'None'),
+      InfoTile(
+        icon: Icons.masks_outlined,
+        iconBg: Color(0xFFEDE7FA),
+        iconColor: Color(0xFF6C4EF5),
+        label: 'Allergies',
+        value: 'None',
+      ),
+      InfoTile(
+        icon: Icons.extension_outlined,
+        iconBg: Color(0xFFE4F5E9),
+        iconColor: Color(0xFF1E8A4C),
+        label: 'Chronic Conditions',
+        value: 'None',
+      ),
+      InfoTile(
+        icon: Icons.medication_outlined,
+        iconBg: Color(0xFFFCF2E0),
+        iconColor: Color(0xFFE0862E),
+        label: 'Medications',
+        value: 'None',
+      ),
     ],
     this.emergencyContactAdded = true,
     this.lifestyleTiles = const [
-      InfoTile(icon: Icons.directions_walk, iconBg: Color(0xFFE3EEFC), iconColor: Color(0xFF3B82F6), label: 'Activity Level', value: 'Moderate'),
-      InfoTile(icon: Icons.nightlight_round, iconBg: Color(0xFFEDE7FA), iconColor: Color(0xFF6C4EF5), label: 'Sleep', value: '7-8 hours'),
-      InfoTile(icon: Icons.water_drop_outlined, iconBg: Color(0xFFE3EEFC), iconColor: Color(0xFF3B82F6), label: 'Water Intake', value: '6-8 glasses'),
-      InfoTile(icon: Icons.smoke_free, iconBg: Color(0xFFFCEBEB), iconColor: Color(0xFFE0525C), label: 'Smoking', value: 'No'),
+      InfoTile(
+        icon: Icons.directions_walk,
+        iconBg: Color(0xFFE3EEFC),
+        iconColor: Color(0xFF3B82F6),
+        label: 'Activity Level',
+        value: 'Moderate',
+      ),
+      InfoTile(
+        icon: Icons.nightlight_round,
+        iconBg: Color(0xFFEDE7FA),
+        iconColor: Color(0xFF6C4EF5),
+        label: 'Sleep',
+        value: '7-8 hours',
+      ),
+      InfoTile(
+        icon: Icons.water_drop_outlined,
+        iconBg: Color(0xFFE3EEFC),
+        iconColor: Color(0xFF3B82F6),
+        label: 'Water Intake',
+        value: '6-8 glasses',
+      ),
+      InfoTile(
+        icon: Icons.smoke_free,
+        iconBg: Color(0xFFFCEBEB),
+        iconColor: Color(0xFFE0525C),
+        label: 'Smoking',
+        value: 'No',
+      ),
     ],
     this.healthMetrics = const [
-      MetricTile(label: 'BMI', value: '21.3', status: 'Normal', statusColor: Color(0xFF1E8A4C)),
-      MetricTile(icon: Icons.water_drop_outlined, label: 'Blood Group', value: 'B+'),
-      MetricTile(icon: Icons.favorite_border, label: 'Blood Pressure', value: '110/70', status: 'Normal', statusColor: Color(0xFF1E8A4C)),
-      MetricTile(icon: Icons.monitor_heart_outlined, label: 'Heart Rate', value: '72 bpm', status: 'Normal', statusColor: Color(0xFF1E8A4C)),
+      MetricTile(
+        label: 'BMI',
+        value: '21.3',
+        status: 'Normal',
+        statusColor: Color(0xFF1E8A4C),
+      ),
+      MetricTile(
+        icon: Icons.water_drop_outlined,
+        label: 'Blood Group',
+        value: 'B+',
+      ),
+      MetricTile(
+        icon: Icons.favorite_border,
+        label: 'Blood Pressure',
+        value: '110/70',
+        status: 'Normal',
+        statusColor: Color(0xFF1E8A4C),
+      ),
+      MetricTile(
+        icon: Icons.monitor_heart_outlined,
+        label: 'Heart Rate',
+        value: '72 bpm',
+        status: 'Normal',
+        statusColor: Color(0xFF1E8A4C),
+      ),
     ],
     this.tip = 'Tip: Keep your profile updated to get better recommendations.',
     this.onBack,
@@ -158,19 +278,21 @@ class HealthProfileScreen extends StatefulWidget {
   State<HealthProfileScreen> createState() => _HealthProfileScreenState();
 }
 
-class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerProviderStateMixin {
+class _HealthProfileScreenState extends State<HealthProfileScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late Set<int> _selectedGoals;
   late Set<int> _selectedDiets;
-  late int _navIndex;
 
   @override
   void initState() {
     super.initState();
-    _navIndex = widget.initialNavIndex;
     _selectedGoals = {...widget.selectedGoals};
     _selectedDiets = {...widget.selectedDiets};
-    _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..forward();
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..forward();
 
     _loadCloudPersonalization();
   }
@@ -205,15 +327,24 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
     super.dispose();
   }
 
-  Animation<double> _fade(double s, double e) =>
-      CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOut));
+  Animation<double> _fade(double s, double e) => CurvedAnimation(
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-      .animate(CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOutCubic)));
+  Animation<Offset> _slide(double s, double e) =>
+      Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _entranceCtrl,
+          curve: Interval(s, e, curve: Curves.easeOutCubic),
+        ),
+      );
 
   void _toggleGoal(int i) {
     setState(() {
-      _selectedGoals.contains(i) ? _selectedGoals.remove(i) : _selectedGoals.add(i);
+      _selectedGoals.contains(i)
+          ? _selectedGoals.remove(i)
+          : _selectedGoals.add(i);
     });
     widget.onGoalsChanged?.call(_selectedGoals);
     _syncGoals();
@@ -221,21 +352,29 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
 
   void _toggleDiet(int i) {
     setState(() {
-      _selectedDiets.contains(i) ? _selectedDiets.remove(i) : _selectedDiets.add(i);
+      _selectedDiets.contains(i)
+          ? _selectedDiets.remove(i)
+          : _selectedDiets.add(i);
     });
     widget.onDietsChanged?.call(_selectedDiets);
     _syncDiets();
   }
 
   Future<void> _syncGoals() async {
-    final goals = _selectedGoals.map((i) => widget.goalOptions[i].label).toList();
+    final goals = _selectedGoals
+        .map((i) => widget.goalOptions[i].label)
+        .toList();
     try {
-      await PersonalizationService.instance.updatePersonalization({'goals': goals});
+      await PersonalizationService.instance.updatePersonalization({
+        'goals': goals,
+      });
     } catch (_) {}
   }
 
   Future<void> _syncDiets() async {
-    final diets = _selectedDiets.map((i) => widget.dietOptions[i].label).toList();
+    final diets = _selectedDiets
+        .map((i) => widget.dietOptions[i].label)
+        .toList();
     try {
       await PersonalizationService.instance.updatePersonalization({
         'dietType': diets.isNotEmpty ? diets.first : 'Vegetarian',
@@ -257,12 +396,21 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 110 * scale),
+          padding: EdgeInsets.fromLTRB(
+            18 * scale,
+            8 * scale,
+            18 * scale,
+            28 * scale,
+          ),
           physics: const BouncingScrollPhysics(),
           children: [
             FadeTransition(
               opacity: _fade(0.0, 0.25),
-              child: _TopBar(uiScale: scale, onBack: widget.onBack, onSaveChanges: widget.onSaveChanges),
+              child: _TopBar(
+                uiScale: scale,
+                onBack: widget.onBack,
+                onSaveChanges: widget.onSaveChanges,
+              ),
             ),
             SizedBox(height: 16 * scale),
 
@@ -317,7 +465,14 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
                         }),
                       ),
                       SizedBox(height: 10 * scale),
-                      _HighlightRow(uiScale: scale, icon: Icons.star_rounded, iconColor: const Color(0xFF6C4EF5), bg: const Color(0xFFF1ECFB), text: widget.goalSummary, onTap: widget.onGoalSummaryTap),
+                      _HighlightRow(
+                        uiScale: scale,
+                        icon: Icons.star_rounded,
+                        iconColor: const Color(0xFF6C4EF5),
+                        bg: const Color(0xFFF1ECFB),
+                        text: widget.goalSummary,
+                        onTap: widget.onGoalSummaryTap,
+                      ),
                     ],
                   ),
                 ),
@@ -353,11 +508,21 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
                               onTap: () => _toggleDiet(i),
                             );
                           }),
-                          _AddMoreChip(uiScale: scale, onTap: widget.onAddMoreDiet),
+                          _AddMoreChip(
+                            uiScale: scale,
+                            onTap: widget.onAddMoreDiet,
+                          ),
                         ],
                       ),
                       SizedBox(height: 10 * scale),
-                      _HighlightRow(uiScale: scale, icon: Icons.info_outline, iconColor: const Color(0xFF1E8A4C), bg: const Color(0xFFE9F7EE), text: widget.allergiesSummary, onTap: widget.onAllergiesTap),
+                      _HighlightRow(
+                        uiScale: scale,
+                        icon: Icons.info_outline,
+                        iconColor: const Color(0xFF1E8A4C),
+                        bg: const Color(0xFFE9F7EE),
+                        text: widget.allergiesSummary,
+                        onTap: widget.onAllergiesTap,
+                      ),
                     ],
                   ),
                 ),
@@ -409,7 +574,10 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
                   title: 'Lifestyle Information',
                   subtitle: 'Your daily habits and activity',
                   onEdit: widget.onEditLifestyle,
-                  child: _InfoTilesRow(uiScale: scale, tiles: widget.lifestyleTiles),
+                  child: _InfoTilesRow(
+                    uiScale: scale,
+                    tiles: widget.lifestyleTiles,
+                  ),
                 ),
               ),
             ),
@@ -427,7 +595,10 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
                   title: 'Health Metrics',
                   subtitle: 'Track your key health numbers',
                   onEdit: widget.onEditMetrics,
-                  child: _MetricsRow(uiScale: scale, metrics: widget.healthMetrics),
+                  child: _MetricsRow(
+                    uiScale: scale,
+                    metrics: widget.healthMetrics,
+                  ),
                 ),
               ),
             ),
@@ -439,14 +610,6 @@ class _HealthProfileScreenState extends State<HealthProfileScreen> with TickerPr
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: _BottomNavBar(
-        uiScale: scale,
-        selectedIndex: _navIndex,
-        onTap: (i) {
-          setState(() => _navIndex = i);
-          widget.onNavTap?.call(i);
-        },
       ),
     );
   }
@@ -466,7 +629,11 @@ class _TopBar extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _RoundButton(uiScale: uiScale, icon: Icons.arrow_back, onTap: onBack),
+        _RoundButton(
+          uiScale: uiScale,
+          icon: Icons.arrow_back,
+          onTap: onBack ?? () => Navigator.of(context).pop(),
+        ),
         SizedBox(width: 12 * uiScale),
         Expanded(
           child: Padding(
@@ -474,11 +641,22 @@ class _TopBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Health Profile', style: TextStyle(fontSize: 21 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                Text(
+                  'Health Profile',
+                  style: TextStyle(
+                    fontSize: 21 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
                 SizedBox(height: 3 * uiScale),
                 Text(
                   'Manage your health information to get personalized recommendations.',
-                  style: TextStyle(fontSize: 11 * uiScale, height: 1.35, color: const Color(0xFF6B6B7B)),
+                  style: TextStyle(
+                    fontSize: 11 * uiScale,
+                    height: 1.35,
+                    color: const Color(0xFF6B6B7B),
+                  ),
                 ),
               ],
             ),
@@ -518,9 +696,19 @@ class _RoundButtonState extends State<_RoundButton> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Icon(widget.icon, size: 19 * widget.uiScale, color: const Color(0xFF1B1B2E)),
+          child: Icon(
+            widget.icon,
+            size: 19 * widget.uiScale,
+            color: const Color(0xFF1B1B2E),
+          ),
         ),
       ),
     );
@@ -561,11 +749,17 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gaugeAnim = CurvedAnimation(parent: entranceCtrl, curve: const Interval(0.1, 0.6, curve: Curves.easeOutCubic));
+    final gaugeAnim = CurvedAnimation(
+      parent: entranceCtrl,
+      curve: const Interval(0.1, 0.6, curve: Curves.easeOutCubic),
+    );
 
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFF1ECFB), borderRadius: BorderRadius.circular(22)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1ECFB),
+        borderRadius: BorderRadius.circular(22),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -577,13 +771,23 @@ class _ProfileCard extends StatelessWidget {
                 height: 72 * uiScale,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)]),
-                  image: avatarImage != null ? DecorationImage(image: avatarImage!, fit: BoxFit.cover) : null,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+                  ),
+                  image: avatarImage != null
+                      ? DecorationImage(image: avatarImage!, fit: BoxFit.cover)
+                      : null,
                 ),
                 child: avatarImage == null
                     ? Center(
-                        child: Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24 * uiScale)),
+                        child: Text(
+                          fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 24 * uiScale,
+                          ),
+                        ),
                       )
                     : null,
               ),
@@ -599,17 +803,41 @@ class _ProfileCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(fullName, style: TextStyle(fontSize: 17 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                Text(
+                  fullName,
+                  style: TextStyle(
+                    fontSize: 17 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
                 SizedBox(height: 5 * uiScale),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
-                  decoration: BoxDecoration(color: const Color(0xFFE4F5E9), borderRadius: BorderRadius.circular(10)),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8 * uiScale,
+                    vertical: 3 * uiScale,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.eco, size: 11 * uiScale, color: const Color(0xFF1E8A4C)),
+                      Icon(
+                        Icons.eco,
+                        size: 11 * uiScale,
+                        color: const Color(0xFF1E8A4C),
+                      ),
                       SizedBox(width: 4 * uiScale),
-                      Text(badgeLabel, style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1E8A4C))),
+                      Text(
+                        badgeLabel,
+                        style: TextStyle(
+                          fontSize: 10 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E8A4C),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -617,25 +845,77 @@ class _ProfileCard extends StatelessWidget {
                 Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 11 * uiScale, color: const Color(0xFF9A96A8)),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 11 * uiScale,
+                      color: const Color(0xFF9A96A8),
+                    ),
                     SizedBox(width: 4 * uiScale),
-                    Text(dateOfBirth, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
-                    Text('  •  ', style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF9A96A8))),
-                    Icon(Icons.person_outline, size: 11 * uiScale, color: const Color(0xFF9A96A8)),
+                    Text(
+                      dateOfBirth,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF3B3B4F),
+                      ),
+                    ),
+                    Text(
+                      '  •  ',
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF9A96A8),
+                      ),
+                    ),
+                    Icon(
+                      Icons.person_outline,
+                      size: 11 * uiScale,
+                      color: const Color(0xFF9A96A8),
+                    ),
                     SizedBox(width: 4 * uiScale),
-                    Text(gender, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
+                    Text(
+                      gender,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF3B3B4F),
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 4 * uiScale),
                 Row(
                   children: [
-                    Icon(Icons.straighten, size: 11 * uiScale, color: const Color(0xFF9A96A8)),
+                    Icon(
+                      Icons.straighten,
+                      size: 11 * uiScale,
+                      color: const Color(0xFF9A96A8),
+                    ),
                     SizedBox(width: 4 * uiScale),
-                    Text(height, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
-                    Text('  •  ', style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF9A96A8))),
-                    Icon(Icons.monitor_weight_outlined, size: 11 * uiScale, color: const Color(0xFF9A96A8)),
+                    Text(
+                      height,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF3B3B4F),
+                      ),
+                    ),
+                    Text(
+                      '  •  ',
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF9A96A8),
+                      ),
+                    ),
+                    Icon(
+                      Icons.monitor_weight_outlined,
+                      size: 11 * uiScale,
+                      color: const Color(0xFF9A96A8),
+                    ),
                     SizedBox(width: 4 * uiScale),
-                    Text(weight, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
+                    Text(
+                      weight,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF3B3B4F),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -651,27 +931,59 @@ class _ProfileCard extends StatelessWidget {
                   builder: (context, _) {
                     final v = (completeness * gaugeAnim.value).round();
                     return CustomPaint(
-                      painter: _HalfGaugePainter(progress: gaugeAnim.value * (completeness / 100)),
+                      painter: _HalfGaugePainter(
+                        progress: gaugeAnim.value * (completeness / 100),
+                      ),
                       child: Center(
                         child: Padding(
                           padding: EdgeInsets.only(top: 10 * uiScale),
-                          child: Text('$v%', style: TextStyle(fontSize: 16 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1E8A4C))),
+                          child: Text(
+                            '$v%',
+                            style: TextStyle(
+                              fontSize: 16 * uiScale,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1E8A4C),
+                            ),
+                          ),
                         ),
                       ),
                     );
                   },
                 ),
               ),
-              Text('Profile', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B))),
-              Text('Completeness', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B))),
+              Text(
+                'Profile',
+                style: TextStyle(
+                  fontSize: 9.5 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
+              ),
+              Text(
+                'Completeness',
+                style: TextStyle(
+                  fontSize: 9.5 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
+              ),
               SizedBox(height: 3 * uiScale),
               GestureDetector(
                 onTap: onUpdateNowTap,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Update Now', style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-                    Icon(Icons.arrow_forward, size: 11 * uiScale, color: const Color(0xFF6C4EF5)),
+                    Text(
+                      'Update Now',
+                      style: TextStyle(
+                        fontSize: 10 * uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF6C4EF5),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: 11 * uiScale,
+                      color: const Color(0xFF6C4EF5),
+                    ),
                   ],
                 ),
               ),
@@ -696,18 +1008,31 @@ class _HalfGaugePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), math.pi, math.pi, false, bg);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      math.pi,
+      math.pi,
+      false,
+      bg,
+    );
 
     final fg = Paint()
       ..color = const Color(0xFF1E8A4C)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), math.pi, math.pi * progress, false, fg);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      math.pi,
+      math.pi * progress,
+      false,
+      fg,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _HalfGaugePainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _HalfGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 class _CameraButton extends StatefulWidget {
@@ -739,9 +1064,19 @@ class _CameraButtonState extends State<_CameraButton> {
             shape: BoxShape.circle,
             color: Colors.white,
             border: Border.all(color: const Color(0xFFF1ECFB), width: 2.2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Icon(Icons.camera_alt, size: 12 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+          child: Icon(
+            Icons.camera_alt,
+            size: 12 * widget.uiScale,
+            color: const Color(0xFF6C4EF5),
+          ),
         ),
       ),
     );
@@ -779,7 +1114,13 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,7 +1131,10 @@ class _SectionCard extends StatelessWidget {
               Container(
                 width: 34 * uiScale,
                 height: 34 * uiScale,
-                decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, size: 16 * uiScale, color: iconColor),
               ),
               SizedBox(width: 10 * uiScale),
@@ -798,8 +1142,21 @@ class _SectionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                    Text(subtitle, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B))),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14.5 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1B1B2E),
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10.5 * uiScale,
+                        color: const Color(0xFF6B6B7B),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -807,9 +1164,20 @@ class _SectionCard extends StatelessWidget {
                 onTap: onEdit,
                 child: Row(
                   children: [
-                    Text('Edit', style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
+                    Text(
+                      'Edit',
+                      style: TextStyle(
+                        fontSize: 12 * uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF6C4EF5),
+                      ),
+                    ),
                     SizedBox(width: 3 * uiScale),
-                    Icon(Icons.edit_outlined, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
+                    Icon(
+                      Icons.edit_outlined,
+                      size: 13 * uiScale,
+                      color: const Color(0xFF6C4EF5),
+                    ),
                   ],
                 ),
               ),
@@ -833,7 +1201,11 @@ class _ChipsWrap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(spacing: 8 * uiScale, runSpacing: 8 * uiScale, children: children);
+    return Wrap(
+      spacing: 8 * uiScale,
+      runSpacing: 8 * uiScale,
+      children: children,
+    );
   }
 }
 
@@ -873,23 +1245,37 @@ class _SelectableChipState extends State<_SelectableChip> {
         duration: const Duration(milliseconds: 100),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 * widget.uiScale,
+            vertical: 9 * widget.uiScale,
+          ),
           decoration: BoxDecoration(
-            color: widget.selected ? widget.color.withOpacity(0.1) : Colors.white,
+            color: widget.selected
+                ? widget.color.withOpacity(0.1)
+                : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: widget.selected ? widget.color : const Color(0xFFE4E0F2), width: widget.selected ? 1.6 : 1.2),
+            border: Border.all(
+              color: widget.selected ? widget.color : const Color(0xFFE4E0F2),
+              width: widget.selected ? 1.6 : 1.2,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 14 * widget.uiScale, color: widget.selected ? widget.color : const Color(0xFF6B6B7B)),
+              Icon(
+                widget.icon,
+                size: 14 * widget.uiScale,
+                color: widget.selected ? widget.color : const Color(0xFF6B6B7B),
+              ),
               SizedBox(width: 6 * widget.uiScale),
               Text(
                 widget.label,
                 style: TextStyle(
                   fontSize: 11.5 * widget.uiScale,
                   fontWeight: FontWeight.w700,
-                  color: widget.selected ? widget.color : const Color(0xFF3B3B4F),
+                  color: widget.selected
+                      ? widget.color
+                      : const Color(0xFF3B3B4F),
                 ),
               ),
             ],
@@ -923,7 +1309,10 @@ class _AddMoreChipState extends State<_AddMoreChip> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 * widget.uiScale,
+            vertical: 9 * widget.uiScale,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFFF1ECFB),
             borderRadius: BorderRadius.circular(14),
@@ -932,9 +1321,20 @@ class _AddMoreChipState extends State<_AddMoreChip> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add, size: 14 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(
+                Icons.add,
+                size: 14 * widget.uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
               SizedBox(width: 4 * widget.uiScale),
-              Text('Add More', style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
+              Text(
+                'Add More',
+                style: TextStyle(
+                  fontSize: 11.5 * widget.uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ),
             ],
           ),
         ),
@@ -947,7 +1347,14 @@ class _AddMoreChipState extends State<_AddMoreChip> {
 // Highlight row (goal summary / allergies summary)
 // ---------------------------------------------------------------------------
 class _HighlightRow extends StatelessWidget {
-  const _HighlightRow({required this.uiScale, required this.icon, required this.iconColor, required this.bg, required this.text, this.onTap});
+  const _HighlightRow({
+    required this.uiScale,
+    required this.icon,
+    required this.iconColor,
+    required this.bg,
+    required this.text,
+    this.onTap,
+  });
   final double uiScale;
   final IconData icon;
   final Color iconColor;
@@ -960,14 +1367,33 @@ class _HighlightRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 12 * uiScale),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * uiScale,
+          vertical: 12 * uiScale,
+        ),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Row(
           children: [
             Icon(icon, size: 15 * uiScale, color: iconColor),
             SizedBox(width: 8 * uiScale),
-            Expanded(child: Text(text, style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w600, color: const Color(0xFF1B1B2E)))),
-            Icon(Icons.chevron_right, size: 16 * uiScale, color: const Color(0xFF9A96A8)),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 11.5 * uiScale,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 16 * uiScale,
+              color: const Color(0xFF9A96A8),
+            ),
           ],
         ),
       ),
@@ -990,7 +1416,9 @@ class _InfoTilesRow extends StatelessWidget {
         final t = tiles[i];
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: i == tiles.length - 1 ? 0 : 8 * uiScale),
+            padding: EdgeInsets.only(
+              right: i == tiles.length - 1 ? 0 : 8 * uiScale,
+            ),
             child: Container(
               padding: EdgeInsets.all(10 * uiScale),
               decoration: BoxDecoration(
@@ -1004,13 +1432,30 @@ class _InfoTilesRow extends StatelessWidget {
                   Container(
                     width: 28 * uiScale,
                     height: 28 * uiScale,
-                    decoration: BoxDecoration(color: t.iconBg, shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: t.iconBg,
+                      shape: BoxShape.circle,
+                    ),
                     child: Icon(t.icon, size: 13 * uiScale, color: t.iconColor),
                   ),
                   SizedBox(height: 6 * uiScale),
-                  Text(t.label, maxLines: 2, style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B))),
+                  Text(
+                    t.label,
+                    maxLines: 2,
+                    style: TextStyle(
+                      fontSize: 9.5 * uiScale,
+                      color: const Color(0xFF6B6B7B),
+                    ),
+                  ),
                   SizedBox(height: 2 * uiScale),
-                  Text(t.value, style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: t.valueColor ?? const Color(0xFF1B1B2E))),
+                  Text(
+                    t.value,
+                    style: TextStyle(
+                      fontSize: 12 * uiScale,
+                      fontWeight: FontWeight.w800,
+                      color: t.valueColor ?? const Color(0xFF1B1B2E),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1047,7 +1492,10 @@ class _AlertRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(12 * uiScale),
-        decoration: BoxDecoration(color: const Color(0xFFFCEBEB), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFCEBEB),
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Row(
           children: [
             Icon(icon, size: 16 * uiScale, color: const Color(0xFFE0525C)),
@@ -1056,16 +1504,40 @@ class _AlertRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFFE0525C))),
-                  Text(subtitle, style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFF3B3B4F))),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 11.5 * uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFE0525C),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10 * uiScale,
+                      color: const Color(0xFF3B3B4F),
+                    ),
+                  ),
                 ],
               ),
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(actionLabel, style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFFE0525C))),
-                Icon(Icons.arrow_forward, size: 12 * uiScale, color: const Color(0xFFE0525C)),
+                Text(
+                  actionLabel,
+                  style: TextStyle(
+                    fontSize: 10.5 * uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFE0525C),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward,
+                  size: 12 * uiScale,
+                  color: const Color(0xFFE0525C),
+                ),
               ],
             ),
           ],
@@ -1092,15 +1564,40 @@ class _MetricsRow extends StatelessWidget {
           child: Column(
             children: [
               if (m.icon != null) ...[
-                Icon(m.icon, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                Icon(
+                  m.icon,
+                  size: 15 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
                 SizedBox(height: 4 * uiScale),
               ],
-              Text(m.label, textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFF6B6B7B))),
+              Text(
+                m.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
+              ),
               SizedBox(height: 3 * uiScale),
-              Text(m.value, style: TextStyle(fontSize: 15 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+              Text(
+                m.value,
+                style: TextStyle(
+                  fontSize: 15 * uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
               if (m.status != null) ...[
                 SizedBox(height: 2 * uiScale),
-                Text(m.status!, style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: m.statusColor ?? const Color(0xFF6B6B7B))),
+                Text(
+                  m.status!,
+                  style: TextStyle(
+                    fontSize: 9.5 * uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: m.statusColor ?? const Color(0xFF6B6B7B),
+                  ),
+                ),
               ],
             ],
           ),
@@ -1121,7 +1618,10 @@ class _TipBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * uiScale,
+        vertical: 12 * uiScale,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFE3EEFC),
         borderRadius: BorderRadius.circular(16),
@@ -1129,74 +1629,23 @@ class _TipBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline, size: 16 * uiScale, color: const Color(0xFF3B82F6)),
+          Icon(
+            Icons.lightbulb_outline,
+            size: 16 * uiScale,
+            color: const Color(0xFF3B82F6),
+          ),
           SizedBox(width: 8 * uiScale),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w600, color: const Color(0xFF1B4D8F)))),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Bottom nav bar
-// ---------------------------------------------------------------------------
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({required this.uiScale, required this.selectedIndex, required this.onTap});
-  final double uiScale;
-  final int selectedIndex;
-  final ValueChanged<int> onTap;
-
-  static const _items = [
-    (icon: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
-    (icon: Icons.smart_toy_rounded, label: 'Assistant'),
-    (icon: Icons.inventory_2_rounded, label: 'Pantry'),
-    (icon: Icons.person_rounded, label: 'Profile'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        color: const Color(0xFFF6F3FC),
-        padding: EdgeInsets.fromLTRB(10 * uiScale, 8 * uiScale, 10 * uiScale, 8 * uiScale),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(_items.length, (i) {
-            final selected = i == selectedIndex;
-            final item = _items[i];
-            return GestureDetector(
-              onTap: () => onTap(i),
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                padding: EdgeInsets.symmetric(horizontal: selected ? 14 * uiScale : 8 * uiScale, vertical: 8 * uiScale),
-                decoration: BoxDecoration(
-                  color: selected ? const Color(0xFFEDE7FA) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.icon, size: 19 * uiScale, color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFB0ACC2)),
-                    SizedBox(height: 2 * uiScale),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 9.5 * uiScale,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFB0ACC2),
-                      ),
-                    ),
-                  ],
-                ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 11 * uiScale,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1B4D8F),
               ),
-            );
-          }),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

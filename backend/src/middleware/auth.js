@@ -36,6 +36,29 @@ const protect = async (req, res, next) => {
       });
     }
 
+    const today = new Date();
+    const todayUtc = new Date(Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate(),
+    ));
+    const previousActiveUtc = user.lastActiveDate
+      ? new Date(Date.UTC(
+          user.lastActiveDate.getUTCFullYear(),
+          user.lastActiveDate.getUTCMonth(),
+          user.lastActiveDate.getUTCDate(),
+        ))
+      : null;
+    const dayDifference = previousActiveUtc
+      ? Math.round((todayUtc - previousActiveUtc) / 86400000)
+      : null;
+
+    if (dayDifference !== 0) {
+      user.streakDays = dayDifference === 1 ? Math.max(user.streakDays || 0, 1) + 1 : 1;
+      user.lastActiveDate = todayUtc;
+      await user.save();
+    }
+
     // 3. Attach user & token data to request object
     req.user = user;
     req.tokenPayload = decoded;

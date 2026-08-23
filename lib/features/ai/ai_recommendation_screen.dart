@@ -27,6 +27,7 @@ class QuickTile {
 class AiShoppingScreen extends StatefulWidget {
   const AiShoppingScreen({
     super.key,
+    this.referenceProduct,
     this.userName,
     this.pantryCount = 0,
     this.quickSuggestions = const [
@@ -58,6 +59,7 @@ class AiShoppingScreen extends StatefulWidget {
     this.initialNavIndex = 2,
   });
 
+  final FoodProduct? referenceProduct;
   final String? userName;
   final int pantryCount;
   final List<QuickTile> quickSuggestions;
@@ -183,6 +185,23 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
     });
 
     try {
+      if (widget.referenceProduct != null && filterId == null) {
+        final recs = await RecommendationService.instance.getCategoryAwareAlternatives(
+          widget.referenceProduct!,
+          personalization: _personalization,
+          profile: _userProfile,
+          limit: 8,
+        );
+
+        if (!mounted) return;
+        setState(() {
+          _products = recs.map((r) => r.product).toList();
+          _currentProductIndex = 0;
+          _isLoading = false;
+        });
+        return;
+      }
+
       final recs = await RecommendationService.instance.getRecommendedProducts(
         personalization: _personalization,
         profile: _userProfile,
@@ -310,10 +329,19 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
   }
 
   void _openProductDetails(FoodProduct product) {
+    final compat = RecommendationService.instance.evaluateCompatibility(
+      product,
+      personalization: _personalization,
+      profile: _userProfile,
+      goalFilter: _activeFilterId,
+    );
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ResultScreen(product: product),
+        builder: (_) => ResultScreen(
+          product: product,
+          initialCompatibility: compat,
+        ),
       ),
     );
   }
@@ -337,6 +365,9 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
     }
     if (_activeFilterTitle != null && _activeFilterTitle!.isNotEmpty) {
       return 'Recommended for $_activeFilterTitle';
+    }
+    if (widget.referenceProduct != null) {
+      return 'Better Alternatives for ${widget.referenceProduct!.name}';
     }
     return 'Recommended for You';
   }
@@ -418,6 +449,20 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
                     ),
                   ),
                   SizedBox(height: 16 * scale),
+
+                  if (widget.referenceProduct != null) ...[
+                    FadeTransition(
+                      opacity: _fade(0.08, 0.42),
+                      child: SlideTransition(
+                        position: _slide(0.08, 0.44),
+                        child: _ReferenceProductContextBanner(
+                          uiScale: scale,
+                          product: widget.referenceProduct!,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 14 * scale),
+                  ],
 
                   FadeTransition(
                     opacity: _fade(0.1, 0.44),
@@ -557,6 +602,26 @@ class _AiShoppingScreenState extends State<AiShoppingScreen> with TickerProvider
                       ),
                     ),
                   ),
+
+                  if (_products.length > 1) ...[
+                    SizedBox(height: 14 * scale),
+                    FadeTransition(
+                      opacity: _fade(0.28, 0.64),
+                      child: SlideTransition(
+                        position: _slide(0.28, 0.66),
+                        child: _ProductsListCarousel(
+                          uiScale: scale,
+                          products: _products,
+                          selectedIndex: _currentProductIndex,
+                          onSelect: (idx) => setState(() => _currentProductIndex = idx),
+                          onOpen: (prod) => _openProductDetails(prod),
+                          personalization: _personalization,
+                          profile: _userProfile,
+                        ),
+                      ),
+                    ),
+                  ],
+
                   SizedBox(height: 16 * scale),
 
                   FadeTransition(
@@ -1893,3 +1958,264 @@ class _BottomNavBar extends StatelessWidget {
     );
   }
 }
+
+class _ReferenceProductContextBanner extends StatelessWidget {
+  const _ReferenceProductContextBanner({
+    required this.uiScale,
+    required this.product,
+  });
+
+  final double uiScale;
+  final FoodProduct product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF6C4EF5).withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38 * uiScale,
+            height: 38 * uiScale,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C4EF5), Color(0xFF9B7BFA)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.auto_awesome_rounded, size: 20 * uiScale, color: Colors.white),
+          ),
+          SizedBox(width: 12 * uiScale),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E8A4C).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'AI RECOMMENDATIONS FOR',
+                    style: TextStyle(
+                      fontSize: 8.5 * uiScale,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1E8A4C),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 3 * uiScale),
+                Text(
+                  product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
+                Text(
+                  'Showing top healthier options in the same category',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5 * uiScale,
+                    color: const Color(0xFF6B6B7B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductsListCarousel extends StatelessWidget {
+  const _ProductsListCarousel({
+    required this.uiScale,
+    required this.products,
+    required this.selectedIndex,
+    required this.onSelect,
+    required this.onOpen,
+    this.personalization,
+    this.profile,
+  });
+
+  final double uiScale;
+  final List<FoodProduct> products;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  final ValueChanged<FoodProduct> onOpen;
+  final PersonalizationProfile? personalization;
+  final UserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'All ${products.length} Alternatives',
+              style: TextStyle(
+                fontSize: 13.5 * uiScale,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1B1B2E),
+              ),
+            ),
+            Text(
+              'Tap to preview',
+              style: TextStyle(
+                fontSize: 10.5 * uiScale,
+                color: const Color(0xFF6B6B7B),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8 * uiScale),
+        SizedBox(
+          height: 124 * uiScale,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: products.length,
+            separatorBuilder: (_, __) => SizedBox(width: 10 * uiScale),
+            itemBuilder: (context, index) {
+              final prod = products[index];
+              final isSelected = index == selectedIndex;
+              final comp = RecommendationService.instance.evaluateCompatibility(
+                prod,
+                personalization: personalization,
+                profile: profile,
+              );
+
+              return GestureDetector(
+                onTap: () => onSelect(index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 112 * uiScale,
+                  padding: EdgeInsets.all(8 * uiScale),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF6C4EF5) : Colors.black.withValues(alpha: 0.06),
+                      width: isSelected ? 2 : 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSelected
+                            ? const Color(0xFF6C4EF5).withValues(alpha: 0.18)
+                            : Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: prod.imageUrl.isNotEmpty
+                                ? Image.network(
+                                    prod.imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _productPlaceholder(uiScale),
+                                  )
+                                : _productPlaceholder(uiScale),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 6 * uiScale),
+                      Text(
+                        prod.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.5 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                      ),
+                      SizedBox(height: 2 * uiScale),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              prod.brand.isNotEmpty ? prod.brand : 'Brand',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 8.5 * uiScale,
+                                color: const Color(0xFF6B6B7B),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 4 * uiScale, vertical: 1 * uiScale),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E8A4C).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${comp.score}%',
+                              style: TextStyle(
+                                fontSize: 8.5 * uiScale,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1E8A4C),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _productPlaceholder(double uiScale) {
+    return Container(
+      color: const Color(0xFFF1ECFB),
+      child: Center(
+        child: Icon(
+          Icons.fastfood_rounded,
+          color: const Color(0xFF6C4EF5).withValues(alpha: 0.5),
+          size: 24 * uiScale,
+        ),
+      ),
+    );
+  }
+}
+

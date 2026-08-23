@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../model/user_model.dart';
 
@@ -39,6 +40,17 @@ class StorageService {
       _storage.write(key: _keyAccessToken, value: accessToken),
       _storage.write(key: _keyRefreshToken, value: refreshToken),
     ]);
+
+    final storedAccessToken = await getAccessToken();
+    final tokenStored =
+        storedAccessToken == accessToken && accessToken.isNotEmpty;
+    debugPrint('[TOKEN STORAGE DEBUG] tokenStored = $tokenStored');
+    debugPrint(
+      '[TOKEN STORAGE DEBUG] tokenLength = ${storedAccessToken?.length ?? 0}',
+    );
+    if (!tokenStored) {
+      throw StateError('Access token could not be persisted securely.');
+    }
   }
 
   /// Retrieve the stored Access Token
@@ -82,5 +94,26 @@ class StorageService {
       _storage.delete(key: _keyRefreshToken),
       _storage.delete(key: _keyUserData),
     ]);
+  }
+
+  /// Save user-specific scan history to local secure storage
+  Future<void> saveLocalScanHistory(String userId, String jsonString) async {
+    try {
+      final key = 'dc_scan_history_$userId';
+      await _storage.write(key: key, value: jsonString);
+    } catch (e) {
+      debugPrint('[StorageService] Error saving local scan history: $e');
+    }
+  }
+
+  /// Retrieve user-specific scan history from local secure storage
+  Future<String?> getLocalScanHistory(String userId) async {
+    try {
+      final key = 'dc_scan_history_$userId';
+      return await _storage.read(key: key);
+    } catch (e) {
+      debugPrint('[StorageService] Error reading local scan history: $e');
+      return null;
+    }
   }
 }

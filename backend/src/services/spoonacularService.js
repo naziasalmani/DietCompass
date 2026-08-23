@@ -1,276 +1,7 @@
 const https = require('https');
-
-/**
- * Authentic Spoonacular Recipe Backup Catalog
- * Used when Spoonacular API key is not configured or in testing/offline mode.
- * Contains real Spoonacular recipes with real images, factual nutrition, and ingredients.
- */
-const authenticBackupRecipes = [
-  {
-    id: 634486,
-    title: 'Banana Oats Power Bowl',
-    image: 'https://img.spoonacular.com/recipes/634486-556x370.jpg',
-    readyInMinutes: 15,
-    servings: 1,
-    sourceUrl: 'https://spoonacular.com/banana-oats-power-bowl-634486',
-    vegetarian: true,
-    vegan: false,
-    glutenFree: true,
-    dairyFree: false,
-    summary: 'Banana Oats Power Bowl is a wholesome, nutrient-dense breakfast packed with dietary fiber, natural potassium, and sustained energy.',
-    calories: 320,
-    protein: 12,
-    carbohydrates: 54,
-    fat: 6,
-    fiber: 8,
-    sugar: 14,
-    sodium: 95,
-    diets: ['vegetarian', 'gluten free'],
-    usedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9040, name: 'banana', amount: 1, unit: 'medium', original: '1 ripe banana, sliced' },
-      { id: 1077, name: 'milk', amount: 1, unit: 'cup', original: '1 cup milk' },
-      { id: 12006, name: 'chia seeds', amount: 1, unit: 'tbsp', original: '1 tablespoon chia seeds' },
-    ],
-    missedIngredients: [
-      { id: 19296, name: 'honey', amount: 1, unit: 'tsp', original: '1 teaspoon honey' },
-      { id: 2010, name: 'cinnamon', amount: 0.25, unit: 'tsp', original: '1/4 teaspoon ground cinnamon' },
-    ],
-    extendedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9040, name: 'banana', amount: 1, unit: 'medium', original: '1 ripe banana, sliced' },
-      { id: 1077, name: 'milk', amount: 1, unit: 'cup', original: '1 cup milk' },
-      { id: 12006, name: 'chia seeds', amount: 1, unit: 'tbsp', original: '1 tablespoon chia seeds' },
-      { id: 19296, name: 'honey', amount: 1, unit: 'tsp', original: '1 teaspoon honey' },
-      { id: 2010, name: 'cinnamon', amount: 0.25, unit: 'tsp', original: '1/4 teaspoon ground cinnamon' },
-    ],
-    instructions: [
-      'In a medium saucepan, bring milk to a gentle simmer over medium heat.',
-      'Stir in rolled oats and reduce heat to low. Cook for 5 minutes, stirring occasionally.',
-      'Remove from heat and transfer oatmeal into a serving bowl.',
-      'Top with fresh banana slices, chia seeds, a drizzle of honey, and a dusting of cinnamon.',
-      'Serve warm for a nutrient-packed, energizing breakfast!',
-    ],
-  },
-  {
-    id: 639606,
-    title: 'Chocolate Banana Overnight Oats',
-    image: 'https://img.spoonacular.com/recipes/639606-556x370.jpg',
-    readyInMinutes: 10,
-    servings: 1,
-    sourceUrl: 'https://spoonacular.com/chocolate-banana-overnight-oats-639606',
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true,
-    summary: 'Creamy overnight oats layered with rich cocoa, sliced bananas, and plant milk. A convenient grab-and-go morning meal.',
-    calories: 310,
-    protein: 11,
-    carbohydrates: 52,
-    fat: 7,
-    fiber: 9,
-    sugar: 13,
-    sodium: 80,
-    diets: ['vegetarian', 'vegan', 'gluten free', 'dairy free'],
-    usedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9040, name: 'banana', amount: 1, unit: 'medium', original: '1 ripe banana, mashed' },
-      { id: 14003, name: 'almond milk', amount: 0.75, unit: 'cup', original: '3/4 cup unsweetened almond milk' },
-      { id: 12006, name: 'chia seeds', amount: 1, unit: 'tbsp', original: '1 tablespoon chia seeds' },
-    ],
-    missedIngredients: [
-      { id: 19165, name: 'cocoa powder', amount: 1, unit: 'tbsp', original: '1 tablespoon unsweetened cocoa powder' },
-      { id: 19911, name: 'maple syrup', amount: 1, unit: 'tsp', original: '1 teaspoon pure maple syrup' },
-    ],
-    extendedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9040, name: 'banana', amount: 1, unit: 'medium', original: '1 ripe banana, mashed' },
-      { id: 14003, name: 'almond milk', amount: 0.75, unit: 'cup', original: '3/4 cup unsweetened almond milk' },
-      { id: 12006, name: 'chia seeds', amount: 1, unit: 'tbsp', original: '1 tablespoon chia seeds' },
-      { id: 19165, name: 'cocoa powder', amount: 1, unit: 'tbsp', original: '1 tablespoon unsweetened cocoa powder' },
-      { id: 19911, name: 'maple syrup', amount: 1, unit: 'tsp', original: '1 teaspoon pure maple syrup' },
-    ],
-    instructions: [
-      'In a glass jar or airtight container, combine oats, chia seeds, and unsweetened cocoa powder.',
-      'Pour in almond milk and mashed banana, stirring thoroughly until blended.',
-      'Seal the container and refrigerate for at least 4 hours, or overnight.',
-      'Before serving, stir well and garnish with additional sliced banana if desired.',
-    ],
-  },
-  {
-    id: 632583,
-    title: 'Apple Cinnamon Oatmeal Bowl',
-    image: 'https://img.spoonacular.com/recipes/632583-556x370.jpg',
-    readyInMinutes: 12,
-    servings: 1,
-    sourceUrl: 'https://spoonacular.com/apple-cinnamon-oatmeal-bowl-632583',
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true,
-    summary: 'Warm and comforting whole-grain oatmeal cooked with crisp diced apples and fragrant cinnamon.',
-    calories: 290,
-    protein: 8,
-    carbohydrates: 56,
-    fat: 4,
-    fiber: 7,
-    sugar: 15,
-    sodium: 60,
-    diets: ['vegetarian', 'vegan', 'gluten free'],
-    usedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9003, name: 'apple', amount: 1, unit: 'medium', original: '1 crisp apple, diced' },
-      { id: 1077, name: 'milk', amount: 1, unit: 'cup', original: '1 cup milk or water' },
-    ],
-    missedIngredients: [
-      { id: 2010, name: 'cinnamon', amount: 0.5, unit: 'tsp', original: '1/2 teaspoon ground cinnamon' },
-      { id: 19296, name: 'honey', amount: 1, unit: 'tsp', original: '1 teaspoon honey' },
-    ],
-    extendedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 9003, name: 'apple', amount: 1, unit: 'medium', original: '1 crisp apple, diced' },
-      { id: 1077, name: 'milk', amount: 1, unit: 'cup', original: '1 cup milk or water' },
-      { id: 2010, name: 'cinnamon', amount: 0.5, unit: 'tsp', original: '1/2 teaspoon ground cinnamon' },
-      { id: 19296, name: 'honey', amount: 1, unit: 'tsp', original: '1 teaspoon honey' },
-    ],
-    instructions: [
-      'Bring liquid to a boil in a small pot over medium heat.',
-      'Add rolled oats, diced apples, and cinnamon.',
-      'Simmer on low heat for 5-7 minutes until oats are soft and apples are tender.',
-      'Drizzle with honey and serve immediately.',
-    ],
-  },
-  {
-    id: 659109,
-    title: 'Savory Spinach & Mushroom Oats',
-    image: 'https://img.spoonacular.com/recipes/659109-556x370.jpg',
-    readyInMinutes: 18,
-    servings: 1,
-    sourceUrl: 'https://spoonacular.com/savory-spinach-mushroom-oats-659109',
-    vegetarian: true,
-    vegan: true,
-    glutenFree: true,
-    dairyFree: true,
-    summary: 'A nutritious savory oatmeal bowl cooked in vegetable broth with sautéed garlic, spinach, and mushrooms.',
-    calories: 270,
-    protein: 13,
-    carbohydrates: 42,
-    fat: 5,
-    fiber: 8,
-    sugar: 3,
-    sodium: 320,
-    diets: ['vegetarian', 'vegan', 'gluten free', 'dairy free'],
-    usedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 11457, name: 'spinach', amount: 1, unit: 'cup', original: '1 cup fresh baby spinach' },
-    ],
-    missedIngredients: [
-      { id: 11260, name: 'mushrooms', amount: 0.5, unit: 'cup', original: '1/2 cup sliced mushrooms' },
-      { id: 11215, name: 'garlic', amount: 1, unit: 'clove', original: '1 clove garlic, minced' },
-      { id: 6615, name: 'vegetable broth', amount: 1, unit: 'cup', original: '1 cup low sodium vegetable broth' },
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tsp', original: '1 teaspoon extra virgin olive oil' },
-    ],
-    extendedIngredients: [
-      { id: 20074, name: 'rolled oats', amount: 0.5, unit: 'cup', original: '1/2 cup rolled oats' },
-      { id: 11457, name: 'spinach', amount: 1, unit: 'cup', original: '1 cup fresh baby spinach' },
-      { id: 11260, name: 'mushrooms', amount: 0.5, unit: 'cup', original: '1/2 cup sliced mushrooms' },
-      { id: 11215, name: 'garlic', amount: 1, unit: 'clove', original: '1 clove garlic, minced' },
-      { id: 6615, name: 'vegetable broth', amount: 1, unit: 'cup', original: '1 cup low sodium vegetable broth' },
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tsp', original: '1 teaspoon extra virgin olive oil' },
-    ],
-    instructions: [
-      'Heat olive oil in a small pan; sauté minced garlic and sliced mushrooms for 3 minutes.',
-      'Add baby spinach and cook until wilted (about 1 minute).',
-      'In a saucepan, cook rolled oats in vegetable broth for 5 minutes.',
-      'Fold the sautéed greens and mushrooms into the warm savory oats, season with black pepper, and serve.',
-    ],
-  },
-  {
-    id: 645479,
-    title: 'High-Protein Green Egg Scramble',
-    image: 'https://img.spoonacular.com/recipes/645479-556x370.jpg',
-    readyInMinutes: 10,
-    servings: 1,
-    sourceUrl: 'https://spoonacular.com/high-protein-green-egg-scramble-645479',
-    vegetarian: true,
-    vegan: false,
-    glutenFree: true,
-    dairyFree: true,
-    summary: 'Fluffy scrambled whole eggs and egg whites folded with baby spinach and herbs for a quick protein boost.',
-    calories: 220,
-    protein: 20,
-    carbohydrates: 4,
-    fat: 12,
-    fiber: 2,
-    sugar: 2,
-    sodium: 260,
-    diets: ['vegetarian', 'gluten free', 'ketogenic', 'low carb'],
-    usedIngredients: [
-      { id: 1123, name: 'eggs', amount: 2, unit: 'large', original: '2 large eggs' },
-      { id: 11457, name: 'spinach', amount: 1, unit: 'cup', original: '1 cup fresh spinach' },
-    ],
-    missedIngredients: [
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tsp', original: '1 teaspoon olive oil' },
-      { id: 2047, name: 'salt', amount: 1, unit: 'pinch', original: 'pinch of sea salt and pepper' },
-    ],
-    extendedIngredients: [
-      { id: 1123, name: 'eggs', amount: 2, unit: 'large', original: '2 large eggs' },
-      { id: 11457, name: 'spinach', amount: 1, unit: 'cup', original: '1 cup fresh spinach' },
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tsp', original: '1 teaspoon olive oil' },
-      { id: 2047, name: 'salt', amount: 1, unit: 'pinch', original: 'pinch of sea salt and pepper' },
-    ],
-    instructions: [
-      'Whisk eggs in a small bowl with salt and black pepper.',
-      'Heat olive oil in a non-stick skillet over medium-low heat.',
-      'Add fresh baby spinach and cook until wilted (about 45 seconds).',
-      'Pour in whisked eggs and gently fold with a spatula until softly set.',
-      'Serve warm immediately.',
-    ],
-  },
-  {
-    id: 654812,
-    title: 'Pasta Primavera with Fresh Vegetables',
-    image: 'https://img.spoonacular.com/recipes/654812-556x370.jpg',
-    readyInMinutes: 20,
-    servings: 2,
-    sourceUrl: 'https://spoonacular.com/pasta-primavera-with-fresh-vegetables-654812',
-    vegetarian: true,
-    vegan: true,
-    glutenFree: false,
-    dairyFree: true,
-    summary: 'Al dente pasta tossed in garlic-infused olive oil with colorful garden vegetables and herbs.',
-    calories: 380,
-    protein: 12,
-    carbohydrates: 62,
-    fat: 8,
-    fiber: 6,
-    sugar: 4,
-    sodium: 180,
-    diets: ['vegetarian', 'vegan', 'dairy free'],
-    usedIngredients: [
-      { id: 20420, name: 'pasta', amount: 150, unit: 'g', original: '150g penne or rotini pasta' },
-      { id: 11529, name: 'tomatoes', amount: 1, unit: 'cup', original: '1 cup cherry tomatoes' },
-    ],
-    missedIngredients: [
-      { id: 11215, name: 'garlic', amount: 2, unit: 'cloves', original: '2 cloves garlic, sliced' },
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tbsp', original: '1 tablespoon extra virgin olive oil' },
-      { id: 2044, name: 'basil', amount: 0.25, unit: 'cup', original: '1/4 cup fresh basil leaves' },
-    ],
-    extendedIngredients: [
-      { id: 20420, name: 'pasta', amount: 150, unit: 'g', original: '150g penne or rotini pasta' },
-      { id: 11529, name: 'tomatoes', amount: 1, unit: 'cup', original: '1 cup cherry tomatoes' },
-      { id: 11215, name: 'garlic', amount: 2, unit: 'cloves', original: '2 cloves garlic, sliced' },
-      { id: 4053, name: 'olive oil', amount: 1, unit: 'tbsp', original: '1 tablespoon extra virgin olive oil' },
-      { id: 2044, name: 'basil', amount: 0.25, unit: 'cup', original: '1/4 cup fresh basil leaves' },
-    ],
-    instructions: [
-      'Cook pasta in boiling salted water according to package directions until al dente.',
-      'In a wide skillet, heat olive oil and lightly sauté sliced garlic until fragrant.',
-      'Add cherry tomatoes and cook until blistered and tender (about 4 minutes).',
-      'Toss drained pasta with the tomatoes and garlic, and garnish with fresh basil leaves.',
-    ],
-  },
-];
+const { normalizeSourceProduct, cleanPantryIngredients, buildPrioritizedQueries } = require('../utils/productNormalizer');
+const { validateRecipeSafety } = require('../utils/dietarySafetyValidator');
+const { rankAndScoreRecipes } = require('../utils/recipeScorer');
 
 /**
  * Execute HTTP GET request
@@ -345,13 +76,13 @@ const mapAllergiesToIntolerances = (allergies = []) => {
 /**
  * Build "WhatsIn" nutrient and benefit tags for the Flutter UI
  */
-const buildWhatsInsideTags = (recipe, userGoals = []) => {
+const buildWhatsInsideTags = (recipe) => {
   const tags = [];
-  const protein = recipe.protein || 0;
-  const fiber = recipe.fiber || 0;
-  const calories = recipe.calories || 0;
-  const sugar = recipe.sugar || 0;
-  const fat = recipe.fat || 0;
+  const protein = recipe.proteinGrams || recipe.protein || 0;
+  const fiber = recipe.fiberGrams || recipe.fiber || 0;
+  const calories = recipe.kcal || recipe.calories || 0;
+  const sugar = recipe.sugarGrams || recipe.sugar || 0;
+  const fat = recipe.fatGrams || recipe.fat || 0;
 
   if (fiber >= 5) {
     tags.push({
@@ -378,7 +109,7 @@ const buildWhatsInsideTags = (recipe, userGoals = []) => {
       subtitle: `${sugar}g natural sugar`,
       color: '#6C4EF5',
     });
-  } else if (calories <= 320) {
+  } else if (calories <= 340) {
     tags.push({
       icon: 'shopping_bag_rounded',
       title: 'Weight Friendly',
@@ -409,236 +140,314 @@ const buildWhatsInsideTags = (recipe, userGoals = []) => {
 };
 
 /**
- * Format a raw recipe into the structured UI response
+ * Normalize Spoonacular recipe into common internal Recipe model
  */
-const formatRecipe = (raw, userPantry = [], userGoals = []) => {
+const normalizeSpoonacularRecipe = (raw, userPantry = []) => {
+  if (!raw) return null;
+
+  const imageUrl = raw.image || raw.imageAsset || '';
+  if (!imageUrl || typeof imageUrl !== 'string' || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('assets/'))) {
+    return null; // Reject missing image
+  }
+
+  const nutrients = raw.nutrition?.nutrients || [];
+  const getNutrient = (name, fallback = 0) => {
+    const item = nutrients.find((n) => n.name && n.name.toLowerCase().includes(name.toLowerCase()));
+    return item && typeof item.amount === 'number' ? Math.round(item.amount) : (raw[name] || fallback);
+  };
+
+  const kcal = getNutrient('calories', raw.calories || 300);
+  const proteinGrams = getNutrient('protein', raw.protein || 10);
+  const carbsGrams = getNutrient('carbohydrates', raw.carbohydrates || 45);
+  const fatGrams = getNutrient('fat', raw.fat || 8);
+  const fiberGrams = getNutrient('fiber', raw.fiber || 5);
+  const sugarGrams = getNutrient('sugar', raw.sugar || 6);
+  const sodiumMg = getNutrient('sodium', raw.sodium || 120);
+
   const usedIngredients = (raw.usedIngredients || []).map((i) => (typeof i === 'string' ? i : i.name || i.original || ''));
   const missedIngredients = (raw.missedIngredients || []).map((i) => (typeof i === 'string' ? i : i.name || i.original || ''));
   const extendedIngredients = (raw.extendedIngredients || []).map((i) => ({
     name: i.name || i.originalName || '',
-    amount: `${i.amount || ''} ${i.unit || ''}`.trim(),
+    amount: `${i.amount || ''} ${i.unit || ''}`.trim() || 'As desired',
     original: i.original || `${i.amount || ''} ${i.unit || ''} ${i.name || ''}`.trim(),
   }));
 
   const instructions = Array.isArray(raw.instructions)
     ? raw.instructions
+    : Array.isArray(raw.analyzedInstructions?.[0]?.steps)
+    ? raw.analyzedInstructions[0].steps.map((s) => s.step)
     : typeof raw.instructions === 'string' && raw.instructions.length > 0
     ? raw.instructions.split(/\r?\n|\. /).map((s) => s.trim()).filter((s) => s.length > 3)
-    : [];
+    : ['Prepare ingredients as desired.', 'Cook according to personal preference.', 'Serve fresh and enjoy!'];
 
-  const whatsInside = buildWhatsInsideTags(raw, userGoals);
+  const diets = (raw.diets || []).map((d) => d.toLowerCase());
+  const tagline = diets.length > 0
+    ? diets.slice(0, 3).map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(' • ')
+    : 'Healthy • Fresh • Nutritious';
 
-  return {
+  const description = (raw.summary || '').replace(/<[^>]*>?/gm, '').trim() || 'A nutritious and delicious recipe personalized for your diet and pantry.';
+
+  const normalized = {
     id: raw.id,
+    sourceRecipeId: raw.id,
+    recipeSource: 'spoonacular',
+    sourceRecipeUrl: raw.sourceUrl || '',
+    sourceImageUrl: imageUrl,
     title: raw.title || 'Personalized Recipe',
-    tagline: (raw.diets && raw.diets.length > 0 ? raw.diets.slice(0, 3).map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(' • ') : 'Healthy • Fresh • Nutritious'),
-    description: (raw.summary || '').replace(/<[^>]*>?/gm, '').trim() || 'A nutritious and delicious recipe personalized for your diet and pantry.',
+    tagline,
+    description,
     timeMinutes: raw.readyInMinutes || 15,
-    kcal: raw.calories || 300,
-    proteinGrams: raw.protein || 10,
-    carbsGrams: raw.carbohydrates || 45,
-    fatGrams: raw.fat || 8,
-    fiberGrams: raw.fiber || 5,
-    sugarGrams: raw.sugar || 6,
-    sodiumMg: raw.sodium || 120,
-    imageAsset: raw.image || 'assets/images/recipe_banana_oats_power_bowl.jpeg',
-    images: [raw.image || 'assets/images/recipe_banana_oats_power_bowl.jpeg'],
+    kcal,
+    proteinGrams,
+    carbsGrams,
+    fatGrams,
+    fiberGrams,
+    sugarGrams,
+    sodiumMg,
+    image: imageUrl,
+    imageAsset: imageUrl,
+    images: [imageUrl],
     servings: raw.servings || 1,
-    recommended: raw.recommended || false,
-    whatsInside,
+    recommended: false,
+    diets,
+    dishTypes: raw.dishTypes || [],
     usedIngredientCount: usedIngredients.length,
     missedIngredientCount: missedIngredients.length,
     usedIngredients,
     missedIngredients,
     ingredients: extendedIngredients.length > 0 ? extendedIngredients : usedIngredients.map((u) => ({ name: u, amount: 'As desired', original: u })),
-    instructions: instructions.length > 0 ? instructions : ['Prepare ingredients as desired.', 'Cook according to personal preference.', 'Serve fresh and enjoy!'],
+    instructions: instructions.length > 0 ? instructions : ['Prepare fresh ingredients.', 'Cook according to instructions.', 'Serve warm and enjoy!'],
     pantryMatchSummary: `Uses ${usedIngredients.length} pantry ingredients${missedIngredients.length > 0 ? ` • ${missedIngredients.length} more needed` : ' • Fully stocked!'}`,
   };
+
+  normalized.whatsInside = buildWhatsInsideTags(normalized);
+
+  return normalized;
 };
 
 /**
- * Filter recipes against user allergies, disliked foods, and dietary preferences
- */
-const filterRecipes = (recipes, userProfile, personalization) => {
-  const allergies = (personalization?.allergies || userProfile?.allergies || []).map((a) => a.toLowerCase().trim());
-  const dislikedFoods = (personalization?.dislikedFoods || []).map((d) => d.toLowerCase().trim());
-  const dietType = (personalization?.dietType || userProfile?.dietType || '').toLowerCase().trim();
-
-  return recipes.filter((recipe) => {
-    const textToCheck = `${recipe.title || ''} ${(recipe.extendedIngredients || []).map((i) => i.name || i.original || '').join(' ')} ${(recipe.usedIngredients || []).map((i) => (typeof i === 'string' ? i : i.name)).join(' ')} ${(recipe.missedIngredients || []).map((i) => (typeof i === 'string' ? i : i.name)).join(' ')}`.toLowerCase();
-
-    // 1. Strict Allergy Check: EXCLUDE if any allergen is present
-    for (const allergy of allergies) {
-      if (allergy.length > 0 && textToCheck.includes(allergy)) {
-        return false;
-      }
-    }
-
-    // 2. Strict Dietary Check: EXCLUDE if diet is violated
-    if (dietType.includes('vegan')) {
-      if (textToCheck.match(/chicken|beef|pork|bacon|fish|tuna|salmon|shrimp|meat|gelatin|egg|eggs|dairy|milk|cheese|butter|honey|yogurt|whey/)) {
-        // If recipe isn't tagged as vegan or contains non-vegan ingredients
-        if (!recipe.vegan && !recipe.diets?.includes('vegan')) {
-          return false;
-        }
-      }
-    } else if (dietType.includes('vegetarian')) {
-      if (textToCheck.match(/chicken|beef|pork|bacon|fish|tuna|salmon|shrimp|meat|gelatin/)) {
-        if (!recipe.vegetarian && !recipe.diets?.includes('vegetarian')) {
-          return false;
-        }
-      }
-    }
-
-    // 3. Disliked Foods Check: Exclude or deprioritize
-    for (const disliked of dislikedFoods) {
-      if (disliked.length > 0 && textToCheck.includes(disliked)) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-};
-
-/**
- * Generate recipes from user pantry using Spoonacular API (with fallback)
+ * Generate recipes using real Spoonacular API
  */
 const generatePantryRecipes = async ({
+  mode = 'pantry',
   ingredients = [],
   pantryItems = [],
   mealType = '',
   maxTime = null,
   craving = '',
-  userProfile,
-  personalization,
+  sourceProduct = null,
+  userProfile = null,
+  personalization = null,
   number = 6,
 }) => {
-  // 1. Extract ingredients from input list or pantry items
-  const rawIngredients = [
-    ...ingredients,
-    ...pantryItems.map((p) => (typeof p === 'string' ? p : p.name || p.label || '')),
-  ]
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const isProductMode = mode === 'product' || Boolean(sourceProduct);
+  const normalized = isProductMode ? normalizeSourceProduct(sourceProduct) : { originalName: '', primaryCategory: '', keywords: [], aliases: [] };
+  const allPantry = isProductMode
+    ? []
+    : [
+        ...ingredients,
+        ...pantryItems.map((p) => (typeof p === 'string' ? p : p.name || p.label || '')),
+      ].map((s) => s.trim()).filter((s) => s.length > 0);
 
-  const uniqueIngredients = [...new Set(rawIngredients)];
+  const cleanPantry = isProductMode ? [] : cleanPantryIngredients(allPantry, null);
+  const primaryCategory = normalized.primaryCategory || craving || 'food';
 
-  // Empty Pantry Guard
-  if (uniqueIngredients.length === 0) {
-    return {
-      recipes: [],
-      totalFound: 0,
-      pantrySummary: 'Your pantry is currently empty.',
-      message: 'Add ingredients or scanned food products to your pantry to generate personalized recipes.',
-    };
-  }
+  const prioritized = isProductMode
+    ? { primaryCategory, queries: [primaryCategory + (mealType ? ` ${mealType}` : ''), primaryCategory] }
+    : buildPrioritizedQueries({
+        sourceProduct: null,
+        pantryIngredients: allPantry,
+        mealType,
+        craving,
+      });
 
   const apiKey = (process.env.SPOONACULAR_API_KEY || '').trim();
   const diet = mapDietTypeToSpoonacular(personalization?.dietType || userProfile?.dietType);
   const intolerances = mapAllergiesToIntolerances(personalization?.allergies || userProfile?.allergies);
   const excludeIngredients = (personalization?.dislikedFoods || []).join(',');
-  const userGoals = personalization?.goals || [];
 
-  let rawRecipes = [];
+  console.log('\n[RECIPE API REQUEST]');
+  console.log('provider = Spoonacular');
+  console.log(`query = ${primaryCategory}`);
+  console.log(`diet = ${diet || 'None'}`);
+  console.log(`mealType = ${mealType || 'None'}`);
+  console.log(`number = ${number}`);
+  console.log(`other filters = ${[intolerances ? `intolerances: ${intolerances}` : null, maxTime ? `maxReadyTime: ${maxTime}` : null].filter(Boolean).join(', ') || 'None'}`);
 
-  // 2. Query Spoonacular API if API key is configured
-  if (apiKey && apiKey !== 'your_spoonacular_api_key_here') {
-    try {
-      const ingredientsParam = encodeURIComponent(uniqueIngredients.join(','));
-      let apiUrl = `https://api.spoonacular.com/recipes/complexSearch?includeIngredients=${ingredientsParam}&addRecipeInformation=true&addRecipeNutrition=true&fillIngredients=true&number=${number}&ranking=1&apiKey=${apiKey}`;
 
-      if (diet) apiUrl += `&diet=${encodeURIComponent(diet)}`;
-      if (intolerances) apiUrl += `&intolerances=${encodeURIComponent(intolerances)}`;
-      if (excludeIngredients) apiUrl += `&excludeIngredients=${encodeURIComponent(excludeIngredients)}`;
-      if (mealType) apiUrl += `&type=${encodeURIComponent(mealType.toLowerCase())}`;
-      if (maxTime && typeof maxTime === 'number') apiUrl += `&maxReadyTime=${maxTime}`;
-      if (craving) apiUrl += `&query=${encodeURIComponent(craving)}`;
+  if (!apiKey || apiKey === 'your_spoonacular_api_key_here') {
+    console.warn('[SPOONACULAR SERVICE] SPOONACULAR_API_KEY not configured.');
+    return {
+      recipes: [],
+      rawCount: 0,
+      validCount: 0,
+      bestScore: 0,
+      bestRecipe: null,
+      status: 'SPOONACULAR_HTTP_ERROR',
+      error: 'SPOONACULAR_API_KEY_NOT_CONFIGURED',
+      attemptedQueries: prioritized.queries,
+    };
+  }
 
-      const apiResponse = await httpGet(apiUrl);
-      if (apiResponse && Array.isArray(apiResponse.results) && apiResponse.results.length > 0) {
-        rawRecipes = apiResponse.results.map((r) => {
-          const nutrients = r.nutrition?.nutrients || [];
-          const getNutrient = (name) => {
-            const item = nutrients.find((n) => n.name.toLowerCase().includes(name.toLowerCase()));
-            return item ? Math.round(item.amount) : 0;
-          };
+  const combinedResults = [];
+  const seenIds = new Set();
+  let apiError = null;
 
-          return {
-            id: r.id,
-            title: r.title,
-            image: r.image,
-            readyInMinutes: r.readyInMinutes,
-            servings: r.servings,
-            sourceUrl: r.sourceUrl,
-            vegetarian: r.vegetarian,
-            vegan: r.vegan,
-            glutenFree: r.glutenFree,
-            dairyFree: r.dairyFree,
-            summary: r.summary,
-            calories: getNutrient('calories'),
-            protein: getNutrient('protein'),
-            carbohydrates: getNutrient('carbohydrates'),
-            fat: getNutrient('fat'),
-            fiber: getNutrient('fiber'),
-            sugar: getNutrient('sugar'),
-            sodium: getNutrient('sodium'),
-            diets: r.diets || [],
-            usedIngredients: r.usedIngredients || [],
-            missedIngredients: r.missedIngredients || [],
-            extendedIngredients: r.extendedIngredients || [],
-            instructions: r.analyzedInstructions?.[0]?.steps?.map((s) => s.step) || [],
-          };
-        });
+  const buildSearchUrl = (query, includeIngs, options = {}) => {
+    const { applyDiet = true, applyType = true, applyTime = true, applyAllergies = true } = options;
+    let url = `https://api.spoonacular.com/recipes/complexSearch?addRecipeInformation=true&addRecipeNutrition=true&fillIngredients=true&number=12&ranking=1&apiKey=${apiKey}`;
+    if (query) url += `&query=${encodeURIComponent(query)}`;
+    if (includeIngs && includeIngs.length > 0) {
+      url += `&includeIngredients=${encodeURIComponent(includeIngs.join(','))}`;
+    }
+    if (applyDiet && diet) url += `&diet=${encodeURIComponent(diet)}`;
+    if (applyAllergies && intolerances) url += `&intolerances=${encodeURIComponent(intolerances)}`;
+    if (excludeIngredients) url += `&excludeIngredients=${encodeURIComponent(excludeIngredients)}`;
+    if (applyType && mealType) url += `&type=${encodeURIComponent(mealType.toLowerCase())}`;
+    if (applyTime && maxTime && typeof maxTime === 'number') url += `&maxReadyTime=${maxTime}`;
+    return url;
+  };
+
+  const addUniqueResults = (results) => {
+    if (Array.isArray(results)) {
+      for (const r of results) {
+        if (r && r.id && !seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          combinedResults.push(r);
+        }
       }
-    } catch (apiErr) {
-      console.warn('[SpoonacularService] Live API call failed, falling back to verified catalog:', apiErr.message);
-      rawRecipes = [];
     }
+  };
+
+  try {
+    if (isProductMode) {
+      // PRODUCT MODE HIERARCHY:
+      // LEVEL 1: Primary category + all preferences (mealType, diet, time)
+      const q1 = prioritized.queries[0] || primaryCategory;
+      const url1 = buildSearchUrl(q1, [], { applyDiet: true, applyType: true, applyTime: true });
+      const res1 = await httpGet(url1);
+      if (res1?.results) addUniqueResults(res1.results);
+
+      // LEVEL 2: Primary category + diet (relax mealType & maxTime)
+      if (combinedResults.length < 4 && primaryCategory) {
+        const url2 = buildSearchUrl(primaryCategory, [], { applyDiet: true, applyType: false, applyTime: false });
+        const res2 = await httpGet(url2);
+        if (res2?.results) addUniqueResults(res2.results);
+      }
+
+      // LEVEL 3: Primary category broad search (relax URL diet parameter, validate with internal safety)
+      if (combinedResults.length < 4 && primaryCategory) {
+        const url3 = buildSearchUrl(primaryCategory, [], { applyDiet: false, applyType: false, applyTime: false });
+        const res3 = await httpGet(url3);
+        if (res3?.results) addUniqueResults(res3.results);
+      }
+    } else {
+      // PANTRY MODE STRATEGY: Subset matching across pantry items
+      if (cleanPantry.length > 0) {
+        const topSubset = cleanPantry.slice(0, 2);
+        console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${topSubset.join(', ')}`);
+        const url1 = buildSearchUrl(topSubset.join(' '), topSubset, { applyDiet: true, applyType: true });
+        const res1 = await httpGet(url1);
+        if (res1?.results) addUniqueResults(res1.results);
+
+        if (combinedResults.length < 6 && cleanPantry[0]) {
+          console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${cleanPantry[0]}`);
+          const url2 = buildSearchUrl(cleanPantry[0], [cleanPantry[0]], { applyDiet: true, applyType: false });
+          const res2 = await httpGet(url2);
+          if (res2?.results) addUniqueResults(res2.results);
+        }
+
+        if (combinedResults.length < 6 && cleanPantry.length > 1) {
+          console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${cleanPantry[1]}`);
+          const url3 = buildSearchUrl(cleanPantry[1], [cleanPantry[1]], { applyDiet: false, applyType: false });
+          const res3 = await httpGet(url3);
+          if (res3?.results) addUniqueResults(res3.results);
+        }
+      } else if (craving) {
+        const urlCraving = buildSearchUrl(craving, []);
+        const resCraving = await httpGet(urlCraving);
+        if (resCraving?.results) addUniqueResults(resCraving.results);
+      }
+    }
+  } catch (err) {
+    console.warn('[SPOONACULAR SERVICE] Spoonacular API call failed:', err.message);
+    apiError = err;
   }
 
-  // 3. If live API returned 0 results or API key not present, use authentic backup catalog
-  if (rawRecipes.length === 0) {
-    const lowerIngs = uniqueIngredients.map((i) => i.toLowerCase());
+  console.log('\n[RECIPE RAW RESPONSE]');
+  console.log(`statusCode = ${apiError ? (apiError.statusCode || 500) : 200}`);
+  console.log(`rawRecipeCount = ${combinedResults.length}`);
 
-    rawRecipes = authenticBackupRecipes.filter((r) => {
-      const recipeText = `${r.title} ${(r.usedIngredients || []).map((i) => i.name).join(' ')}`.toLowerCase();
-      // Match at least one pantry ingredient or query
-      const matchesIng = lowerIngs.some((ing) => recipeText.includes(ing) || ing.includes('oat') || ing.includes('banana') || ing.includes('milk') || ing.includes('spinach') || ing.includes('egg') || ing.includes('pasta'));
-      return matchesIng;
-    });
-
-    if (rawRecipes.length === 0) {
-      rawRecipes = authenticBackupRecipes;
-    }
+  if (combinedResults.length === 0) {
+    console.log('\n[RECIPE PARSING]\nparsedRecipeCount = 0');
+    console.log('\n[RECIPE FILTERING]\nfinalRecipeCount = 0');
+    return {
+      recipes: [],
+      rawCount: 0,
+      validCount: 0,
+      bestScore: 0,
+      bestRecipe: null,
+      status: apiError ? 'SPOONACULAR_HTTP_ERROR' : 'SPOONACULAR_ZERO_RESULTS',
+      error: apiError ? apiError.message : 'No recipes returned from Spoonacular',
+      attemptedQueries: prioritized.queries,
+    };
   }
 
-  // 4. Apply strict safety & personalization filtering
-  const safeRecipes = filterRecipes(rawRecipes, userProfile, personalization);
+  // Normalize all Spoonacular recipes
+  const normalizedRecipes = combinedResults
+    .map((r) => normalizeSpoonacularRecipe(r, cleanPantry))
+    .filter((r) => r !== null);
 
-  // 5. Format & structure recipes for Flutter UI
-  const formattedRecipes = safeRecipes.map((r, index) => {
-    const formatted = formatRecipe(r, uniqueIngredients, userGoals);
-    if (index === 0) {
-      return { ...formatted, recommended: true };
-    }
-    return formatted;
+  console.log('\n[RECIPE PARSING]');
+  console.log(`parsedRecipeCount = ${normalizedRecipes.length}`);
+
+  // Score, rank and validate with DietarySafetyValidator
+  const scoredResult = rankAndScoreRecipes({
+    recipes: normalizedRecipes,
+    mode: isProductMode ? 'product' : 'pantry',
+    sourceProduct: isProductMode ? sourceProduct : null,
+    pantryIngredients: isProductMode ? [] : cleanPantry,
+    mealType,
+    userProfile,
+    personalization,
+    minScoreThreshold: isProductMode ? 20 : 15,
   });
 
-  const pantrySummary = formattedRecipes.length > 0
-    ? `Generated ${formattedRecipes.length} recipes from your ${uniqueIngredients.length} pantry ingredients.`
-    : 'No suitable recipes found with your current pantry and preferences.';
+  console.log('\n[RECIPE FILTERING]');
+  console.log(`finalRecipeCount = ${scoredResult.validRecipes.length}`);
+
+
+  const validCount = scoredResult.validRecipes.length;
+  const bestScore = scoredResult.bestScore;
+  const bestRecipe = scoredResult.bestRecipe;
+
+  let status = 'SPOONACULAR_SUCCESS';
+  if (validCount === 0) {
+    status = normalizedRecipes.length > 0 ? 'SPOONACULAR_DIET_FAILURE' : 'SPOONACULAR_ZERO_RESULTS';
+  } else if (bestScore < (isProductMode ? 30 : 20)) {
+    status = 'SPOONACULAR_LOW_RELEVANCE';
+  }
+
+
+  const finalRecipes = scoredResult.validRecipes.slice(0, number).map((r, index) => {
+    if (index === 0) return { ...r, recommended: true };
+    return r;
+  });
 
   return {
-    recipes: formattedRecipes,
-    totalFound: formattedRecipes.length,
-    pantrySummary,
-    pantryIngredients: uniqueIngredients,
+    recipes: finalRecipes,
+    rawCount: combinedResults.length,
+    validCount,
+    bestScore,
+    bestRecipe,
+    status,
+    error: apiError ? apiError.message : null,
+    attemptedQueries: prioritized.queries,
   };
 };
 
 /**
- * Get detailed information for a single recipe by ID
+ * Get detailed recipe information for a single recipe by ID
  */
 const getRecipeDetails = async (recipeId, userProfile, personalization) => {
   const apiKey = (process.env.SPOONACULAR_API_KEY || '').trim();
@@ -648,54 +457,20 @@ const getRecipeDetails = async (recipeId, userProfile, personalization) => {
       const url = `https://api.spoonacular.com/recipes/${recipeId}/information?includeNutrition=true&apiKey=${apiKey}`;
       const r = await httpGet(url);
       if (r && r.id) {
-        const nutrients = r.nutrition?.nutrients || [];
-        const getNutrient = (name) => {
-          const item = nutrients.find((n) => n.name.toLowerCase().includes(name.toLowerCase()));
-          return item ? Math.round(item.amount) : 0;
-        };
-
-        const raw = {
-          id: r.id,
-          title: r.title,
-          image: r.image,
-          readyInMinutes: r.readyInMinutes,
-          servings: r.servings,
-          sourceUrl: r.sourceUrl,
-          vegetarian: r.vegetarian,
-          vegan: r.vegan,
-          glutenFree: r.glutenFree,
-          dairyFree: r.dairyFree,
-          summary: r.summary,
-          calories: getNutrient('calories'),
-          protein: getNutrient('protein'),
-          carbohydrates: getNutrient('carbohydrates'),
-          fat: getNutrient('fat'),
-          fiber: getNutrient('fiber'),
-          sugar: getNutrient('sugar'),
-          sodium: getNutrient('sodium'),
-          diets: r.diets || [],
-          usedIngredients: r.extendedIngredients || [],
-          missedIngredients: [],
-          extendedIngredients: r.extendedIngredients || [],
-          instructions: r.analyzedInstructions?.[0]?.steps?.map((s) => s.step) || (r.instructions ? r.instructions.split('\n') : []),
-        };
-
-        return formatRecipe(raw, [], personalization?.goals || []);
+        return normalizeSpoonacularRecipe(r, []);
       }
     } catch (e) {
       console.warn('[SpoonacularService] Live recipe details call failed:', e.message);
     }
   }
 
-  // Fallback to backup catalog
-  const found = authenticBackupRecipes.find((r) => r.id === parseInt(recipeId, 10)) || authenticBackupRecipes[0];
-  return formatRecipe(found, [], personalization?.goals || []);
+  return null;
 };
 
 module.exports = {
   generatePantryRecipes,
   getRecipeDetails,
-  filterRecipes,
+  normalizeSpoonacularRecipe,
   mapDietTypeToSpoonacular,
   mapAllergiesToIntolerances,
 };

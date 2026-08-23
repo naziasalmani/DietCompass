@@ -2,6 +2,11 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../core/model/food_product.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/dietary_safety_validator.dart';
+import '../../core/services/personalization_service.dart';
+import '../../core/services/profile_service.dart';
 import '../../core/services/recipe_service.dart';
 import 'recipe_detail_screen.dart';
 import '../home/home_screen.dart';
@@ -15,6 +20,8 @@ import 'ai_meal_planner_screen.dart';
 class RecipeGeneratorScreen extends StatefulWidget {
   const RecipeGeneratorScreen({
     super.key,
+    this.sourceProduct,
+    this.initialProduct,
     this.userName = 'Nazia',
     this.pantryItems = const [
       PantryChipData(label: 'Oats', asset: 'assets/images/pantry_oats.jpeg', icon: Icons.rice_bowl_rounded),
@@ -50,6 +57,8 @@ class RecipeGeneratorScreen extends StatefulWidget {
     this.initialNavIndex = 3,
   });
 
+  final FoodProduct? sourceProduct;
+  final FoodProduct? initialProduct;
   final String userName;
   final List<PantryChipData> pantryItems;
   final List<CustomizeChipData> customizeOptions;
@@ -120,10 +129,12 @@ class RecipeCardData {
     required this.imageAsset,
     required this.whatsInside,
     this.id,
+    this.recipeSource = 'api',
     this.recommended = false,
     this.usedIngredientCount = 0,
     this.missedIngredientCount = 0,
     this.pantryMatchSummary = '',
+    this.fullRecipe,
   });
   final dynamic id;
   final String title;
@@ -133,12 +144,15 @@ class RecipeCardData {
   final int kcal;
   final int proteinGrams;
   final String imageAsset;
+  final String recipeSource;
   final List<WhatsInTag> whatsInside;
   final bool recommended;
   final int usedIngredientCount;
   final int missedIngredientCount;
   final String pantryMatchSummary;
+  final Recipe? fullRecipe;
 }
+
 
 
 class MoreIdeaData {
@@ -182,6 +196,8 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
   double _recipePage = 0;
   bool _isLoading = false;
 
+  FoodProduct? get _effectiveProduct => widget.sourceProduct ?? widget.initialProduct;
+
   @override
   void initState() {
     super.initState();
@@ -191,6 +207,9 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     _savedRecipes = {};
     _bookmarkedIdeas = {};
     _cravingCtrl = TextEditingController();
+
+    _initProductState();
+
     _entranceCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -205,7 +224,28 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           _recipePage = _recipePageCtrl.page ?? 0;
         });
       });
-    _fetchRecipes();
+    if (widget.recipes.isEmpty) {
+      _fetchRecipes();
+    }
+  }
+
+  void _initProductState() {
+    _pantryItems = [...widget.pantryItems];
+    final p = _effectiveProduct;
+    if (p != null) {
+      _cravingCtrl.text = '';
+    }
+  }
+
+
+  @override
+  void didUpdateWidget(covariant RecipeGeneratorScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sourceProduct != widget.sourceProduct ||
+        oldWidget.initialProduct != widget.initialProduct) {
+      _initProductState();
+      _fetchRecipes();
+    }
   }
 
   Future<void> _fetchRecipes({String craving = ''}) async {
@@ -220,17 +260,27 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     });
 
     try {
-      final ingredients = _pantryItems.map((p) => p.label).toList();
-      final list = await RecipeService.instance.generateRecipes(
-        ingredients: ingredients,
-        craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
-      );
+      final isProductMode = _effectiveProduct != null;
+      List<RecipeCardData> list;
+
+      if (isProductMode) {
+        list = await RecipeService.instance.generateRecipes(
+          mode: 'product',
+          sourceProduct: _effectiveProduct,
+          craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
+        );
+      } else {
+        final ingredients = _pantryItems.map((p) => p.label).toList();
+        list = await RecipeService.instance.generateRecipes(
+          mode: 'pantry',
+          ingredients: ingredients,
+          craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
+        );
+      }
 
       if (mounted) {
         setState(() {
-          if (list.isNotEmpty) {
-            _recipes = list;
-          }
+          _recipes = list;
           _isLoading = false;
         });
       }
@@ -243,6 +293,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     }
   }
 
+
   @override
   void dispose() {
     _entranceCtrl.dispose();
@@ -250,6 +301,36 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     _recipePageCtrl.dispose();
     _cravingCtrl.dispose();
     super.dispose();
+  }
+
+  String get _effectiveUserName {
+    if (widget.userName != 'Nazia' && widget.userName.isNotEmpty) return widget.userName;
+    final prof = ProfileService.instance.currentProfile;
+    if (prof != null && prof.fullName.trim().isNotEmpty) {
+      return prof.fullName.split(' ').first;
+    }
+    final user = AuthService.instance.currentUser;
+    if (user != null && user.fullName.trim().isNotEmpty) {
+      return user.fullName.split(' ').first;
+    }
+    return 'There';
+  }
+
+  List<CustomizeChipData> get _effectiveCustomizeOptions {
+    final pers = PersonalizationService.instance.currentPersonalization;
+    final prof = ProfileService.instance.currentProfile;
+
+    final goal = (pers?.goals.isNotEmpty == true) ? pers!.goals.first : 'Maintain Weight';
+    final diet = (pers?.dietType?.isNotEmpty == true)
+        ? pers!.dietType!
+        : (prof?.dietType.isNotEmpty == true ? prof!.dietType : 'Balanced');
+
+    return [
+      CustomizeChipData(icon: Icons.flag_rounded, label: 'Goal', value: goal, color: const Color(0xFF1E8A4C)),
+      const CustomizeChipData(icon: Icons.restaurant_menu_rounded, label: 'Meal Type', value: 'Breakfast', color: Color(0xFF6C4EF5)),
+      CustomizeChipData(icon: Icons.eco_rounded, label: 'Diet Preference', value: diet, color: const Color(0xFF1E8A4C)),
+      const CustomizeChipData(icon: Icons.access_time_rounded, label: 'Cooking Time', value: 'Under 20 min', color: Color(0xFFE0862E)),
+    ];
   }
 
   Animation<double> _fade(double s, double e) => CurvedAnimation(
@@ -280,14 +361,36 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
   }
 
   void _toggleSaveRecipe(int index) {
-    setState(() {
-      if (_savedRecipes.contains(index)) {
-        _savedRecipes.remove(index);
-      } else {
-        _savedRecipes.add(index);
-      }
-    });
-    widget.onSaveRecipe?.call(index);
+    if (index >= 0 && index < _recipes.length) {
+      final recipe = _recipes[index];
+      setState(() {
+        if (_savedRecipes.contains(index)) {
+          _savedRecipes.remove(index);
+        } else {
+          _savedRecipes.add(index);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.bookmark_added_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Saved ${recipe.title} to your recipes ✓',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: _kPurple,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      });
+      widget.onSaveRecipe?.call(index);
+    }
   }
 
   void _toggleBookmarkIdea(int index) {
@@ -300,50 +403,58 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     });
   }
 
-  void _openRecipeDetail(RecipeCardData card) async {
-    if (card.id != null) {
-      try {
-        final fullRecipe = await RecipeService.instance.getRecipeDetails(card.id);
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RecipeDetailScreen(recipe: fullRecipe),
-            ),
-          );
-          return;
-        }
-      } catch (_) {}
-    }
-
-    if (mounted) {
-      final fallbackRecipe = Recipe(
-        id: card.id,
-        images: [card.imageAsset],
-        title: card.title,
-        tags: card.tagline.split('•').map((s) => s.trim()).toList(),
-        description: card.description,
-        prepTime: '${card.timeMinutes} min',
-        calories: '${card.kcal} kcal',
-        protein: '${card.proteinGrams}g',
-        difficulty: 'Easy',
-        nutritionFacts: [],
-        ingredients: card.whatsInside.map((w) => IngredientItem(amount: '1 portion', name: w.title)).toList(),
-        serves: 1,
-        instructions: [
-          'Prepare all fresh pantry ingredients.',
-          'Cook and combine according to personal preference.',
-          'Serve warm and enjoy your healthy meal!',
-        ],
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RecipeDetailScreen(recipe: fallbackRecipe),
+  List<MoreIdeaData> get _safeMoreIdeas {
+    return widget.moreIdeas.where((idea) {
+      final res = DietarySafetyValidator.instance.validateRecipeCard(
+        RecipeCardData(
+          title: idea.title,
+          tagline: '${idea.timeMinutes} min • ${idea.kcal} kcal',
+          description: 'Idea for ${idea.title}',
+          timeMinutes: idea.timeMinutes,
+          kcal: idea.kcal,
+          proteinGrams: 10,
+          imageAsset: idea.imageAsset,
+          whatsInside: const [],
         ),
       );
-    }
+      return res.isCompatible;
+    }).toList();
+  }
+
+  void _openRecipeDetail(RecipeCardData card) {
+    // 1-to-1 strict binding: Card must open the exact same recipe object
+    final recipeToOpen = card.fullRecipe ??
+        Recipe(
+          id: card.id ?? card.title.toLowerCase().replaceAll(' ', '_'),
+          images: [card.imageAsset],
+          title: card.title,
+          tags: card.tagline.split('•').map((s) => s.trim()).toList(),
+          description: card.description,
+          prepTime: '${card.timeMinutes} min',
+          calories: '${card.kcal} kcal',
+          protein: '${card.proteinGrams}g',
+          difficulty: 'Easy',
+          nutritionFacts: [
+            NutritionFact(icon: Icons.local_fire_department, color: const Color(0xFFE0862E), label: 'Calories', value: '${card.kcal}\nkcal'),
+            NutritionFact(icon: Icons.eco, color: const Color(0xFF1E8A4C), label: 'Protein', value: '${card.proteinGrams}g'),
+          ],
+          ingredients: card.whatsInside.isNotEmpty
+              ? card.whatsInside.map((w) => IngredientItem(amount: '1 portion', name: w.title)).toList()
+              : _pantryItems.map((p) => IngredientItem(amount: '1 portion', name: p.label)).toList(),
+          serves: 1,
+          instructions: const [
+            'Prepare all fresh pantry ingredients.',
+            'Combine and cook according to recipe instructions.',
+            'Serve warm and enjoy your healthy meal!',
+          ],
+        );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecipeDetailScreen(recipe: recipeToOpen),
+      ),
+    );
   }
 
   @override
@@ -351,6 +462,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
     final currentRecipeIndex = _recipePage.round().clamp(0, (_recipes.isNotEmpty ? _recipes.length - 1 : 0));
+    final productContext = _effectiveProduct;
 
 
     return Scaffold(
@@ -374,13 +486,19 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     child: _ScreenHeader(
                       uiScale: scale,
                       onBack: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const HomeScreen(),
-    ),
-  );
-},
+                        if (widget.onBack != null) {
+                          widget.onBack!();
+                        } else if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HomeScreen(),
+                            ),
+                          );
+                        }
+                      },
                       onHistoryTap: () {
   Navigator.push(
     context,
@@ -394,13 +512,27 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                 ),
                 SizedBox(height: 18 * scale),
 
+                if (productContext != null) ...[
+                  FadeTransition(
+                    opacity: _fade(0.02, 0.36),
+                    child: SlideTransition(
+                      position: _slide(0.02, 0.40),
+                      child: _ProductSourceBanner(
+                        uiScale: scale,
+                        product: productContext,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 14 * scale),
+                ],
+
                 FadeTransition(
                   opacity: _fade(0.05, 0.38),
                   child: SlideTransition(
                     position: _slide(0.05, 0.42),
                     child: _AiIntroCard(
                       uiScale: scale,
-                      userName: widget.userName,
+                      userName: _effectiveUserName,
                       ambientCtrl: _ambientCtrl,
                     ),
                   ),
@@ -422,6 +554,35 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                 ),
                 SizedBox(height: 16 * scale),
 
+                if (_effectiveProduct != null) ...[
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4 * scale),
+                    padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 10 * scale),
+                    decoration: BoxDecoration(
+                      color: _kPurple.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _kPurple.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.stars_rounded, color: _kPurple, size: 20),
+                        SizedBox(width: 8 * scale),
+                        Expanded(
+                          child: Text(
+                            'Product Focus: ${_effectiveProduct!.name}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _kInk,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12 * scale),
+                ],
+
                 FadeTransition(
                   opacity: _fade(0.15, 0.5),
                   child: SlideTransition(
@@ -436,6 +597,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     ),
                   ),
                 ),
+
                 SizedBox(height: 22 * scale),
 
                 FadeTransition(
@@ -444,7 +606,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     position: _slide(0.2, 0.58),
                     child: _CustomizeSection(
                       uiScale: scale,
-                      options: widget.customizeOptions,
+                      options: _effectiveCustomizeOptions,
                       onTap: (optIndex) {
                         widget.onCustomizeTap?.call(optIndex);
                         _fetchRecipes();
@@ -580,7 +742,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                     position: _slide(0.38, 0.76),
                     child: _MoreIdeasSection(
                       uiScale: scale,
-                      ideas: widget.moreIdeas,
+                      ideas: _safeMoreIdeas,
                       bookmarked: _bookmarkedIdeas,
                       onToggleBookmark: _toggleBookmarkIdea,
                     ),
@@ -1121,7 +1283,7 @@ class _PantrySection extends StatelessWidget {
         ),
         SizedBox(height: 12 * uiScale),
         SizedBox(
-          height: 92 * uiScale,
+          height: 102 * uiScale,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -1585,6 +1747,11 @@ class _RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[RECIPE CARD]');
+    debugPrint('title = ${recipe.title}');
+    debugPrint('image = ${recipe.imageAsset}');
+    debugPrint('source = ${recipe.recipeSource}');
+
     return _GlassContainer(
       borderRadius: 24,
       opacity: 0.7,
@@ -2007,16 +2174,21 @@ class _MoreIdeaCard extends StatelessWidget {
                   style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: _kInk),
                 ),
                 SizedBox(height: 3 * uiScale),
-                Row(
-                  children: [
-                    Icon(Icons.access_time_rounded, size: 9 * uiScale, color: _kPurple),
-                    SizedBox(width: 2 * uiScale),
-                    Text('${idea.timeMinutes} min', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
-                    SizedBox(width: 6 * uiScale),
-                    Icon(Icons.local_fire_department_rounded, size: 9 * uiScale, color: _kOrange),
-                    SizedBox(width: 2 * uiScale),
-                    Text('${idea.kcal} kcal', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
-                  ],
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 9 * uiScale, color: _kPurple),
+                      SizedBox(width: 2 * uiScale),
+                      Text('${idea.timeMinutes} min', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
+                      SizedBox(width: 6 * uiScale),
+                      Icon(Icons.local_fire_department_rounded, size: 9 * uiScale, color: _kOrange),
+                      SizedBox(width: 2 * uiScale),
+                      Text('${idea.kcal} kcal', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2211,3 +2383,111 @@ class _BottomNavBar extends StatelessWidget {
     );
   }
 }
+
+class _ProductSourceBanner extends StatelessWidget {
+  const _ProductSourceBanner({
+    required this.uiScale,
+    required this.product,
+  });
+
+  final double uiScale;
+  final FoodProduct product;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassContainer(
+      borderRadius: 20,
+      opacity: 0.82,
+      padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
+      child: Row(
+        children: [
+          Container(
+            width: 40 * uiScale,
+            height: 40 * uiScale,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8B6EF6), _kPurple],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: _kPurple.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(Icons.auto_awesome_rounded, size: 20 * uiScale, color: Colors.white),
+          ),
+          SizedBox(width: 12 * uiScale),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                      decoration: BoxDecoration(
+                        color: _kGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'USING PRODUCT',
+                        style: TextStyle(
+                          fontSize: 8.5 * uiScale,
+                          fontWeight: FontWeight.w800,
+                          color: _kGreen,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    if (product.brand.isNotEmpty) ...[
+                      SizedBox(width: 6 * uiScale),
+                      Flexible(
+                        child: Text(
+                          product.brand,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9.5 * uiScale,
+                            fontWeight: FontWeight.w600,
+                            color: _kMutedInk,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: 3 * uiScale),
+                Text(
+                  'Recipe with ${product.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: _kInk,
+                  ),
+                ),
+                Text(
+                  'AI is creating healthy recipes using this product',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10 * uiScale,
+                    color: _kMutedInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

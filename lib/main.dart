@@ -6,6 +6,8 @@ import 'core/services/api_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/personalization_service.dart';
 import 'core/services/profile_service.dart';
+import 'core/services/recommendation_service.dart';
+import 'core/services/scan_history_service.dart';
 import 'core/services/storage_service.dart';
 import 'features/forgot_password/forgot_password_screen.dart';
 import 'features/forgot_password/reset_password_screen.dart';
@@ -53,13 +55,12 @@ class DietCompassApp extends StatelessWidget {
 // Manages the top-level auth & personalization state for the entire app.
 //
 // State machine:
-//   _AppState.splash          → showing the animated splash screen
-//   _AppState.checking        → splash done, silently checking stored session & cloud profile
+//   _AppState.splash          → showing the animated splash screen & running background init
 //   _AppState.auth            → unauthenticated → show onboarding / login
 //   _AppState.personalization → authenticated user needing to complete 7-step flow
 //   _AppState.home            → authenticated & personalized → show HomeScreen
 
-enum _AppState { splash, checking, auth, personalization, home }
+enum _AppState { splash, auth, personalization, home }
 
 class AppFlow extends StatefulWidget {
   const AppFlow({super.key});
@@ -73,6 +74,7 @@ class _AppFlowState extends State<AppFlow> {
   AuthUser? _user;
   OnboardingData? _initialPersonalizationData;
   bool _hasSeenIntroOnboarding = false;
+  String? _splashError;
 
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final AppLinks _appLinks;
@@ -81,6 +83,7 @@ class _AppFlowState extends State<AppFlow> {
   void initState() {
     super.initState();
     _initDeepLinks();
+    _initializeStartup();
   }
 
   // ── Deep link setup ───────────────────────────────────────────────────────
@@ -120,46 +123,71 @@ class _AppFlowState extends State<AppFlow> {
     }
   }
 
+  // ── Startup Initialization ─────────────────────────────────────────────────
 
-  // ── Splash callback ───────────────────────────────────────────────────────
+  /// Runs background initialization while SplashScreen is smoothly animated.
+  /// Determines session status and navigates to the exact target screen.
+  Future<void> _initializeStartup() async {
+    if (_splashError != null) {
+      setState(() => _splashError = null);
+    }
 
-  /// Called when the splash animation completes. Silently probes for a valid
-  /// stored session and fetches the user's cloud profile from MongoDB Atlas.
-  Future<void> _onSplashFinished() async {
-    setState(() => _state = _AppState.checking);
     try {
-      _hasSeenIntroOnboarding = await StorageService.instance.hasSeenIntroOnboarding();
-      final user = await AuthService.instance.tryRestoreSession();
-      if (!mounted) return;
+      // Ensure smooth splash entrance without artificial long wait (~1.4s minimum)
+      final minSplashDuration = Future.delayed(const Duration(milliseconds: 1400));
+
+      // 1. Check intro onboarding state
+      final introSeenFuture = StorageService.instance.hasSeenIntroOnboarding();
+
+      // 2. Restore session
+      final userFuture = AuthService.instance.tryRestoreSession();
+
+      final introSeen = await introSeenFuture;
+      _hasSeenIntroOnboarding = introSeen;
+
+      final user = await userFuture;
 
       if (user == null) {
+        await minSplashDuration;
+        if (!mounted) return;
         setState(() => _state = _AppState.auth);
         return;
       }
 
       _user = user;
 
-      // Check cloud profile & personalization status
+      // 3. Authenticated user: verify personalization / cloud profile
       try {
         final profile = await ProfileService.instance.getProfile(forceRefresh: true);
-        if (!mounted) return;
-
         if (profile.isPersonalizationComplete) {
+          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
+          await minSplashDuration;
+          if (!mounted) return;
           setState(() => _state = _AppState.home);
+          return;
         } else {
-          // Incomplete personalization: pre-fill with any partial data from cloud
-          final pers = await PersonalizationService.instance.getPersonalization();
-          _initialPersonalizationData = pers?.toOnboardingData() ?? (OnboardingData()..fullName = profile.fullName);
+          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
+          _initialPersonalizationData = pers?.toOnboardingData() ??
+              (OnboardingData()..fullName = profile.fullName);
+          await minSplashDuration;
+          if (!mounted) return;
           setState(() => _state = _AppState.personalization);
+          return;
         }
-      } catch (_) {
-        // Fallback: If offline or profile fetch fails, default to home for returning user
+      } catch (e) {
+        // Fallback: If offline or cloud profile fetch fails, default to home for returning user
+        debugPrint('Cloud profile check warning (fallback to home): $e');
+        await minSplashDuration;
         if (!mounted) return;
         setState(() => _state = _AppState.home);
+        return;
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Startup initialization error: $e');
       if (!mounted) return;
-      setState(() => _state = _AppState.auth);
+      setState(() {
+        _splashError = 'Please check your internet connection and try again.';
+      });
     }
   }
 
@@ -179,9 +207,10 @@ class _AppFlowState extends State<AppFlow> {
         if (!mounted) return;
 
         if (profile.isPersonalizationComplete) {
+          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization();
+          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
           _initialPersonalizationData = pers?.toOnboardingData() ?? (OnboardingData()..fullName = profile.fullName);
           setState(() => _state = _AppState.personalization);
         }
@@ -203,9 +232,10 @@ class _AppFlowState extends State<AppFlow> {
         final profile = await ProfileService.instance.getProfile(forceRefresh: true);
         if (!mounted) return;
         if (profile.isPersonalizationComplete) {
+          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization();
+          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
           _initialPersonalizationData = pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
           setState(() => _state = _AppState.personalization);
@@ -298,6 +328,8 @@ class _AppFlowState extends State<AppFlow> {
   Future<void> _handleLogout() async {
     ProfileService.instance.clearCache();
     PersonalizationService.instance.clearCache();
+    RecommendationService.instance.clearCompatibilityCache();
+    ScanHistoryService.instance.clearCache();
     await AuthService.instance.logout();
     if (!mounted) return;
     setState(() {
@@ -311,21 +343,13 @@ class _AppFlowState extends State<AppFlow> {
 
   @override
   Widget build(BuildContext context) {
-    // Checking state: display a minimal loading indicator while probing session
-    if (_state == _AppState.checking) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFEDE7FA),
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Color(0xFF6C4EF5)),
-          ),
-        ),
-      );
-    }
-
-    // Splash state.
+    // Splash state: renders DietCompass branding and covers background initialization.
     if (_state == _AppState.splash) {
-      return SplashScreen(onFinished: _onSplashFinished);
+      return SplashScreen(
+        errorMessage: _splashError,
+        onRetry: _initializeStartup,
+        statusMessage: 'Preparing your personalized experience...',
+      );
     }
 
     // Personalization flow state (New user or incomplete personalization)

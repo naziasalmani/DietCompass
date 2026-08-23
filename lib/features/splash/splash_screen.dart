@@ -27,9 +27,18 @@ import 'package:flutter/material.dart';
 ///     - assets/images/logo_header.png
 /// ```
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, this.onFinished});
+  const SplashScreen({
+    super.key,
+    this.onFinished,
+    this.errorMessage,
+    this.onRetry,
+    this.statusMessage = 'Preparing your personalized experience...',
+  });
 
   final VoidCallback? onFinished;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+  final String statusMessage;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -83,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _progressCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: const Duration(milliseconds: 1400),
     )..forward();
 
     _logoFade = CurvedAnimation(
@@ -219,7 +228,7 @@ class _SplashScreenState extends State<SplashScreen>
           // ---- Layer 4: twinkling sparkles over the scene ----
           _SparkleField(controller: _sparkleCtrl),
 
-          // ---- Layer 5: UI chrome (logo, glass card, progress bar) ----
+          // ---- Layer 5: UI chrome (logo, glass card, progress bar / error) ----
           SafeArea(
             bottom: false,
             child: Column(
@@ -239,25 +248,38 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
                 const Spacer(),
-                // Glassmorphism info card.
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24 * scale),
-                  child: FadeTransition(
-                    opacity: _cardFade,
-                    child: SlideTransition(
-                      position: _cardSlide,
-                      child: _GlassCard(uiScale: scale),
+                if (widget.errorMessage != null) ...[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                    child: _ErrorCard(
+                      message: widget.errorMessage!,
+                      onRetry: widget.onRetry ?? () {},
+                      uiScale: scale,
                     ),
                   ),
-                ),
-                SizedBox(height: 18 * scale),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 28 * scale),
-                  child: _ProgressSection(
-                    controller: _progressCtrl,
-                    uiScale: scale,
+                  SizedBox(height: 28 * scale),
+                ] else ...[
+                  // Glassmorphism info card.
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                    child: FadeTransition(
+                      opacity: _cardFade,
+                      child: SlideTransition(
+                        position: _cardSlide,
+                        child: _GlassCard(uiScale: scale),
+                      ),
+                    ),
                   ),
-                ),
+                  SizedBox(height: 18 * scale),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 28 * scale),
+                    child: _ProgressSection(
+                      controller: _progressCtrl,
+                      uiScale: scale,
+                      statusMessage: widget.statusMessage,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -404,12 +426,120 @@ class _GlassCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Error Card ("Unable to initialize DietCompass")
+// ---------------------------------------------------------------------------
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({
+    required this.message,
+    required this.onRetry,
+    required this.uiScale,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final double uiScale;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: EdgeInsets.all(20 * uiScale),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44 * uiScale,
+                height: 44 * uiScale,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFDE8E8),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.cloud_off_rounded,
+                  color: const Color(0xFFE0525C),
+                  size: 22 * uiScale,
+                ),
+              ),
+              SizedBox(height: 12 * uiScale),
+              Text(
+                'Unable to initialize DietCompass',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16 * uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              SizedBox(height: 6 * uiScale),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13 * uiScale,
+                  color: const Color(0xFF5B5B6B),
+                  height: 1.35,
+                ),
+              ),
+              SizedBox(height: 16 * uiScale),
+              SizedBox(
+                width: double.infinity,
+                height: 46 * uiScale,
+                child: ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
+                  label: Text(
+                    'Retry',
+                    style: TextStyle(
+                      fontSize: 14 * uiScale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6C4EF5),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Progress bar with shimmering gradient fill
 // ---------------------------------------------------------------------------
 class _ProgressSection extends StatelessWidget {
-  const _ProgressSection({required this.controller, required this.uiScale});
+  const _ProgressSection({
+    required this.controller,
+    required this.uiScale,
+    this.statusMessage = 'Preparing your personalized experience...',
+  });
   final AnimationController controller;
   final double uiScale;
+  final String statusMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +568,8 @@ class _ProgressSection extends StatelessWidget {
           ),
           SizedBox(height: 10 * uiScale),
           Text(
-            'Loading your healthy journey...',
+            statusMessage,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12.5 * uiScale,
               fontWeight: FontWeight.w600,

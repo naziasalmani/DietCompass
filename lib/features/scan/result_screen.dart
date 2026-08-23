@@ -2,12 +2,20 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../ai/ai_recommendation_screen.dart';
 import 'package:diet_compass/features/scan/compare_screen.dart';
-import 'package:share_plus/share_plus.dart';
+import '../recipe_generator/recipe_generator_screen.dart';
 import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/services/pantry_storage_service.dart';
 import '../../core/services/recommendation_service.dart';
+import '../../core/services/scan_history_service.dart';
+
+import '../../core/services/ingredient_intelligence_service.dart';
+import '../../core/services/product_category_service.dart';
+import 'services/product_share_service.dart';
+import 'widgets/product_share_card.dart';
 
 /// DietCompass — AI Result Screen
 /// -----------------------------------------------------------------------
@@ -21,16 +29,6 @@ import '../../core/services/recommendation_service.dart';
 /// below (NutrientStat, CompatibilityItem, AlternativeProduct, etc.) so
 /// this screen can be wired to a real backend response instead of the
 /// sample DietCompass data used for preview.
-///
-/// Add to pubspec.yaml (skip any already present):
-/// ```yaml
-/// flutter:
-///   assets:
-///     - assets/images/robot_badge.png
-///     - assets/images/product_quaker.png
-///     - assets/images/product_saffola.png
-///     - assets/images/product_true_elements.png
-/// ```
 class NutrientStat {
   const NutrientStat({
     required this.label,
@@ -39,6 +37,7 @@ class NutrientStat {
     required this.icon,
     required this.color,
     required this.badge,
+    this.isAvailable = true,
   });
 
   final String label;
@@ -46,7 +45,8 @@ class NutrientStat {
   final String unit;
   final IconData icon;
   final Color color;
-  final String badge; // e.g. "Good", "Excellent", "Low"
+  final String badge; // e.g. "Good", "Excellent", "Low", "Unavailable"
+  final bool isAvailable;
 }
 
 class CompatibilityItem {
@@ -83,10 +83,6 @@ class AlternativeProduct {
   final String differentiator; // e.g. "More Protein"
 }
 
-double _nutritionValue(double? value) {
-  return value ?? 0.0;
-}
-
 int _calculateScore(FoodProduct product) {
   return RecommendationService.instance.calculateNutritionScore(product);
 }
@@ -95,8 +91,6 @@ int _calculateCompatibility(FoodProduct product) {
   return RecommendationService.instance.calculateCompatibilityScore(product);
 }
 
-
-
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
     super.key,
@@ -104,6 +98,7 @@ class ResultScreen extends StatefulWidget {
     // NEW: actual scanned product
     required this.product,
     this.productImage,
+    this.initialCompatibility,
 
     // Existing result-screen data
     this.productName = '',
@@ -137,6 +132,7 @@ class ResultScreen extends StatefulWidget {
 
   final FoodProduct product;
   final ImageProvider? productImage;
+  final ProductCompatibility? initialCompatibility;
 
   final String productName;
   final String productSubtitle;
@@ -175,34 +171,188 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
   bool _favorited = false;
+  bool _isInPantry = false;
   ProductAiAnalysis? _aiAnalysis;
   ProductCompatibility? _compatibility;
   List<PersonalizedRecommendation> _recommendations = [];
+  final GlobalKey _shareCardKey = GlobalKey();
+  bool _isSharing = false;
 
   @override
   void initState() {
     super.initState();
+    // SINGLE SOURCE OF TRUTH: Initialize compatibility immediately so score never jumps/flickers
+    _compatibility = widget.initialCompatibility ??
+        RecommendationService.instance.evaluateCompatibility(widget.product);
+    _checkPantryStatus();
+    _saveToScanHistory();
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..forward();
     _ambientCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
     _loadAiIntelligence();
+  }
+
+  Future<void> _saveToScanHistory() async {
+    try {
+      final score = _compatibility?.score ?? _calculateScore(widget.product);
+      await ScanHistoryService.instance.saveScan(widget.product, score: score);
+    } catch (e) {
+      debugPrint('[ResultScreen] Error saving scan history: $e');
+    }
+  }
+
+  Future<void> _checkPantryStatus() async {
+    final inPantry = await PantryStorageService.instance.isProductInPantry(widget.product);
+    if (mounted) {
+      setState(() => _isInPantry = inPantry);
+    }
+  }
+
+  Future<void> _handleShare() async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+
+    try {
+      final overallScore = _calculateScore(widget.product);
+      final compatibilityScore = _compatibility?.score ?? _calculateCompatibility(widget.product);
+      final nutrients = _buildNutrients(widget.product);
+      final compatibility = _buildCompatibility(widget.product);
+      final goodPoints = _buildGoodPoints(widget.product);
+      final watchPoints = _buildWatchPoints(widget.product);
+      final recommendation = _aiAnalysis?.summary.trim().isNotEmpty == true
+          ? _aiAnalysis!.summary.trim()
+          : (_compatibility?.recommendation.trim().isNotEmpty == true
+              ? _compatibility!.recommendation.trim()
+              : (overallScore >= 70
+                  ? 'Great product choice aligning well with your dietary guidelines and nutrient profile.'
+                  : 'Consider enjoying in moderation or pairing with whole foods to balance nutrition.'));
+
+      await ProductShareService.instance.shareProductAnalysis(
+        context: context,
+        product: widget.product,
+        overallScore: overallScore,
+        compatibilityScore: compatibilityScore,
+        nutrients: nutrients,
+        compatibility: compatibility,
+        goodPoints: goodPoints,
+        watchPoints: watchPoints,
+        aiRecommendation: recommendation,
+        boundaryKey: _shareCardKey,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
+
+  Future<void> _handleCompare() async {
+    FoodProduct? bestAlt;
+    ProductCompatibility? altComp;
+    ProductNutritionComparison? nutrComp;
+
+    if (_recommendations.isNotEmpty) {
+      final top = _recommendations.first;
+      bestAlt = top.product;
+      altComp = top.compatibility;
+      nutrComp = top.nutritionComparison;
+    }
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompareScreen(
+          currentProduct: widget.product,
+          currentProductImage: widget.productImage,
+          alternativeProduct: bestAlt,
+          alternativeCompatibility: altComp,
+          nutritionComparison: nutrComp,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addToPantry() async {
+    if (_isInPantry) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.product.name} is already in your pantry ✓'),
+          backgroundColor: const Color(0xFF1E8A4C),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    await PantryStorageService.instance.addProduct(widget.product);
+    if (!mounted) return;
+    setState(() => _isInPantry = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${widget.product.name} added to your pantry ✓',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E8A4C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _handleGenerateRecipe() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecipeGeneratorScreen(
+          sourceProduct: widget.product,
+          initialProduct: widget.product,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadAiIntelligence() async {
     try {
       final res = await AiService.instance.analyzeProduct(widget.product);
       if (mounted) {
+        // Strict category validation: filter any cross-category recommendations (cap to 3 for ResultScreen)
+        final validAiRecs = res.recommendations.where((r) {
+          return ProductCategoryService.instance.isProductSimilarCategory(widget.product, r.product);
+        }).take(3).toList();
+
         setState(() {
           _aiAnalysis = res.analysis;
-          _compatibility = res.compatibility;
-          _recommendations = res.recommendations;
+          // CRITICAL: Preserve single source of truth compatibility from RecommendationService
+          // Never overwrite client's personalized calculation with backend's separate calculation
+          _compatibility ??= res.compatibility;
+          _recommendations = validAiRecs;
         });
       }
     } catch (_) {
-      // Graceful fallback to client calculations
+      // Graceful fallback
+    }
+
+    // If recommendations are empty, query real category-aware alternatives dynamically (1-3 for ResultScreen)
+    if (_recommendations.isEmpty) {
+      try {
+        final dynamicRecs = await RecommendationService.instance.getCategoryAwareAlternatives(widget.product, limit: 3);
+        if (mounted && dynamicRecs.isNotEmpty) {
+          setState(() => _recommendations = dynamicRecs.take(3).toList());
+        }
+      } catch (_) {}
     }
   }
-
-
 
   @override
   void dispose() {
@@ -214,157 +364,293 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
  List<NutrientStat> _buildNutrients(FoodProduct product) {
   final nutrients = <NutrientStat>[];
 
-  // Calories
-  final calories = _nutritionValue(product.calories);
-  String caloriesBadge;
-
-  if (calories <= 100) {
-    caloriesBadge = 'Good';
-  } else if (calories <= 250) {
-    caloriesBadge = 'Moderate';
-  } else if (calories <= 400) {
-    caloriesBadge = 'High';
+  // 1. Calories
+  if (product.calories == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Calories',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.local_fire_department,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    caloriesBadge = 'Very High';
+    final calories = product.calories!;
+    String caloriesBadge;
+    Color color = const Color(0xFF6C4EF5);
+    if (calories <= 100) {
+      caloriesBadge = 'Low';
+      color = const Color(0xFF1E8A4C);
+    } else if (calories <= 250) {
+      caloriesBadge = 'Moderate';
+    } else if (calories <= 400) {
+      caloriesBadge = 'High';
+      color = const Color(0xFFE0862E);
+    } else {
+      caloriesBadge = 'Very High';
+      color = const Color(0xFFE0525C);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Calories',
+        value: calories.toStringAsFixed(0),
+        unit: 'kcal',
+        icon: Icons.local_fire_department,
+        color: color,
+        badge: caloriesBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Calories',
-      value: calories.toStringAsFixed(0),
-      unit: 'kcal',
-      icon: Icons.local_fire_department,
-      color: const Color(0xFF6C4EF5),
-      badge: caloriesBadge,
-    ),
-  );
-
-  // Protein
-  final protein = _nutritionValue(product.protein);
-  String proteinBadge;
-
-  if (protein >= 10) {
-    proteinBadge = 'Good';
-  } else if (protein >= 5) {
-    proteinBadge = 'Moderate';
-  } else if (protein >= 2) {
-    proteinBadge = 'High';
+  // 2. Protein
+  if (product.protein == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Protein',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.fitness_center,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    proteinBadge = 'Very High';
+    final protein = product.protein!;
+    String proteinBadge;
+    Color color = const Color(0xFF1E8A4C);
+    if (protein >= 10) {
+      proteinBadge = 'High';
+    } else if (protein >= 5) {
+      proteinBadge = 'Good';
+    } else if (protein >= 2) {
+      proteinBadge = 'Moderate';
+    } else {
+      proteinBadge = 'Low';
+      color = const Color(0xFF9A96A8);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Protein',
+        value: protein.toStringAsFixed(1),
+        unit: 'g',
+        icon: Icons.fitness_center,
+        color: color,
+        badge: proteinBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Protein',
-      value: protein.toStringAsFixed(1),
-      unit: 'g',
-      icon: Icons.fitness_center,
-      color: const Color(0xFF1E8A4C),
-      badge: proteinBadge,
-    ),
-  );
-
-  // Carbohydrates
-  final carbs = _nutritionValue(product.carbohydrates);
-  String carbsBadge;
-
-  if (carbs < 20) {
-    carbsBadge = 'Good';
-  } else if (carbs <= 50) {
-    carbsBadge = 'Moderate';
-  } else if (carbs <= 70) {
-    carbsBadge = 'High';
+  // 3. Carbohydrates
+  if (product.carbohydrates == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Carbs',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.grain,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    carbsBadge = 'Very High';
+    final carbs = product.carbohydrates!;
+    String carbsBadge;
+    Color color = const Color(0xFFE0862E);
+    if (carbs < 20) {
+      carbsBadge = 'Low';
+      color = const Color(0xFF1E8A4C);
+    } else if (carbs <= 50) {
+      carbsBadge = 'Moderate';
+    } else if (carbs <= 70) {
+      carbsBadge = 'High';
+    } else {
+      carbsBadge = 'Very High';
+      color = const Color(0xFFE0525C);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Carbs',
+        value: carbs.toStringAsFixed(1),
+        unit: 'g',
+        icon: Icons.grain,
+        color: color,
+        badge: carbsBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Carbs',
-      value: carbs.toStringAsFixed(1),
-      unit: 'g',
-      icon: Icons.grain,
-      color: const Color(0xFFE0862E),
-      badge: carbsBadge,
-    ),
-  );
-
-  // Sugar
-  final sugar = _nutritionValue(product.sugar);
-  String sugarBadge;
-
-  if (sugar <= 5) {
-    sugarBadge = 'Good';
-  } else if (sugar <= 10) {
-    sugarBadge = 'Moderate';
-  } else if (sugar <= 15) {
-    sugarBadge = 'High';
+  // 4. Sugar (Strict: distinguish true 0.0g from null / missing)
+  if (product.sugar == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Sugar',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.icecream,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    sugarBadge = 'Very High';
+    final sugar = product.sugar!;
+    String sugarBadge;
+    Color color;
+    if (sugar <= 0.5) {
+      sugarBadge = 'Zero Sugar';
+      color = const Color(0xFF1E8A4C);
+    } else if (sugar <= 5) {
+      sugarBadge = 'Low Sugar';
+      color = const Color(0xFF1E8A4C);
+    } else if (sugar <= 12) {
+      sugarBadge = 'Moderate';
+      color = const Color(0xFFE0862E);
+    } else {
+      sugarBadge = 'High Sugar';
+      color = const Color(0xFFE0525C);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Sugar',
+        value: sugar.toStringAsFixed(1),
+        unit: 'g',
+        icon: Icons.icecream,
+        color: color,
+        badge: sugarBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Sugar',
-      value: sugar.toStringAsFixed(1),
-      unit: 'g',
-      icon: Icons.icecream,
-      color: const Color(0xFFE0525C),
-      badge: sugarBadge,
-    ),
-  );
-
-  // Fat
-  final fat = _nutritionValue(product.fat);
-  String fatBadge;
-
-  if (fat <= 3) {
-    fatBadge = 'Good';
-  } else if (fat <= 10) {
-    fatBadge = 'Moderate';
-  } else if (fat <= 20) {
-    fatBadge = 'High';
+  // 5. Fat
+  if (product.fat == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Fat',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.opacity,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    fatBadge = 'Very High';
+    final fat = product.fat!;
+    String fatBadge;
+    Color color = const Color(0xFFE0862E);
+    if (fat <= 3) {
+      fatBadge = 'Low';
+      color = const Color(0xFF1E8A4C);
+    } else if (fat <= 10) {
+      fatBadge = 'Moderate';
+    } else if (fat <= 20) {
+      fatBadge = 'High';
+    } else {
+      fatBadge = 'Very High';
+      color = const Color(0xFFE0525C);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Fat',
+        value: fat.toStringAsFixed(1),
+        unit: 'g',
+        icon: Icons.opacity,
+        color: color,
+        badge: fatBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Fat',
-      value: fat.toStringAsFixed(1),
-      unit: 'g',
-      icon: Icons.opacity,
-      color: const Color(0xFFE0862E),
-      badge: fatBadge,
-    ),
-  );
-
-  // Sodium
-  // Open Food Facts gives sodium in g/100g.
-  // Convert to mg/100g for DietCompass criteria.
-  final sodiumMg = _nutritionValue(product.sodium);
-  String sodiumBadge;
-
-  if (sodiumMg <= 120) {
-    sodiumBadge = 'Good';
-  } else if (sodiumMg <= 400) {
-    sodiumBadge = 'Moderate';
-  } else if (sodiumMg <= 800) {
-    sodiumBadge = 'High';
+  // 6. Fiber
+  if (product.fiber == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Fiber',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.eco_outlined,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
   } else {
-    sodiumBadge = 'Very High';
+    final fiber = product.fiber!;
+    String fiberBadge;
+    Color color = const Color(0xFF1E8A4C);
+    if (fiber >= 6) {
+      fiberBadge = 'High';
+    } else if (fiber >= 3) {
+      fiberBadge = 'Good';
+    } else {
+      fiberBadge = 'Low';
+      color = const Color(0xFF9A96A8);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Fiber',
+        value: fiber.toStringAsFixed(1),
+        unit: 'g',
+        icon: Icons.eco_outlined,
+        color: color,
+        badge: fiberBadge,
+        isAvailable: true,
+      ),
+    );
   }
 
-  nutrients.add(
-    NutrientStat(
-      label: 'Sodium',
-      value: sodiumMg.toStringAsFixed(0),
-      unit: 'mg',
-      icon: Icons.water_drop_outlined,
-      color: const Color(0xFF3B82F6),
-      badge: sodiumBadge,
-    ),
-  );
+  // 7. Sodium
+  if (product.sodium == null) {
+    nutrients.add(
+      const NutrientStat(
+        label: 'Sodium',
+        value: 'Unavailable',
+        unit: '',
+        icon: Icons.water_drop_outlined,
+        color: Color(0xFF9A96A8),
+        badge: 'Unknown',
+        isAvailable: false,
+      ),
+    );
+  } else {
+    final rawSodium = product.sodium!;
+    final sodiumMg = rawSodium <= 10.0 ? rawSodium * 1000.0 : rawSodium;
+    String sodiumBadge;
+    Color color = const Color(0xFF3B82F6);
+    if (sodiumMg <= 140) {
+      sodiumBadge = 'Low';
+      color = const Color(0xFF1E8A4C);
+    } else if (sodiumMg <= 400) {
+      sodiumBadge = 'Moderate';
+    } else if (sodiumMg <= 800) {
+      sodiumBadge = 'High';
+      color = const Color(0xFFE0862E);
+    } else {
+      sodiumBadge = 'Very High';
+      color = const Color(0xFFE0525C);
+    }
+    nutrients.add(
+      NutrientStat(
+        label: 'Sodium',
+        value: sodiumMg.toStringAsFixed(0),
+        unit: 'mg',
+        icon: Icons.water_drop_outlined,
+        color: color,
+        badge: sodiumBadge,
+        isAvailable: true,
+      ),
+    );
+  }
 
   return nutrients;
 }
@@ -391,35 +677,35 @@ List<CompatibilityItem> _buildCompatibility(FoodProduct product) {
     }).toList();
   }
 
-  final calories = _nutritionValue(product.calories);
-  final sodium = _nutritionValue(product.sodium);
-  final sugar = _nutritionValue(product.sugar);
-  final fiber = _nutritionValue(product.fiber);
+  final calories = product.calories ?? 0.0;
+  final rawSodium = product.sodium ?? 0.0;
+  final sodium = rawSodium <= 10.0 ? rawSodium * 1000.0 : rawSodium;
+  final sugar = product.sugar ?? 0.0;
+  final fiber = product.fiber ?? 0.0;
 
   return [
     CompatibilityItem(
       icon: Icons.monitor_weight_outlined,
       label: 'Weight Management',
-      rating: calories <= 200 ? 'Good' : 'Consider',
+      rating: product.calories != null && calories <= 220 ? 'Good' : 'Consider',
     ),
     CompatibilityItem(
       icon: Icons.favorite_outline,
       label: 'Heart Health',
-      rating: sodium <= 400 ? 'Good' : 'Consider',
+      rating: product.sodium != null && sodium <= 400 ? 'Good' : 'Consider',
     ),
     CompatibilityItem(
       icon: Icons.water_drop_outlined,
       label: 'Blood Sugar Control',
-      rating: sugar <= 5 ? 'Good' : 'Consider',
+      rating: product.sugar != null && sugar <= 5 ? 'Good' : 'Consider',
     ),
     CompatibilityItem(
       icon: Icons.eco_outlined,
       label: 'Digestive Health',
-      rating: fiber >= 3 ? 'Excellent' : 'Good',
+      rating: product.fiber != null && fiber >= 3 ? 'Excellent' : 'Good',
     ),
   ];
 }
-
 
 List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
   final points = <ProsConsItem>[];
@@ -436,11 +722,7 @@ List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
     return points;
   }
 
-  final fiber = _nutritionValue(product.fiber);
-  final sugar = _nutritionValue(product.sugar);
-  final protein = _nutritionValue(product.protein);
-
-  if (fiber >= 3) {
+  if (product.fiber != null && product.fiber! >= 3) {
     points.add(
       const ProsConsItem(
         title: 'Good source of fiber',
@@ -449,7 +731,7 @@ List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
     );
   }
 
-  if (sugar <= 5) {
+  if (product.sugar != null && product.sugar! <= 5) {
     points.add(
       const ProsConsItem(
         title: 'Low in sugar',
@@ -458,7 +740,7 @@ List<ProsConsItem> _buildGoodPoints(FoodProduct product) {
     );
   }
 
-  if (protein >= 5) {
+  if (product.protein != null && product.protein! >= 5) {
     points.add(
       const ProsConsItem(
         title: 'Good protein content',
@@ -518,11 +800,7 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
     if (points.isNotEmpty) return points;
   }
 
-  final sugar = _nutritionValue(product.sugar);
-  final sodium = _nutritionValue(product.sodium);
-  final fat = _nutritionValue(product.fat);
-
-  if (sugar > 10) {
+  if (product.sugar != null && product.sugar! > 10) {
     points.add(
       const ProsConsItem(
         title: 'High in sugar',
@@ -531,16 +809,20 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
     );
   }
 
-  if (sodium > 0.6) {
-    points.add(
-      const ProsConsItem(
-        title: 'Higher sodium',
-        subtitle: 'Consider your overall sodium intake',
-      ),
-    );
+  if (product.sodium != null) {
+    final raw = product.sodium!;
+    final mg = raw <= 10.0 ? raw * 1000.0 : raw;
+    if (mg > 400) {
+      points.add(
+        const ProsConsItem(
+          title: 'Higher sodium',
+          subtitle: 'Consider your overall sodium intake',
+        ),
+      );
+    }
   }
 
-  if (fat > 20) {
+  if (product.fat != null && product.fat! > 20) {
     points.add(
       const ProsConsItem(
         title: 'Higher fat content',
@@ -578,12 +860,45 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
     final double scale =
     (size.shortestSide / 390).clamp(0.85, 1.25).toDouble();
 
+    final intel = IngredientIntelligenceService.instance.analyze(widget.product);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
       body: Stack(
         fit: StackFit.expand,
         children: [
           const _BackgroundGradient(),
+          // Hidden offscreen RepaintBoundary for generating high-definition share cards
+          Positioned(
+            left: -99999,
+            top: -99999,
+            child: RepaintBoundary(
+              key: _shareCardKey,
+              child: SizedBox(
+                width: 420,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: ProductShareCard(
+                    product: widget.product,
+                    overallScore: _calculateScore(widget.product),
+                    compatibilityScore: _compatibility?.score ?? _calculateCompatibility(widget.product),
+                    nutrients: _buildNutrients(widget.product),
+                    compatibility: _buildCompatibility(widget.product),
+                    goodPoints: _buildGoodPoints(widget.product),
+                    watchPoints: _buildWatchPoints(widget.product),
+                    aiRecommendation: _aiAnalysis?.summary.trim().isNotEmpty == true
+                        ? _aiAnalysis!.summary.trim()
+                        : (_compatibility?.recommendation.trim().isNotEmpty == true
+                            ? _compatibility!.recommendation.trim()
+                            : (_calculateScore(widget.product) >= 70
+                                ? 'Great product choice aligning well with your dietary guidelines and nutrient profile.'
+                                : 'Consider enjoying in moderation or pairing with whole foods to balance nutrition.')),
+                    productImage: widget.productImage,
+                  ),
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: ListView(
               padding: EdgeInsets.fromLTRB(16 * scale, 8 * scale, 16 * scale, 28 * scale),
@@ -656,6 +971,48 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                   ),
                 ),
 
+                if (intel.hasMeaningfulInsights) ...[
+                  SizedBox(height: 16 * scale),
+                  FadeTransition(
+                    opacity: _fade(0.26, 0.63),
+                    child: SlideTransition(
+                      position: _slide(0.26, 0.65),
+                      child: _IngredientIntelligenceSection(
+                        uiScale: scale,
+                        intelligence: intel,
+                      ),
+                    ),
+                  ),
+                ],
+
+                if (intel.hasClaimChecks) ...[
+                  SizedBox(height: 16 * scale),
+                  FadeTransition(
+                    opacity: _fade(0.28, 0.65),
+                    child: SlideTransition(
+                      position: _slide(0.28, 0.67),
+                      child: _ClaimCheckSection(
+                        uiScale: scale,
+                        claimChecks: intel.claimChecks,
+                      ),
+                    ),
+                  ),
+                ],
+
+                if (widget.product.discrepancies.isNotEmpty) ...[
+                  SizedBox(height: 16 * scale),
+                  FadeTransition(
+                    opacity: _fade(0.30, 0.67),
+                    child: SlideTransition(
+                      position: _slide(0.30, 0.69),
+                      child: _DiscrepancyAlertSection(
+                        uiScale: scale,
+                        discrepancies: widget.product.discrepancies,
+                      ),
+                    ),
+                  ),
+                ],
+
                 SizedBox(height: 16 * scale),
 
                 FadeTransition(
@@ -685,7 +1042,10 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ResultScreen(product: rec.product),
+                            builder: (_) => ResultScreen(
+                              product: rec.product,
+                              initialCompatibility: rec.compatibility,
+                            ),
                           ),
                         );
                       },
@@ -701,30 +1061,12 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                   child: SlideTransition(
                     position: _slide(0.48, 0.82),
                     child: _ActionButtonsRow(
-  uiScale: scale,
-  onCompareTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const CompareScreen(),
-      ),
-    );
-  },
-  onAddToPantryTap: widget.onAddToPantryTap,
-  onShareTap: () async {
-  await SharePlus.instance.share(
-    ShareParams(
-      text: '''
-🥗 I analyzed ${widget.product.name} using DietCompass!
-
-⭐ Overall Score: ${_calculateScore(widget.product)}/100
-
-Download DietCompass and analyze your food too!
-''',
-    ),
-  );
-},
-),
+                      uiScale: scale,
+                      isInPantry: _isInPantry,
+                      onCompareTap: widget.onCompareTap ?? _handleCompare,
+                      onAddToPantryTap: widget.onAddToPantryTap ?? _addToPantry,
+                      onShareTap: widget.onShareTap ?? _handleShare,
+                    ),
                   ),
                 ),
                 SizedBox(height: 16 * scale),
@@ -736,8 +1078,17 @@ Download DietCompass and analyze your food too!
                     child: _QuickActionsRow(
                       uiScale: scale,
                       onAskAiCoachTap: widget.onAskAiCoachTap,
-                      onGenerateRecipeTap: widget.onGenerateRecipeTap,
-                      onShoppingSuggestionTap: widget.onShoppingSuggestionTap,
+                      onGenerateRecipeTap: widget.onGenerateRecipeTap ?? _handleGenerateRecipe,
+                      onShoppingSuggestionTap: widget.onShoppingSuggestionTap ?? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AiShoppingScreen(
+                              referenceProduct: widget.product,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1022,20 +1373,69 @@ class _ProductSummaryCard extends StatelessWidget {
 
                 SizedBox(height: 7 * uiScale),
 
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6 * uiScale,
+                  runSpacing: 4 * uiScale,
                   children: [
-                    Icon(
-                      Icons.eco,
-                      size: 12 * uiScale,
-                      color: const Color(0xFF1E8A4C),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.eco,
+                          size: 12 * uiScale,
+                          color: const Color(0xFF1E8A4C),
+                        ),
+                        SizedBox(width: 4 * uiScale),
+                        Text(
+                          'Scanned Product',
+                          style: TextStyle(
+                            fontSize: 10.5 * uiScale,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1E8A4C),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 4 * uiScale),
-                    Text(
-                      'Scanned Product',
-                      style: TextStyle(
-                        fontSize: 10.5 * uiScale,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1E8A4C),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                      decoration: BoxDecoration(
+                        color: product.dataConfidence == DataConfidence.high
+                            ? const Color(0xFFE4F5E9)
+                            : (product.dataConfidence == DataConfidence.moderate
+                                ? const Color(0xFFFEF3E2)
+                                : const Color(0xFFFDE8E8)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 5 * uiScale,
+                            height: 5 * uiScale,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: product.dataConfidence == DataConfidence.high
+                                  ? const Color(0xFF1E8A4C)
+                                  : (product.dataConfidence == DataConfidence.moderate
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFE0525C)),
+                            ),
+                          ),
+                          SizedBox(width: 3.5 * uiScale),
+                          Text(
+                            '${product.dataConfidence.label} Confidence',
+                            style: TextStyle(
+                              fontSize: 8.5 * uiScale,
+                              fontWeight: FontWeight.w700,
+                              color: product.dataConfidence == DataConfidence.high
+                                  ? const Color(0xFF1E8A4C)
+                                  : (product.dataConfidence == DataConfidence.moderate
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFFE0525C)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1404,7 +1804,7 @@ class _NutritionSnapshotState extends State<_NutritionSnapshot> {
         ),
         SizedBox(height: 10 * widget.uiScale),
         SizedBox(
-          height: 108 * widget.uiScale,
+          height: 138 * widget.uiScale,
           child: ListView.separated(
             controller: _scrollCtrl,
             scrollDirection: Axis.horizontal,
@@ -1444,32 +1844,81 @@ class _NutrientChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 92 * uiScale,
-      padding: EdgeInsets.all(12 * uiScale),
+      width: 100 * uiScale,
+      padding: EdgeInsets.symmetric(horizontal: 9 * uiScale, vertical: 6 * uiScale),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(stat.icon, size: 15 * uiScale, color: stat.color),
           SizedBox(height: 6 * uiScale),
-          Text(stat.label, style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B))),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: stat.value, style: TextStyle(fontSize: 15 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                TextSpan(text: ' ${stat.unit}', style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF9A96A8))),
-              ],
+          Text(
+            stat.label,
+            style: TextStyle(
+              fontSize: 10.5 * uiScale,
+              color: const Color(0xFF6B6B7B),
             ),
           ),
+          if (stat.isAvailable)
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: stat.value,
+                    style: TextStyle(
+                      fontSize: 14.5 * uiScale,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1B1B2E),
+                    ),
+                  ),
+                  if (stat.unit.isNotEmpty)
+                    TextSpan(
+                      text: ' ${stat.unit}',
+                      style: TextStyle(
+                        fontSize: 9 * uiScale,
+                        color: const Color(0xFF9A96A8),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 2 * uiScale),
+              child: Text(
+                'Unavailable',
+                style: TextStyle(
+                  fontSize: 10.5 * uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF9A96A8),
+                ),
+              ),
+            ),
           SizedBox(height: 4 * uiScale),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
-            decoration: BoxDecoration(color: stat.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-            child: Text(stat.badge, style: TextStyle(fontSize: 8.5 * uiScale, fontWeight: FontWeight.w700, color: stat.color)),
+            decoration: BoxDecoration(
+              color: stat.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              stat.badge,
+              style: TextStyle(
+                fontSize: 8.5 * uiScale,
+                fontWeight: FontWeight.w700,
+                color: stat.color,
+              ),
+            ),
           ),
         ],
       ),
@@ -1869,8 +2318,10 @@ class _AlternativesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasRecs = recommendations.isNotEmpty;
-    final count = hasRecs ? recommendations.length : items.length;
+    final displayRecs = recommendations.take(3).toList();
+    final displayItems = items.take(3).toList();
+    final hasRecs = displayRecs.isNotEmpty;
+    final count = hasRecs ? displayRecs.length : displayItems.length;
 
     if (count == 0) {
       return const SizedBox.shrink();
@@ -1914,8 +2365,8 @@ class _AlternativesSection extends StatelessWidget {
         SizedBox(height: 10 * uiScale),
         Row(
           children: List.generate(count, (i) {
-            final rec = hasRecs ? recommendations[i] : null;
-            final legacyItem = !hasRecs ? items[i] : null;
+            final rec = hasRecs ? displayRecs[i] : null;
+            final legacyItem = !hasRecs ? displayItems[i] : null;
 
             return Expanded(
               child: Padding(
@@ -1931,7 +2382,10 @@ class _AlternativesSection extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ResultScreen(product: rec.product),
+                                builder: (_) => ResultScreen(
+                                  product: rec.product,
+                                  initialCompatibility: rec.compatibility,
+                                ),
                               ),
                             );
                           }
@@ -2141,11 +2595,25 @@ class _AlternativeCardState extends State<_AlternativeCard> {
                 borderRadius: BorderRadius.circular(10),
                 child: AspectRatio(
                   aspectRatio: 1.3,
-                  child: Container(
-                    color: const Color(0xFFF6F3FC),
-                    padding: EdgeInsets.all(4 * widget.uiScale),
-                    child: Image.asset(widget.item.asset, fit: BoxFit.contain),
-                  ),
+                    child: widget.item.asset.isNotEmpty
+                        ? Image.asset(
+                            widget.item.asset,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.eco_rounded,
+                                color: Color(0xFF9B7BFA),
+                                size: 24,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.eco_rounded,
+                              color: Color(0xFF9B7BFA),
+                              size: 24,
+                            ),
+                          ),
                 ),
               ),
               SizedBox(height: 6 * widget.uiScale),
@@ -2187,12 +2655,14 @@ class _AlternativeCardState extends State<_AlternativeCard> {
 class _ActionButtonsRow extends StatelessWidget {
   const _ActionButtonsRow({
     required this.uiScale,
+    this.isInPantry = false,
     this.onCompareTap,
     this.onAddToPantryTap,
     this.onShareTap,
   });
 
   final double uiScale;
+  final bool isInPantry;
   final VoidCallback? onCompareTap;
   final VoidCallback? onAddToPantryTap;
   final VoidCallback? onShareTap;
@@ -2207,7 +2677,14 @@ class _ActionButtonsRow extends StatelessWidget {
         SizedBox(width: 10 * uiScale),
         Expanded(
           flex: 2,
-          child: _PrimaryActionButton(uiScale: uiScale, icon: Icons.add, label: 'Add to Pantry', subtitle: 'Save for meal planning', onTap: onAddToPantryTap),
+          child: _PrimaryActionButton(
+            uiScale: uiScale,
+            icon: isInPantry ? Icons.check_circle_rounded : Icons.add,
+            label: isInPantry ? 'In Pantry ✓' : 'Add to Pantry',
+            subtitle: isInPantry ? 'Saved to your pantry' : 'Save for meal planning',
+            isSuccess: isInPantry,
+            onTap: onAddToPantryTap,
+          ),
         ),
         SizedBox(width: 10 * uiScale),
         Expanded(
@@ -2268,6 +2745,7 @@ class _PrimaryActionButton extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.subtitle,
+    this.isSuccess = false,
     this.onTap,
   });
 
@@ -2275,6 +2753,7 @@ class _PrimaryActionButton extends StatefulWidget {
   final IconData icon;
   final String label;
   final String subtitle;
+  final bool isSuccess;
   final VoidCallback? onTap;
 
   @override
@@ -2298,8 +2777,18 @@ class _PrimaryActionButtonState extends State<_PrimaryActionButton> {
           padding: EdgeInsets.symmetric(vertical: 10 * widget.uiScale, horizontal: 8 * widget.uiScale),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)]),
-            boxShadow: [BoxShadow(color: const Color(0xFF6C4EF5).withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 8))],
+            gradient: LinearGradient(
+              colors: widget.isSuccess
+                  ? const [Color(0xFF16A34A), Color(0xFF15803D)]
+                  : const [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (widget.isSuccess ? const Color(0xFF16A34A) : const Color(0xFF6C4EF5)).withValues(alpha: 0.3),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -2362,7 +2851,7 @@ class _QuickActionsRow extends StatelessWidget {
             uiScale: uiScale,
             icon: Icons.shopping_bag_outlined,
             color: const Color(0xFFE0862E),
-            title: 'Shopping Suggestion',
+            title: 'Ai Recommendation',
             subtitle: 'Get better options',
             onTap: onShoppingSuggestionTap,
           ),
@@ -2422,6 +2911,509 @@ class _QuickActionTileState extends State<_QuickActionTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// INGREDIENT INTELLIGENCE SECTION
+// ---------------------------------------------------------------------------
+class _IngredientIntelligenceSection extends StatelessWidget {
+  const _IngredientIntelligenceSection({
+    required this.uiScale,
+    required this.intelligence,
+  });
+
+  final double uiScale;
+  final IngredientIntelligenceResult intelligence;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(7 * uiScale),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.psychology_outlined,
+                  size: 18 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ),
+              SizedBox(width: 8 * uiScale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ingredient Intelligence',
+                      style: TextStyle(
+                        fontSize: 14.5 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1B1B2E),
+                      ),
+                    ),
+                    Text(
+                      'Automated ingredient breakdown & alternate name detection',
+                      style: TextStyle(
+                        fontSize: 9.5 * uiScale,
+                        color: const Color(0xFF6B6B7B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 7 * uiScale, vertical: 3 * uiScale),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEBFD),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Verified',
+                  style: TextStyle(
+                    fontSize: 9 * uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF6C4EF5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (intelligence.hasSugarRelated) ...[
+            SizedBox(height: 14 * uiScale),
+            Container(
+              padding: EdgeInsets.all(12 * uiScale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFFEDD5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        size: 15 * uiScale,
+                        color: const Color(0xFFEA580C),
+                      ),
+                      SizedBox(width: 6 * uiScale),
+                      Expanded(
+                        child: Text(
+                          'Sugar-Related Ingredients Identified',
+                          style: TextStyle(
+                            fontSize: 12 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF9A3412),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEDD5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${intelligence.sugarRelatedIngredients.length} Found',
+                          style: TextStyle(
+                            fontSize: 8.5 * uiScale,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFC2410C),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8 * uiScale),
+                  Wrap(
+                    spacing: 6 * uiScale,
+                    runSpacing: 6 * uiScale,
+                    children: intelligence.sugarRelatedIngredients.map((item) {
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 4 * uiScale),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFED7AA)),
+                        ),
+                        child: Text(
+                          item.name,
+                          style: TextStyle(
+                            fontSize: 10.5 * uiScale,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF9A3412),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: 8 * uiScale),
+                  Text(
+                    'Sugar-related ingredients identified under alternate ingredient names. These ingredients contribute to the total carbohydrate and sugar content.',
+                    style: TextStyle(
+                      fontSize: 9.5 * uiScale,
+                      height: 1.35,
+                      color: const Color(0xFF7C2D12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (intelligence.hasAdditives) ...[
+            SizedBox(height: 12 * uiScale),
+            Container(
+              padding: EdgeInsets.all(12 * uiScale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFEE2E2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.science_outlined,
+                        size: 15 * uiScale,
+                        color: const Color(0xFFDC2626),
+                      ),
+                      SizedBox(width: 6 * uiScale),
+                      Expanded(
+                        child: Text(
+                          'Formulated Additives & Preservatives',
+                          style: TextStyle(
+                            fontSize: 12 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF991B1B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8 * uiScale),
+                  ...intelligence.additives.map((additive) {
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 6 * uiScale),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: EdgeInsets.only(top: 4 * uiScale),
+                            width: 5 * uiScale,
+                            height: 5 * uiScale,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                          SizedBox(width: 6 * uiScale),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${additive.name}: ',
+                                    style: TextStyle(
+                                      fontSize: 10 * uiScale,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF7F1D1D),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: additive.explanation,
+                                    style: TextStyle(
+                                      fontSize: 9.5 * uiScale,
+                                      color: const Color(0xFF991B1B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+
+          if (intelligence.wholeFoodIngredients.isNotEmpty) ...[
+            SizedBox(height: 12 * uiScale),
+            Container(
+              padding: EdgeInsets.all(12 * uiScale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFDCFCE7)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.spa_outlined,
+                        size: 15 * uiScale,
+                        color: const Color(0xFF16A34A),
+                      ),
+                      SizedBox(width: 6 * uiScale),
+                      Expanded(
+                        child: Text(
+                          'Wholesome Primary Ingredients',
+                          style: TextStyle(
+                            fontSize: 12 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF166534),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8 * uiScale),
+                  Wrap(
+                    spacing: 6 * uiScale,
+                    runSpacing: 6 * uiScale,
+                    children: intelligence.wholeFoodIngredients.map((item) {
+                      return Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 4 * uiScale),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check, size: 11 * uiScale, color: const Color(0xFF16A34A)),
+                            SizedBox(width: 3 * uiScale),
+                            Text(
+                              item.name,
+                              style: TextStyle(
+                                fontSize: 10 * uiScale,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF166534),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CLAIM CHECK SECTION
+// ---------------------------------------------------------------------------
+class _ClaimCheckSection extends StatelessWidget {
+  const _ClaimCheckSection({
+    required this.uiScale,
+    required this.claimChecks,
+  });
+
+  final double uiScale;
+  final List<ClaimVerificationItem> claimChecks;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(7 * uiScale),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E8A4C).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.verified_outlined,
+                  size: 18 * uiScale,
+                  color: const Color(0xFF1E8A4C),
+                ),
+              ),
+              SizedBox(width: 8 * uiScale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Claim Check',
+                      style: TextStyle(
+                        fontSize: 14.5 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1B1B2E),
+                      ),
+                    ),
+                    Text(
+                      'Comparison of front-of-pack claims vs nutrition facts',
+                      style: TextStyle(
+                        fontSize: 9.5 * uiScale,
+                        color: const Color(0xFF6B6B7B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12 * uiScale),
+          ...claimChecks.map((check) {
+            final isVerified = check.status.toLowerCase() == 'verified';
+            final Color statusColor = isVerified ? const Color(0xFF1E8A4C) : const Color(0xFFD97706);
+            final Color bg = isVerified ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB);
+            final Color border = isVerified ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7);
+
+            return Container(
+              margin: EdgeInsets.only(bottom: 8 * uiScale),
+              padding: EdgeInsets.all(11 * uiScale),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isVerified ? Icons.check_circle : Icons.info_outline,
+                        size: 14 * uiScale,
+                        color: statusColor,
+                      ),
+                      SizedBox(width: 5 * uiScale),
+                      Expanded(
+                        child: Text(
+                          '"${check.claim}"',
+                          style: TextStyle(
+                            fontSize: 11.5 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1B1B2E),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          check.status,
+                          style: TextStyle(
+                            fontSize: 8.5 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6 * uiScale),
+                  Text(
+                    check.explanation,
+                    style: TextStyle(
+                      fontSize: 9.5 * uiScale,
+                      height: 1.35,
+                      color: const Color(0xFF4B5563),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DISCREPANCY ALERT SECTION
+// ---------------------------------------------------------------------------
+class _DiscrepancyAlertSection extends StatelessWidget {
+  const _DiscrepancyAlertSection({
+    required this.uiScale,
+    required this.discrepancies,
+  });
+
+  final double uiScale;
+  final List<String> discrepancies;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(13 * uiScale),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 18 * uiScale,
+                color: const Color(0xFFD97706),
+              ),
+              SizedBox(width: 8 * uiScale),
+              Expanded(
+                child: Text(
+                  'Data Discrepancy Alert',
+                  style: TextStyle(
+                    fontSize: 12.5 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF92400E),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8 * uiScale),
+          ...discrepancies.map((disc) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: 4 * uiScale),
+              child: Text(
+                '• $disc',
+                style: TextStyle(
+                  fontSize: 10 * uiScale,
+                  height: 1.35,
+                  color: const Color(0xFF78350F),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

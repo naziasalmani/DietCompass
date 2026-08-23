@@ -352,4 +352,47 @@ class AiCoachChatMessage {
   final DateTime timestamp;
 }
 
+/// Item representing an individual ingredient classified by intelligence engine
+class IngredientCategoryItem {
+  const IngredientCategoryItem({
+    required this.name,
+    required this.category,
+    required this.explanation,
+    this.badge = '',
+  });
 
+  final String name;
+  final String category; // e.g. 'Sugar-Related', 'Artificial Sweetener', 'Additive', 'Whole Food'
+  final String explanation;
+  final String badge;
+}
+
+/// Complete Ingredient Intelligence analysis result
+class IngredientIntelligenceResult {
+  const IngredientIntelligenceResult({
+    required this.sugarRelatedIngredients,
+    required this.artificialSweeteners,
+    required this.additives,
+    required this.wholeFoodIngredients,
+    required this.claimChecks,
+    required this.discrepancies,
+    required this.summary,
+  });
+
+  final List<IngredientCategoryItem> sugarRelatedIngredients;
+  final List<IngredientCategoryItem> artificialSweeteners;
+  final List<IngredientCategoryItem> additives;
+  final List<IngredientCategoryItem> wholeFoodIngredients;
+  final List<ClaimVerificationItem> claimChecks;
+  final List<String> discrepancies;
+  final String summary;
+
+  bool get hasSugarRelated => sugarRelatedIngredients.isNotEmpty;
+  bool get hasAdditives => additives.isNotEmpty;
+  bool get hasSweeteners => artificialSweeteners.isNotEmpty;
+  bool get hasWholeFoods => wholeFoodIngredients.isNotEmpty;
+  bool get hasClaimChecks => claimChecks.isNotEmpty;
+  bool get hasDiscrepancies => discrepancies.isNotEmpty;
+  bool get hasMeaningfulInsights =>
+      hasSugarRelated || hasAdditives || hasSweeteners || hasWholeFoods || hasClaimChecks || hasDiscrepancies;
+}

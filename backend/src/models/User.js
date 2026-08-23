@@ -120,6 +120,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    lastActiveDate: {
+      type: Date,
+      default: null,
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,

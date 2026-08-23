@@ -6,6 +6,10 @@ import '../model/user_model.dart';
 import '../config/app_config.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
+import 'profile_service.dart';
+import 'personalization_service.dart';
+import 'recommendation_service.dart';
+import 'scan_history_service.dart';
 
 /// DietCompass — Centralized Authentication Service
 /// Manages user authentication lifecycle, token persistence, and reactive auth state.
@@ -30,11 +34,56 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears any previous session data and loads fresh profile & personalization for [user].
+  Future<void> syncUserSessionData(UserModel user) async {
+    // 1. Clear old user's caches first
+    ProfileService.instance.clearCache();
+    PersonalizationService.instance.clearCache();
+    RecommendationService.instance.clearCompatibilityCache();
+    ScanHistoryService.instance.clearCache();
+
+    // 2. Fetch fresh profile, personalization and scan history for the newly authenticated user
+    try {
+      final profile = await ProfileService.instance.getProfile(
+        forceRefresh: true,
+      );
+      final pers = await PersonalizationService.instance.getPersonalization(
+        forceRefresh: true,
+      );
+      await ScanHistoryService.instance.getScanHistory(
+        forceRefresh: true,
+      );
+
+      final diet = pers?.dietType?.isNotEmpty == true
+          ? pers!.dietType!
+          : (profile.dietType.isNotEmpty ? profile.dietType : 'Balanced');
+      final goal = pers?.goals.isNotEmpty == true
+          ? pers!.goals.join(', ')
+          : 'Maintain Weight';
+      final allergies = pers?.allergies.toList() ?? [];
+
+      debugPrint('\n==============================================');
+      debugPrint('[AUTH USER]');
+      debugPrint('userId = ${user.id}');
+      debugPrint('profileLoaded = true\n');
+      debugPrint('[CURRENT PROFILE]');
+      debugPrint('diet = $diet');
+      debugPrint('goal = $goal');
+      debugPrint('allergies = [${allergies.join(', ')}]');
+      debugPrint('==============================================\n');
+    } catch (e) {
+      debugPrint(
+        '[AUTH USER] Warning: Failed to sync personalization on auth: $e',
+      );
+    }
+  }
+
   /// Initialize and verify authentication state on app startup
   Future<bool> checkAuthStatus() async {
     _setLoading(true);
     try {
-      final hasCredentials = await StorageService.instance.hasStoredCredentials();
+      final hasCredentials = await StorageService.instance
+          .hasStoredCredentials();
       if (!hasCredentials) {
         _currentUser = null;
         _isInitialized = true;
@@ -68,12 +117,18 @@ class AuthService extends ChangeNotifier {
       // 3. If refresh failed, clear invalid credentials
       await StorageService.instance.clearAuth();
       _currentUser = null;
+      ProfileService.instance.clearCache();
+      PersonalizationService.instance.clearCache();
+      RecommendationService.instance.clearCompatibilityCache();
       _isInitialized = true;
       _setLoading(false);
       notifyListeners();
       return false;
     } catch (_) {
       _currentUser = null;
+      ProfileService.instance.clearCache();
+      PersonalizationService.instance.clearCache();
+      RecommendationService.instance.clearCompatibilityCache();
       _isInitialized = true;
       _setLoading(false);
       return false;
@@ -130,14 +185,31 @@ class AuthService extends ChangeNotifier {
           final user = UserModel.fromJson(userJson);
           final tokens = AuthTokens.fromJson(tokensJson);
 
-          // Save securely
-          await StorageService.instance.saveTokens(
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
+          debugPrint('[LOGIN AUTH DEBUG] loginSuccess = true');
+          debugPrint(
+            '[LOGIN AUTH DEBUG] tokenReceived = ${tokens.accessToken.isNotEmpty}',
           );
+          debugPrint(
+            '[LOGIN AUTH DEBUG] tokenLength = ${tokens.accessToken.length}',
+          );
+
+          // Save securely
+          var storageWriteCompleted = false;
+          try {
+            await StorageService.instance.saveTokens(
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+            );
+            storageWriteCompleted = true;
+          } finally {
+            debugPrint(
+              '[LOGIN AUTH DEBUG] storageWriteCompleted = $storageWriteCompleted',
+            );
+          }
           await StorageService.instance.saveUser(user);
 
           _currentUser = user;
+          await syncUserSessionData(user);
           _setLoading(false);
           notifyListeners();
 
@@ -195,14 +267,31 @@ class AuthService extends ChangeNotifier {
           final user = UserModel.fromJson(userJson);
           final tokens = AuthTokens.fromJson(tokensJson);
 
-          // Save securely
-          await StorageService.instance.saveTokens(
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
+          debugPrint('[LOGIN AUTH DEBUG] loginSuccess = true');
+          debugPrint(
+            '[LOGIN AUTH DEBUG] tokenReceived = ${tokens.accessToken.isNotEmpty}',
           );
+          debugPrint(
+            '[LOGIN AUTH DEBUG] tokenLength = ${tokens.accessToken.length}',
+          );
+
+          // Save securely
+          var storageWriteCompleted = false;
+          try {
+            await StorageService.instance.saveTokens(
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+            );
+            storageWriteCompleted = true;
+          } finally {
+            debugPrint(
+              '[LOGIN AUTH DEBUG] storageWriteCompleted = $storageWriteCompleted',
+            );
+          }
           await StorageService.instance.saveUser(user);
 
           _currentUser = user;
+          await syncUserSessionData(user);
           _setLoading(false);
           notifyListeners();
 
@@ -220,7 +309,8 @@ class AuthService extends ChangeNotifier {
 
       _setLoading(false);
       throw ApiException(
-        response.message ?? 'Invalid credentials. Please check your email and password.',
+        response.message ??
+            'Invalid credentials. Please check your email and password.',
         statusCode: response.statusCode,
         code: response.errorCode,
       );
@@ -248,7 +338,9 @@ class AuthService extends ChangeNotifier {
 
       final idToken = (await account.authentication).idToken;
       if (idToken == null || idToken.isEmpty) {
-        throw const ApiException('Google did not return a valid account token.');
+        throw const ApiException(
+          'Google did not return a valid account token.',
+        );
       }
 
       final response = await ApiService.instance.post(
@@ -266,13 +358,16 @@ class AuthService extends ChangeNotifier {
 
       final data = response.data!['data'] as Map<String, dynamic>;
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-      final tokens = AuthTokens.fromJson(data['tokens'] as Map<String, dynamic>);
+      final tokens = AuthTokens.fromJson(
+        data['tokens'] as Map<String, dynamic>,
+      );
       await StorageService.instance.saveTokens(
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
       );
       await StorageService.instance.saveUser(user);
       _currentUser = user;
+      await syncUserSessionData(user);
       notifyListeners();
       return AuthUser(
         id: user.id,
@@ -315,6 +410,7 @@ class AuthService extends ChangeNotifier {
           final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
           _currentUser = user;
           await StorageService.instance.saveUser(user);
+          await syncUserSessionData(user);
           notifyListeners();
           return user;
         }
@@ -328,7 +424,8 @@ class AuthService extends ChangeNotifier {
   /// Refresh JWT Access Token using active Refresh Token
   Future<bool> refreshSession() async {
     try {
-      final currentRefreshToken = await StorageService.instance.getRefreshToken();
+      final currentRefreshToken = await StorageService.instance
+          .getRefreshToken();
       if (currentRefreshToken == null || currentRefreshToken.isEmpty) {
         return false;
       }
@@ -361,6 +458,10 @@ class AuthService extends ChangeNotifier {
       // If refresh failed (e.g. revoked session), clear credentials
       await StorageService.instance.clearAuth();
       _currentUser = null;
+      ProfileService.instance.clearCache();
+      PersonalizationService.instance.clearCache();
+      RecommendationService.instance.clearCompatibilityCache();
+      ScanHistoryService.instance.clearCache();
       notifyListeners();
       return false;
     } catch (_) {
@@ -388,6 +489,10 @@ class AuthService extends ChangeNotifier {
     } finally {
       await StorageService.instance.clearAuth();
       _currentUser = null;
+      ProfileService.instance.clearCache();
+      PersonalizationService.instance.clearCache();
+      RecommendationService.instance.clearCompatibilityCache();
+      ScanHistoryService.instance.clearCache();
       notifyListeners();
     }
   }
@@ -398,14 +503,13 @@ class AuthService extends ChangeNotifier {
       final response = await ApiService.instance.post(
         '/auth/forgot-password',
         requiresAuth: false,
-        body: {
-          'email': email.trim().toLowerCase(),
-        },
+        body: {'email': email.trim().toLowerCase()},
       );
 
       if (!response.success) {
         throw ApiException(
-          response.message ?? 'Failed to send password reset email. Please try again.',
+          response.message ??
+              'Failed to send password reset email. Please try again.',
           statusCode: response.statusCode,
         );
       }
@@ -424,25 +528,25 @@ class AuthService extends ChangeNotifier {
       final response = await ApiService.instance.post(
         '/auth/reset-password/$token',
         requiresAuth: false,
-        body: {
-          'password': newPassword,
-        },
+        body: {'password': newPassword},
       );
 
       if (response.success) {
         return AuthResult.success(
-          message: response.message ?? 'Password reset successful. You can now log in.',
+          message:
+              response.message ??
+              'Password reset successful. You can now log in.',
         );
       }
 
       return AuthResult.failure(
-        message: response.message ?? 'Password reset failed. Token may have expired.',
+        message:
+            response.message ??
+            'Password reset failed. Token may have expired.',
         statusCode: response.statusCode,
       );
     } catch (e) {
-      return AuthResult.failure(
-        message: 'Network error: ${e.toString()}',
-      );
+      return AuthResult.failure(message: 'Network error: ${e.toString()}');
     }
   }
 }

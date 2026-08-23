@@ -6,11 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test-auth.js && node test-profile-personalization.js && node test-ai.js && node test-recipes.js",
+    "test": "node test-auth.js && node test-profile-personalization.js && node test-ai.js && node test-recipes.js && node test-mealdb-fallback.js",
     "test:auth": "node test-auth.js",
     "test:profile": "node test-profile-personalization.js",
     "test:ai": "node test-ai.js",
-    "test:recipes": "node test-recipes.js"
+    "test:recipes": "node test-recipes.js",
+    "test:mealdb": "node test-mealdb-fallback.js"
   },
 
   "keywords": [

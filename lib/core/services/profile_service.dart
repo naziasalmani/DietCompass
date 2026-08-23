@@ -1,5 +1,8 @@
 import '../model/user_profile.dart';
+import 'package:flutter/foundation.dart';
 import 'api_service.dart';
+import 'recommendation_service.dart';
+import 'storage_service.dart';
 
 /// DietCompass — Profile Service
 ///
@@ -21,12 +24,17 @@ class ProfileService {
       return _cachedProfile!;
     }
 
-    final response = await ApiService.instance.get('/profile', requiresAuth: true);
+    final response = await ApiService.instance.get(
+      '/profile',
+      requiresAuth: true,
+    );
 
     if (response.success && response.data != null) {
-      final resData = response.data!['data'] as Map<String, dynamic>? ?? response.data!;
+      final resData =
+          response.data!['data'] as Map<String, dynamic>? ?? response.data!;
       final userJson = resData['user'] as Map<String, dynamic>? ?? {};
-      final isPersonalizationComplete = resData['isPersonalizationComplete'] == true;
+      final isPersonalizationComplete =
+          resData['isPersonalizationComplete'] == true;
 
       final profile = UserProfile.fromJson(
         userJson,
@@ -45,6 +53,16 @@ class ProfileService {
 
   /// Updates profile attributes on the cloud backend.
   Future<UserProfile> updateProfile(Map<String, dynamic> fields) async {
+    final token = await StorageService.instance.getAccessToken();
+    debugPrint(
+      '[PROFILE AUTH DEBUG] tokenExists = ${token?.isNotEmpty == true}',
+    );
+    debugPrint('[PROFILE AUTH DEBUG] tokenLength = ${token?.length ?? 0}');
+    debugPrint(
+      '[PROFILE AUTH DEBUG] authorizationHeaderPresent = ${token?.isNotEmpty == true}',
+    );
+    debugPrint('[PROFILE AUTH DEBUG] endpoint = /profile');
+    debugPrint('[PROFILE AUTH DEBUG] method = PUT');
     final response = await ApiService.instance.put(
       '/profile',
       body: fields,
@@ -52,13 +70,16 @@ class ProfileService {
     );
 
     if (response.success && response.data != null) {
-      final resData = response.data!['data'] as Map<String, dynamic>? ?? response.data!;
+      final resData =
+          response.data!['data'] as Map<String, dynamic>? ?? response.data!;
       final userJson = resData['user'] as Map<String, dynamic>? ?? {};
       final profile = UserProfile.fromJson(
         userJson,
-        isPersonalizationComplete: _cachedProfile?.isPersonalizationComplete ?? false,
+        isPersonalizationComplete:
+            _cachedProfile?.isPersonalizationComplete ?? false,
       );
       _cachedProfile = profile;
+      RecommendationService.instance.clearCompatibilityCache();
       return profile;
     }
 

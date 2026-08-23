@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import '../../features/personalization/lib/onboarding/onboarding_data.dart';
 import '../model/personalization_profile.dart';
 import 'api_service.dart';
+import 'recommendation_service.dart';
 
 /// DietCompass — Personalization Service
 ///
@@ -64,6 +66,15 @@ class PersonalizationService {
       final persJson = resData['personalization'] as Map<String, dynamic>? ?? profile.toJson();
       final saved = PersonalizationProfile.fromJson(persJson);
       _cachedPersonalization = saved;
+      RecommendationService.instance.clearCompatibilityCache();
+
+      debugPrint('\n==============================================');
+      debugPrint('[CURRENT PROFILE]');
+      debugPrint('diet = ${saved.dietType?.isNotEmpty == true ? saved.dietType : 'None'}');
+      debugPrint('goal = ${saved.goals.isNotEmpty ? saved.goals.join(', ') : 'None'}');
+      debugPrint('allergies = [${saved.allergies.join(', ')}]');
+      debugPrint('==============================================\n');
+
       return saved;
     }
 
@@ -87,6 +98,15 @@ class PersonalizationService {
       final persJson = resData['personalization'] as Map<String, dynamic>? ?? {};
       final saved = PersonalizationProfile.fromJson(persJson);
       _cachedPersonalization = saved;
+      RecommendationService.instance.clearCompatibilityCache();
+
+      debugPrint('\n==============================================');
+      debugPrint('[CURRENT PROFILE]');
+      debugPrint('diet = ${saved.dietType?.isNotEmpty == true ? saved.dietType : 'None'}');
+      debugPrint('goal = ${saved.goals.isNotEmpty ? saved.goals.join(', ') : 'None'}');
+      debugPrint('allergies = [${saved.allergies.join(', ')}]');
+      debugPrint('==============================================\n');
+
       return saved;
     }
 
@@ -102,3 +122,4 @@ class PersonalizationService {
     _cachedPersonalization = null;
   }
 }
+

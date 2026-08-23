@@ -4,6 +4,7 @@ import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../dashboard/DashboardScreen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
+import '../../core/services/pantry_storage_service.dart';
 
 /// DietCompass — My Pantry Screen
 /// -----------------------------------------------------------------------/// Reuses your existing product photos where available
@@ -76,6 +77,7 @@ extension on PantryCategory {
 class PantryItem {
   const PantryItem({
     required this.imageAsset,
+    this.imageUrl = '',
     required this.name,
     required this.category,
     required this.addedOn,
@@ -85,6 +87,7 @@ class PantryItem {
   });
 
   final String imageAsset;
+  final String imageUrl;
   final String name;
   final PantryCategory category;
   final DateTime addedOn;
@@ -195,6 +198,38 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
     _items = [...widget.items];
     _navIndex = widget.initialNavIndex;
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
+    _loadStoredProducts();
+  }
+
+  Future<void> _loadStoredProducts() async {
+    final products = await PantryStorageService.instance.getProducts();
+    if (!mounted || products.isEmpty) return;
+
+    final storedItems = products.map((product) {
+      final text = '${product.name} ${product.brand}'.toLowerCase();
+      final category = text.contains('milk') || text.contains('cheese') || text.contains('yogurt')
+          ? PantryCategory.dairy
+          : text.contains('tea') || text.contains('juice') || text.contains('drink')
+              ? PantryCategory.beverages
+              : text.contains('biscuit') || text.contains('chips') || text.contains('noodle')
+                  ? PantryCategory.snacks
+                  : PantryCategory.grains;
+      return PantryItem(
+        imageAsset: '',
+        imageUrl: product.imageUrl,
+        name: product.name,
+        category: category,
+        addedOn: DateTime.now(),
+        quantity: '1',
+        status: ItemStatus.fresh,
+        statusDetail: 'Added to pantry',
+      );
+    });
+
+    setState(() {
+      final existingNames = _items.map((item) => item.name.toLowerCase()).toSet();
+      _items.addAll(storedItems.where((item) => !existingNames.contains(item.name.toLowerCase())));
+    });
   }
 
   @override
@@ -949,15 +984,25 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                   height: 52 * widget.uiScale,
                   color: const Color(0xFFF6F3FC),
                   padding: EdgeInsets.all(4 * widget.uiScale),
-                  child: Image.asset(
-                    widget.item.imageAsset,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      widget.item.category.icon,
-                      color: widget.item.category.color,
-                      size: 22 * widget.uiScale,
-                    ),
-                  ),
+                  child: widget.item.imageUrl.isNotEmpty
+                      ? Image.network(
+                          widget.item.imageUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            widget.item.category.icon,
+                            color: widget.item.category.color,
+                            size: 22 * widget.uiScale,
+                          ),
+                        )
+                      : Image.asset(
+                          widget.item.imageAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            widget.item.category.icon,
+                            color: widget.item.category.color,
+                            size: 22 * widget.uiScale,
+                          ),
+                        ),
                 ),
               ),
               SizedBox(width: 12 * widget.uiScale),

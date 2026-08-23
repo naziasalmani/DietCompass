@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/model/food_product.dart';
+import 'package:diet_compass/core/services/scan_history_service.dart';
 import 'package:diet_compass/features/scan/ai_analysis_screen.dart';
 
 class ManualEntryScreen extends StatefulWidget {
@@ -115,24 +117,41 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
     'allergens': _selectedAllergens.toList(),
   };
 
-  widget.onAnalyze?.call(data);
+    widget.onAnalyze?.call(data);
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AiAnalysisScreen(
-        productName: _productNameCtrl.text.isEmpty
-            ? 'Unknown Product'
-            : _productNameCtrl.text,
-        productSubtitle: _brandCtrl.text.isEmpty
-            ? 'Manual Entry'
-            : _brandCtrl.text,
-        servingInfo:
-            '${_servingSizeCtrl.text} $_servingUnit',
+    final product = FoodProduct(
+      barcode: '',
+      name: _productNameCtrl.text.isEmpty
+          ? 'Unknown Product'
+          : _productNameCtrl.text.trim(),
+      brand: _brandCtrl.text.isEmpty ? 'Manual Entry' : _brandCtrl.text.trim(),
+      imageUrl: '',
+      ingredients: _ingredientsCtrl.text.trim(),
+      allergens: _selectedAllergens.toList(),
+      calories: double.tryParse(_nutrientCtrls['Calories']?.text ?? ''),
+      protein: double.tryParse(_nutrientCtrls['Protein']?.text ?? ''),
+      carbohydrates: double.tryParse(_nutrientCtrls['Carbs']?.text ?? ''),
+      fat: double.tryParse(_nutrientCtrls['Fat']?.text ?? ''),
+      fiber: double.tryParse(_nutrientCtrls['Fiber']?.text ?? ''),
+      sugar: double.tryParse(_nutrientCtrls['Sugar']?.text ?? ''),
+      sodium: double.tryParse(_nutrientCtrls['Sodium']?.text ?? ''),
+    );
+
+    ScanHistoryService.instance.saveScan(product);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiAnalysisScreen(
+          product: product,
+          productName: product.name,
+          productSubtitle: product.brand,
+          servingInfo:
+              '${_servingSizeCtrl.text} $_servingUnit',
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
 

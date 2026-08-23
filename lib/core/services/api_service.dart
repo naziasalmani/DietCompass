@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'storage_service.dart';
@@ -13,6 +14,8 @@ class ApiResponse<T> {
     this.message,
     this.statusCode,
     this.errorCode,
+    this.rawBody,
+    this.contentType,
   });
 
   final bool success;
@@ -20,6 +23,9 @@ class ApiResponse<T> {
   final String? message;
   final int? statusCode;
   final String? errorCode;
+  final String? rawBody;
+  final String? contentType;
+
 
   dynamic operator [](String key) {
     if (key == 'success') return success;
@@ -70,6 +76,8 @@ class ApiService {
   Future<Map<String, String>> _buildHeaders({
     bool requiresAuth = true,
     Map<String, String>? extraHeaders,
+    String endpoint = '',
+    String method = '',
   }) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -77,10 +85,19 @@ class ApiService {
     };
 
     if (requiresAuth) {
-      final token = await StorageService.instance.getAccessToken();
+      var token = await StorageService.instance.getAccessToken();
+      if ((token == null || token.isEmpty) && onTokenRefreshRequired != null) {
+        await onTokenRefreshRequired!();
+        token = await StorageService.instance.getAccessToken();
+      }
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
+      debugPrint('[PROFILE AUTH DEBUG] tokenExists = ${token != null && token.isNotEmpty}');
+      debugPrint('[PROFILE AUTH DEBUG] tokenLength = ${token?.length ?? 0}');
+      debugPrint('[PROFILE AUTH DEBUG] authorizationHeaderPresent = ${headers.containsKey('Authorization')}');
+      debugPrint('[PROFILE AUTH DEBUG] endpoint = $endpoint');
+      debugPrint('[PROFILE AUTH DEBUG] method = $method');
     }
 
     if (extraHeaders != null) {
@@ -105,6 +122,8 @@ class ApiService {
         final reqHeaders = await _buildHeaders(
           requiresAuth: auth,
           extraHeaders: headers,
+          endpoint: endpoint,
+          method: 'GET',
         );
         return await _client.get(uri, headers: reqHeaders).timeout(AppConfig.timeoutDuration);
       },
@@ -129,6 +148,8 @@ class ApiService {
         final reqHeaders = await _buildHeaders(
           requiresAuth: auth,
           extraHeaders: headers,
+          endpoint: endpoint,
+          method: 'POST',
         );
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
@@ -156,6 +177,8 @@ class ApiService {
         final reqHeaders = await _buildHeaders(
           requiresAuth: auth,
           extraHeaders: headers,
+          endpoint: endpoint,
+          method: 'PUT',
         );
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
@@ -183,6 +206,8 @@ class ApiService {
         final reqHeaders = await _buildHeaders(
           requiresAuth: auth,
           extraHeaders: headers,
+          endpoint: endpoint,
+          method: 'PATCH',
         );
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
@@ -210,6 +235,8 @@ class ApiService {
         final reqHeaders = await _buildHeaders(
           requiresAuth: auth,
           extraHeaders: headers,
+          endpoint: endpoint,
+          method: 'DELETE',
         );
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
@@ -243,6 +270,8 @@ class ApiService {
         }
       }
 
+      final contentType = response.headers['content-type'] ?? response.headers['Content-Type'] ?? 'application/json';
+
       // Success
       if (statusCode >= 200 && statusCode < 300) {
         return ApiResponse<Map<String, dynamic>>(
@@ -250,6 +279,8 @@ class ApiService {
           data: responseData,
           message: responseData['message'] as String?,
           statusCode: statusCode,
+          rawBody: response.body,
+          contentType: contentType,
         );
       }
 
@@ -272,7 +303,10 @@ class ApiService {
         message: responseData['message'] as String? ?? 'Request failed with status $statusCode',
         statusCode: statusCode,
         errorCode: responseData['code'] as String?,
+        rawBody: response.body,
+        contentType: contentType,
       );
+
     } on SocketException {
       return const ApiResponse<Map<String, dynamic>>(
         success: false,

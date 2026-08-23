@@ -24,6 +24,7 @@ class UserProfile {
     this.weight = '',
     this.healthScore = 85,
     this.streakDays = 1,
+    this.createdAt,
     this.isPersonalizationComplete = false,
   });
 
@@ -47,9 +48,13 @@ class UserProfile {
   final String weight;
   final int healthScore;
   final int streakDays;
+  final DateTime? createdAt;
   final bool isPersonalizationComplete;
 
-  factory UserProfile.fromJson(Map<String, dynamic> json, {bool isPersonalizationComplete = false}) {
+  factory UserProfile.fromJson(
+    Map<String, dynamic> json, {
+    bool isPersonalizationComplete = false,
+  }) {
     return UserProfile(
       id: json['_id'] as String? ?? json['id'] as String? ?? '',
       fullName: json['fullName'] as String? ?? '',
@@ -71,7 +76,12 @@ class UserProfile {
       weight: json['weight'] as String? ?? '',
       healthScore: (json['healthScore'] as num?)?.toInt() ?? 85,
       streakDays: (json['streakDays'] as num?)?.toInt() ?? 1,
-      isPersonalizationComplete: isPersonalizationComplete || (json['isPersonalizationComplete'] == true),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
+      isPersonalizationComplete:
+          isPersonalizationComplete ||
+          (json['isPersonalizationComplete'] == true),
     );
   }
 
@@ -136,7 +146,8 @@ class UserProfile {
       weight: weight ?? this.weight,
       healthScore: healthScore ?? this.healthScore,
       streakDays: streakDays ?? this.streakDays,
-      isPersonalizationComplete: isPersonalizationComplete ?? this.isPersonalizationComplete,
+      isPersonalizationComplete:
+          isPersonalizationComplete ?? this.isPersonalizationComplete,
     );
   }
 
