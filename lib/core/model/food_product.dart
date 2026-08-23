@@ -325,6 +325,17 @@ class FoodProduct {
     }
   }
 
+  /// Returns true if any nutritional value was provided.
+  bool get hasNutritionData =>
+      calories != null ||
+      protein != null ||
+      carbohydrates != null ||
+      fat != null ||
+      saturatedFat != null ||
+      fiber != null ||
+      sugar != null ||
+      sodium != null;
+
   /// Returns true if any major nutrient value is null or <= 0, or if ingredients are missing.
   bool get hasMissingOrZeroNutrients {
     if (calories == null || calories! <= 0) return true;

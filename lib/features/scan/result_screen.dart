@@ -16,6 +16,7 @@ import '../../core/services/ingredient_intelligence_service.dart';
 import '../../core/services/product_category_service.dart';
 import 'services/product_share_service.dart';
 import 'widgets/product_share_card.dart';
+import 'widgets/product_ai_coach_sheet.dart';
 
 /// DietCompass — AI Result Screen
 /// -----------------------------------------------------------------------
@@ -319,6 +320,18 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
           initialProduct: widget.product,
         ),
       ),
+    );
+  }
+
+  void _handleAskAiCoach() {
+    ProductAiCoachSheet.show(
+      context,
+      product: widget.product,
+      compatibility: widget.initialCompatibility ?? _compatibility,
+      overallScore: _calculateScore(widget.product),
+      goodPoints: _buildGoodPoints(widget.product).map((p) => p.title).toList(),
+      watchPoints: _buildWatchPoints(widget.product).map((p) => p.title).toList(),
+      alternatives: _aiAnalysis?.healthierAlternatives ?? const [],
     );
   }
 
@@ -1077,7 +1090,7 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                     position: _slide(0.55, 0.92),
                     child: _QuickActionsRow(
                       uiScale: scale,
-                      onAskAiCoachTap: widget.onAskAiCoachTap,
+                      onAskAiCoachTap: widget.onAskAiCoachTap ?? _handleAskAiCoach,
                       onGenerateRecipeTap: widget.onGenerateRecipeTap ?? _handleGenerateRecipe,
                       onShoppingSuggestionTap: widget.onShoppingSuggestionTap ?? () {
                         Navigator.push(
@@ -1303,7 +1316,9 @@ class _ProductSummaryCard extends StatelessWidget {
     // Only use the supplied ImageProvider if one exists.
     final ImageProvider? productImage = image ??
         (product.imageUrl.trim().isNotEmpty
-            ? NetworkImage(product.imageUrl)
+            ? (product.imageUrl.startsWith('assets/')
+                ? AssetImage(product.imageUrl) as ImageProvider
+                : NetworkImage(product.imageUrl) as ImageProvider)
             : null);
 
     // For now we calculate a simple score from the available nutrition data.

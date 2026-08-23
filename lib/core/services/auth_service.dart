@@ -10,6 +10,7 @@ import 'profile_service.dart';
 import 'personalization_service.dart';
 import 'recommendation_service.dart';
 import 'scan_history_service.dart';
+import 'recipe_history_service.dart';
 
 /// DietCompass — Centralized Authentication Service
 /// Manages user authentication lifecycle, token persistence, and reactive auth state.
@@ -41,6 +42,7 @@ class AuthService extends ChangeNotifier {
     PersonalizationService.instance.clearCache();
     RecommendationService.instance.clearCompatibilityCache();
     ScanHistoryService.instance.clearCache();
+    RecipeHistoryService.instance.clearCache();
 
     // 2. Fetch fresh profile, personalization and scan history for the newly authenticated user
     try {
@@ -50,9 +52,8 @@ class AuthService extends ChangeNotifier {
       final pers = await PersonalizationService.instance.getPersonalization(
         forceRefresh: true,
       );
-      await ScanHistoryService.instance.getScanHistory(
-        forceRefresh: true,
-      );
+      await ScanHistoryService.instance.getScanHistory(forceRefresh: true);
+      await RecipeHistoryService.instance.getRecipeHistory(forceRefresh: true);
 
       final diet = pers?.dietType?.isNotEmpty == true
           ? pers!.dietType!
@@ -200,6 +201,14 @@ class AuthService extends ChangeNotifier {
               accessToken: tokens.accessToken,
               refreshToken: tokens.refreshToken,
             );
+            final tokenReadable =
+                (await StorageService.instance.getAccessToken())?.isNotEmpty ==
+                true;
+            debugPrint('[AUTH LOGIN]');
+            debugPrint('status = success');
+            debugPrint('tokenReceived = ${tokens.accessToken.isNotEmpty}');
+            debugPrint('tokenSaved = true');
+            debugPrint('tokenReadable = $tokenReadable');
             storageWriteCompleted = true;
           } finally {
             debugPrint(
@@ -212,6 +221,8 @@ class AuthService extends ChangeNotifier {
           await syncUserSessionData(user);
           _setLoading(false);
           notifyListeners();
+          debugPrint('authState = AUTHENTICATED');
+          debugPrint('navigationTarget = HOME');
 
           return AuthUser(
             id: user.id,
@@ -282,6 +293,14 @@ class AuthService extends ChangeNotifier {
               accessToken: tokens.accessToken,
               refreshToken: tokens.refreshToken,
             );
+            final tokenReadable =
+                (await StorageService.instance.getAccessToken())?.isNotEmpty ==
+                true;
+            debugPrint('[AUTH LOGIN]');
+            debugPrint('status = success');
+            debugPrint('tokenReceived = ${tokens.accessToken.isNotEmpty}');
+            debugPrint('tokenSaved = true');
+            debugPrint('tokenReadable = $tokenReadable');
             storageWriteCompleted = true;
           } finally {
             debugPrint(
@@ -294,6 +313,8 @@ class AuthService extends ChangeNotifier {
           await syncUserSessionData(user);
           _setLoading(false);
           notifyListeners();
+          debugPrint('authState = AUTHENTICATED');
+          debugPrint('navigationTarget = HOME');
 
           return AuthUser(
             id: user.id,
@@ -462,6 +483,7 @@ class AuthService extends ChangeNotifier {
       PersonalizationService.instance.clearCache();
       RecommendationService.instance.clearCompatibilityCache();
       ScanHistoryService.instance.clearCache();
+      RecipeHistoryService.instance.clearCache();
       notifyListeners();
       return false;
     } catch (_) {
@@ -493,7 +515,16 @@ class AuthService extends ChangeNotifier {
       PersonalizationService.instance.clearCache();
       RecommendationService.instance.clearCompatibilityCache();
       ScanHistoryService.instance.clearCache();
+      RecipeHistoryService.instance.clearCache();
       notifyListeners();
+      debugPrint('[AUTH LOGOUT]');
+      debugPrint('logoutStarted = true');
+      debugPrint('tokensCleared = true');
+      debugPrint(
+        'tokenStillPresent = ${(await StorageService.instance.getAccessToken())?.isNotEmpty == true}',
+      );
+      debugPrint('authState = UNAUTHENTICATED');
+      debugPrint('navigationTarget = LOGIN');
     }
   }
 

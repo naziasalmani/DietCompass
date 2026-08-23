@@ -116,4 +116,25 @@ class StorageService {
       return null;
     }
   }
+
+  /// Save user-specific recipe generation history to local secure storage
+  Future<void> saveLocalRecipeHistory(String userId, String jsonString) async {
+    try {
+      final key = 'dc_recipe_history_$userId';
+      await _storage.write(key: key, value: jsonString);
+    } catch (e) {
+      debugPrint('[StorageService] Error saving local recipe history: $e');
+    }
+  }
+
+  /// Retrieve user-specific recipe generation history from local secure storage
+  Future<String?> getLocalRecipeHistory(String userId) async {
+    try {
+      final key = 'dc_recipe_history_$userId';
+      return await _storage.read(key: key);
+    } catch (e) {
+      debugPrint('[StorageService] Error reading local recipe history: $e');
+      return null;
+    }
+  }
 }

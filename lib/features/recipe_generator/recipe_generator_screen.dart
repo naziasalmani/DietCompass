@@ -8,6 +8,7 @@ import '../../core/services/dietary_safety_validator.dart';
 import '../../core/services/personalization_service.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/recipe_service.dart';
+import '../../core/services/recipe_history_service.dart';
 import 'recipe_detail_screen.dart';
 import '../home/home_screen.dart';
 import '../pantry/pantry_screen.dart';
@@ -283,6 +284,18 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           _recipes = list;
           _isLoading = false;
         });
+
+        if (list.isNotEmpty) {
+          RecipeHistoryService.instance.saveRecipes(
+            recipes: list,
+            generationMode: isProductMode ? 'product' : 'pantry',
+            sourceProduct: _effectiveProduct?.name,
+            normalizedIngredient: isProductMode && _effectiveProduct != null
+                ? RecipeService.normalizeProductCategory(_effectiveProduct!)
+                : null,
+            pantryIngredients: !isProductMode ? _pantryItems.map((p) => p.label).toList() : const [],
+          );
+        }
       }
     } catch (_) {
       if (mounted) {

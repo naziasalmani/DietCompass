@@ -1,6 +1,8 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import '../../core/model/recipe_history_item.dart';
+import '../../core/services/recipe_history_service.dart';
+import 'recipe_detail_screen.dart';
 
 /// DietCompass — History Screen
 /// -----------------------------------------------------------------------
@@ -9,122 +11,28 @@ import 'package:flutter/material.dart';
 /// cards, staggered/animated card reveals, an animated segmented tab
 /// switch (All Recipes / Viewed / Saved), and a bouncy bookmark toggle.
 ///
-/// Recipe photos are optional — pass an `imageAsset` per HistoryRecipeItem
-/// and it renders via Image.asset with a graceful colour-tinted icon
-/// fallback if the asset isn't found yet.
-class HistoryRecipeItem {
-  const HistoryRecipeItem({
-    required this.title,
-    required this.tags,
-    required this.timeMinutes,
-    required this.kcal,
-    required this.proteinG,
-    required this.generatedAtLabel,
-    required this.dateGroup,
-    this.imageAsset,
-    this.isVegetarian = true,
-    this.isBookmarked = false,
-    this.isViewed = true,
-  });
-
-  final String title;
-  final String tags;
-  final int timeMinutes;
-  final int kcal;
-  final int proteinG;
-  final String generatedAtLabel;
-  final String dateGroup;
-  final String? imageAsset;
-  final bool isVegetarian;
-  final bool isBookmarked;
-  final bool isViewed;
-}
-
+/// Fully dynamic: Powered by RecipeHistoryService with user-specific persistence.
 enum HistoryTab { all, viewed, saved }
 
 class HistoryScreen extends StatefulWidget {
-  HistoryScreen({
+  const HistoryScreen({
     super.key,
-    List<HistoryRecipeItem>? recipes,
+    this.recipes,
     this.onBack,
     this.onEditTap,
     this.onRecipeTap,
     this.onRecipeMenuTap,
     this.onBookmarkToggle,
     this.onClearAllTap,
-  }) : recipes = recipes ?? _defaultRecipes;
+  });
 
-  final List<HistoryRecipeItem> recipes;
+  final List<RecipeHistoryItem>? recipes;
   final VoidCallback? onBack;
   final VoidCallback? onEditTap;
-  final ValueChanged<HistoryRecipeItem>? onRecipeTap;
-  final ValueChanged<HistoryRecipeItem>? onRecipeMenuTap;
-  final void Function(HistoryRecipeItem recipe, bool bookmarked)? onBookmarkToggle;
+  final ValueChanged<RecipeHistoryItem>? onRecipeTap;
+  final ValueChanged<RecipeHistoryItem>? onRecipeMenuTap;
+  final void Function(RecipeHistoryItem recipe, bool bookmarked)? onBookmarkToggle;
   final VoidCallback? onClearAllTap;
-
-  static const _defaultRecipes = [
-    HistoryRecipeItem(
-      title: 'Banana Oats Power Bowl',
-      tags: 'Healthy • Quick • Delicious',
-      timeMinutes: 15,
-      kcal: 320,
-      proteinG: 12,
-      generatedAtLabel: 'Generated at 12:22 PM',
-      dateGroup: 'Today',
-      imageAsset: 'assets/images/recipe_banana_oats.png',
-      isBookmarked: true,
-    ),
-    HistoryRecipeItem(
-      title: 'Apple Cinnamon Oatmeal',
-      tags: 'Warm • Comforting • Wholesome',
-      timeMinutes: 12,
-      kcal: 310,
-      proteinG: 9,
-      generatedAtLabel: 'Generated at 12:15 PM',
-      dateGroup: 'Today',
-      imageAsset: 'assets/images/recipe_apple_cinnamon_oatmeal.png',
-    ),
-    HistoryRecipeItem(
-      title: 'Quinoa Veggie Salad',
-      tags: 'Healthy • Light • Refreshing',
-      timeMinutes: 20,
-      kcal: 280,
-      proteinG: 10,
-      generatedAtLabel: 'Generated at 11:48 AM',
-      dateGroup: 'Today',
-      imageAsset: 'assets/images/recipe_quinoa_veggie_salad.png',
-    ),
-    HistoryRecipeItem(
-      title: 'Chickpea Curry with Rice',
-      tags: 'Hearty • Spicy • Comforting',
-      timeMinutes: 25,
-      kcal: 450,
-      proteinG: 15,
-      generatedAtLabel: 'Generated at 7:30 PM',
-      dateGroup: 'Yesterday',
-      imageAsset: 'assets/images/recipe_chickpea_curry.png',
-    ),
-    HistoryRecipeItem(
-      title: 'Berry Banana Smoothie',
-      tags: 'Quick • Healthy • Energizing',
-      timeMinutes: 5,
-      kcal: 210,
-      proteinG: 6,
-      generatedAtLabel: 'Generated at 6:45 PM',
-      dateGroup: 'Yesterday',
-      imageAsset: 'assets/images/recipe_berry_banana_smoothie.png',
-    ),
-    HistoryRecipeItem(
-      title: 'Avocado Egg Toast',
-      tags: 'High Protein • Quick • Filling',
-      timeMinutes: 10,
-      kcal: 350,
-      proteinG: 14,
-      generatedAtLabel: 'Generated at 9:10 AM',
-      dateGroup: '2 Days Ago',
-      imageAsset: 'assets/images/recipe_avocado_egg_toast.png',
-    ),
-  ];
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -133,16 +41,27 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   HistoryTab _selectedTab = HistoryTab.all;
-  late Map<String, bool> _bookmarked;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _bookmarked = {for (final r in widget.recipes) r.title: r.isBookmarked};
     _entranceCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
+
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (widget.recipes == null) {
+      setState(() => _isLoading = true);
+      await RecipeHistoryService.instance.getRecipeHistory();
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -166,14 +85,66 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
         ),
       );
 
-  List<HistoryRecipeItem> get _filtered {
+  List<RecipeHistoryItem> _getFilteredList(List<RecipeHistoryItem> source) {
     switch (_selectedTab) {
       case HistoryTab.all:
-        return widget.recipes;
+        return source;
       case HistoryTab.viewed:
-        return widget.recipes.where((r) => r.isViewed).toList();
+        return source.where((r) => r.isViewed).toList();
       case HistoryTab.saved:
-        return widget.recipes.where((r) => _bookmarked[r.title] ?? r.isBookmarked).toList();
+        return source.where((r) => r.isBookmarked).toList();
+    }
+  }
+
+  void _handleRecipeTap(RecipeHistoryItem recipe) {
+    if (widget.onRecipeTap != null) {
+      widget.onRecipeTap!(recipe);
+    } else {
+      RecipeHistoryService.instance.logRecipeOpen(recipe);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipe: recipe.toRecipe()),
+        ),
+      );
+    }
+  }
+
+  void _handleBookmarkToggle(RecipeHistoryItem recipe, bool nextVal) {
+    RecipeHistoryService.instance.toggleBookmark(recipe, nextVal);
+    widget.onBookmarkToggle?.call(recipe, nextVal);
+  }
+
+  Future<void> _handleClearAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Clear Recipe History?'),
+        content: const Text(
+          'Are you sure you want to clear your recipe history? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE0525C),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await RecipeHistoryService.instance.clearHistory();
+      widget.onClearAllTap?.call();
     }
   }
 
@@ -182,11 +153,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
-    final grouped = <String, List<HistoryRecipeItem>>{};
-    for (final r in _filtered) {
-      grouped.putIfAbsent(r.dateGroup, () => []).add(r);
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
       body: Stack(
@@ -194,94 +160,135 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
         children: [
           _GlassBackdrop(uiScale: scale),
           SafeArea(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 24 * scale),
-              physics: const BouncingScrollPhysics(),
-              children: [
-                FadeTransition(
-                  opacity: _fade(0.0, 0.3),
-                  child: SlideTransition(
-                    position: _slide(0.0, 0.34),
-                    child: _TopHeader(uiScale: scale, onBack: widget.onBack, onEditTap: widget.onEditTap),
-                  ),
-                ),
-                SizedBox(height: 16 * scale),
+            child: ListenableBuilder(
+              listenable: RecipeHistoryService.instance,
+              builder: (context, _) {
+                final source = widget.recipes ?? RecipeHistoryService.instance.currentHistory;
+                final filtered = _getFilteredList(source);
 
-                FadeTransition(
-                  opacity: _fade(0.08, 0.38),
-                  child: SlideTransition(
-                    position: _slide(0.08, 0.42),
-                    child: _TabsRow(
-                      uiScale: scale,
-                      selected: _selectedTab,
-                      onSelected: (t) => setState(() => _selectedTab = t),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 18 * scale),
+                final grouped = <String, List<RecipeHistoryItem>>{};
+                for (final r in filtered) {
+                  grouped.putIfAbsent(r.dateGroup, () => []).add(r);
+                }
 
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(anim),
-                      child: child,
-                    ),
-                  ),
-                  child: grouped.isEmpty
-                      ? _EmptyState(uiScale: scale, key: ValueKey(_selectedTab))
-                      : Column(
-                          key: ValueKey(_selectedTab),
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: grouped.entries.expand((entry) {
-                            final items = entry.value;
-                            return [
-                              Padding(
-                                padding: EdgeInsets.only(bottom: 10 * scale, top: 4 * scale),
-                                child: Text(
-                                  entry.key,
-                                  style: TextStyle(
-                                    fontSize: 13 * scale,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF1B1B2E),
-                                  ),
-                                ),
-                              ),
-                              ...List.generate(items.length, (i) {
-                                final recipe = items[i];
-                                return Padding(
-                                  padding: EdgeInsets.only(bottom: 14 * scale),
-                                  child: _RecipeCard(
-                                    uiScale: scale,
-                                    index: i,
-                                    recipe: recipe,
-                                    bookmarked: _bookmarked[recipe.title] ?? recipe.isBookmarked,
-                                    onTap: () => widget.onRecipeTap?.call(recipe),
-                                    onMenuTap: () => widget.onRecipeMenuTap?.call(recipe),
-                                    onBookmarkToggle: (v) {
-                                      setState(() => _bookmarked[recipe.title] = v);
-                                      widget.onBookmarkToggle?.call(recipe, v);
-                                    },
-                                  ),
-                                );
-                              }),
-                            ];
-                          }).toList(),
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 24 * scale),
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    FadeTransition(
+                      opacity: _fade(0.0, 0.3),
+                      child: SlideTransition(
+                        position: _slide(0.0, 0.34),
+                        child: _TopHeader(
+                          uiScale: scale,
+                          onBack: widget.onBack,
+                          onEditTap: widget.onEditTap,
                         ),
-                ),
-                SizedBox(height: 6 * scale),
+                      ),
+                    ),
+                    SizedBox(height: 16 * scale),
 
-                FadeTransition(
-                  opacity: _fade(0.5, 0.85),
-                  child: SlideTransition(
-                    position: _slide(0.5, 0.88),
-                    child: _FooterNote(uiScale: scale, onClearAllTap: widget.onClearAllTap),
-                  ),
-                ),
-              ],
+                    FadeTransition(
+                      opacity: _fade(0.08, 0.38),
+                      child: SlideTransition(
+                        position: _slide(0.08, 0.42),
+                        child: _TabsRow(
+                          uiScale: scale,
+                          selected: _selectedTab,
+                          onSelected: (t) => setState(() => _selectedTab = t),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 18 * scale),
+
+                    if (_isLoading && source.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40 * scale),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Color(0xFF6C4EF5),
+                          ),
+                        ),
+                      )
+                    else
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+                                .animate(anim),
+                            child: child,
+                          ),
+                        ),
+                        child: grouped.isEmpty
+                            ? _EmptyState(
+                                uiScale: scale,
+                                tab: _selectedTab,
+                                onGenerateTap: () {
+                                  if (widget.onBack != null) {
+                                    widget.onBack!();
+                                  } else {
+                                    Navigator.maybePop(context);
+                                  }
+                                },
+                                key: ValueKey(_selectedTab),
+                              )
+                            : Column(
+                                key: ValueKey(_selectedTab),
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: grouped.entries.expand((entry) {
+                                  final items = entry.value;
+                                  return [
+                                    Padding(
+                                      padding: EdgeInsets.only(bottom: 10 * scale, top: 4 * scale),
+                                      child: Text(
+                                        entry.key,
+                                        style: TextStyle(
+                                          fontSize: 13 * scale,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF1B1B2E),
+                                        ),
+                                      ),
+                                    ),
+                                    ...List.generate(items.length, (i) {
+                                      final recipe = items[i];
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: 14 * scale),
+                                        child: _RecipeCard(
+                                          uiScale: scale,
+                                          index: i,
+                                          recipe: recipe,
+                                          bookmarked: recipe.isBookmarked,
+                                          onTap: () => _handleRecipeTap(recipe),
+                                          onMenuTap: () => widget.onRecipeMenuTap?.call(recipe),
+                                          onBookmarkToggle: (v) => _handleBookmarkToggle(recipe, v),
+                                        ),
+                                      );
+                                    }),
+                                  ];
+                                }).toList(),
+                              ),
+                      ),
+                    SizedBox(height: 6 * scale),
+
+                    if (source.isNotEmpty)
+                      FadeTransition(
+                        opacity: _fade(0.5, 0.85),
+                        child: SlideTransition(
+                          position: _slide(0.5, 0.88),
+                          child: _FooterNote(
+                            uiScale: scale,
+                            onClearAllTap: _handleClearAll,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -461,28 +468,7 @@ class _TopHeader extends StatelessWidget {
             ],
           ),
         ),
-        _Pressable(
-          onTap: onEditTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 11 * uiScale),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.edit_rounded, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
-                SizedBox(width: 5 * uiScale),
-                Text(
-                  'Edit',
-                  style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
-                ),
-              ],
-            ),
-          ),
-        ),
+        SizedBox(width: 42 * uiScale),
       ],
     );
   }
@@ -593,7 +579,7 @@ class _RecipeCard extends StatefulWidget {
 
   final double uiScale;
   final int index;
-  final HistoryRecipeItem recipe;
+  final RecipeHistoryItem recipe;
   final bool bookmarked;
   final VoidCallback? onTap;
   final VoidCallback? onMenuTap;
@@ -648,13 +634,7 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                   child: SizedBox(
                     width: 80 * uiScale,
                     height: 80 * uiScale,
-                    child: recipe.imageAsset != null
-                        ? Image.asset(
-                            recipe.imageAsset!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _imageFallback(uiScale),
-                          )
-                        : _imageFallback(uiScale),
+                    child: _buildImage(uiScale, recipe.imageUrl),
                   ),
                 ),
                 SizedBox(width: 12 * uiScale),
@@ -695,10 +675,14 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                       ),
                       SizedBox(height: 2 * uiScale),
                       Text(
-                        recipe.tags,
+                        recipe.contextSubtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5)),
+                        style: TextStyle(
+                          fontSize: 11 * uiScale,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF6C4EF5),
+                        ),
                       ),
                       SizedBox(height: 8 * uiScale),
                       Wrap(
@@ -706,8 +690,10 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                         runSpacing: 6 * uiScale,
                         children: [
                           _MetaPill(uiScale: uiScale, icon: Icons.access_time_rounded, iconColor: const Color(0xFF6C4EF5), label: '${recipe.timeMinutes} min'),
-                          _MetaPill(uiScale: uiScale, icon: Icons.local_fire_department_rounded, iconColor: const Color(0xFFE0862E), label: '${recipe.kcal} kcal'),
-                          _MetaPill(uiScale: uiScale, icon: Icons.eco_rounded, iconColor: const Color(0xFF1E8A4C), label: '${recipe.proteinG}g Protein'),
+                          if (recipe.calories != null)
+                            _MetaPill(uiScale: uiScale, icon: Icons.local_fire_department_rounded, iconColor: const Color(0xFFE0862E), label: '${recipe.calories!.toInt()} kcal'),
+                          if (recipe.protein != null)
+                            _MetaPill(uiScale: uiScale, icon: Icons.eco_rounded, iconColor: const Color(0xFF1E8A4C), label: '${recipe.protein!.toInt()}g Protein'),
                         ],
                       ),
                       SizedBox(height: 8 * uiScale),
@@ -750,6 +736,38 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
     );
   }
 
+  Widget _buildImage(double uiScale, String imgUrl) {
+    if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
+      return Image.network(
+        imgUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: const Color(0xFFEDE7FA),
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 18 * uiScale,
+              height: 18 * uiScale,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF6C4EF5),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+      );
+    } else if (imgUrl.startsWith('assets/')) {
+      return Image.asset(
+        imgUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+      );
+    }
+    return _imageFallback(uiScale);
+  }
+
   Widget _imageFallback(double uiScale) => Container(
         color: const Color(0xFFEDE7FA),
         alignment: Alignment.center,
@@ -788,11 +806,30 @@ class _MetaPill extends StatelessWidget {
 // Empty state (shown when a tab has no matching recipes)
 // ---------------------------------------------------------------------------
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({super.key, required this.uiScale});
+  const _EmptyState({
+    super.key,
+    required this.uiScale,
+    this.tab = HistoryTab.all,
+    this.onGenerateTap,
+  });
+
   final double uiScale;
+  final HistoryTab tab;
+  final VoidCallback? onGenerateTap;
 
   @override
   Widget build(BuildContext context) {
+    String title = 'No recipes generated yet';
+    String subtitle = 'Generate recipes using your pantry or scanned products to build your history.';
+
+    if (tab == HistoryTab.saved) {
+      title = 'No saved recipes yet';
+      subtitle = 'Bookmark recipes in history or generation results to view them here.';
+    } else if (tab == HistoryTab.viewed) {
+      title = 'No viewed recipes yet';
+      subtitle = 'Recipes you view in detail will appear here.';
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 40 * uiScale),
       child: Column(
@@ -801,18 +838,41 @@ class _EmptyState extends StatelessWidget {
             width: 64 * uiScale,
             height: 64 * uiScale,
             decoration: const BoxDecoration(color: Color(0xFFEDE7FA), shape: BoxShape.circle),
-            child: Icon(Icons.history_rounded, size: 30 * uiScale, color: const Color(0xFF6C4EF5)),
+            child: Icon(
+              tab == HistoryTab.saved ? Icons.bookmark_border_rounded : Icons.history_rounded,
+              size: 30 * uiScale,
+              color: const Color(0xFF6C4EF5),
+            ),
           ),
           SizedBox(height: 14 * uiScale),
           Text(
-            'Nothing here yet',
-            style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+            title,
+            style: TextStyle(fontSize: 14 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
           ),
-          SizedBox(height: 4 * uiScale),
-          Text(
-            'Recipes will show up here once available.',
-            style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B)),
+          SizedBox(height: 6 * uiScale),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24 * uiScale),
+            child: Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF6B6B7B), height: 1.4),
+            ),
           ),
+          if (tab == HistoryTab.all && onGenerateTap != null) ...[
+            SizedBox(height: 18 * uiScale),
+            ElevatedButton.icon(
+              onPressed: onGenerateTap,
+              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+              label: const Text('Generate Your First Recipe'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C4EF5),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 18 * uiScale, vertical: 10 * uiScale),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -843,7 +903,7 @@ class _FooterNote extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Recipes are saved for 30 days',
+                  'Recipes are saved to your account',
                   style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
                 ),
                 SizedBox(height: 2 * uiScale),
@@ -860,11 +920,11 @@ class _FooterNote extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.delete_outline_rounded, size: 15 * uiScale, color: const Color(0xFFE0475B)),
+                Icon(Icons.delete_outline_rounded, size: 14 * uiScale, color: const Color(0xFFE0525C)),
                 SizedBox(width: 4 * uiScale),
                 Text(
                   'Clear All',
-                  style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFFE0475B)),
+                  style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFFE0525C)),
                 ),
               ],
             ),

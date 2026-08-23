@@ -3,8 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:diet_compass/core/model/food_product.dart';
+import 'package:diet_compass/core/services/food_service.dart';
 import 'package:diet_compass/core/services/scan_history_service.dart';
 import 'package:diet_compass/features/scan/ai_analysis_screen.dart';
+import 'package:diet_compass/features/scan/camera_scan_screen.dart';
 
 class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({
@@ -84,78 +86,189 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
   }
 
   Animation<double> _fade(double s, double e) => CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: Interval(s, e, curve: Curves.easeOut),
-      );
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(
-        begin: const Offset(0, 0.12),
-        end: Offset.zero,
-      ).animate(
+  Animation<Offset> _slide(double s, double e) =>
+      Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _entranceCtrl,
           curve: Interval(s, e, curve: Curves.easeOutCubic),
         ),
       );
 
- void _handleAnalyze() {
-  final data = <String, dynamic>{
-    'productName': _productNameCtrl.text,
-    'brand': _brandCtrl.text,
-    'servingSize': _servingSizeCtrl.text,
-    'servingUnit': _servingUnit,
-    'perServing': _perServing,
-    'nutrients': {
-      for (final e in _nutrientCtrls.entries)
-        e.key: e.value.text,
-    },
-    'extraNutrients': {
-      for (final e in _extraNutrientCtrls.entries)
-        e.key: e.value.text,
-    },
-    'ingredients': _ingredientsCtrl.text,
-    'allergens': _selectedAllergens.toList(),
-  };
+  double? _parseNutrient(List<String> keys) {
+    for (final k in keys) {
+      final text =
+          _nutrientCtrls[k]?.text.trim() ?? _extraNutrientCtrls[k]?.text.trim();
+      if (text != null && text.isNotEmpty) {
+        final val = double.tryParse(text);
+        if (val != null) return val;
+      }
+    }
+    return null;
+  }
 
+  Future<void> _handleAnalyze() async {
+    final name = _productNameCtrl.text.trim().isEmpty
+        ? 'Unknown Product'
+        : _productNameCtrl.text.trim();
+    final brand = _brandCtrl.text.trim().isEmpty
+        ? 'Manual Entry'
+        : _brandCtrl.text.trim();
+    final servingSize = _servingSizeCtrl.text.trim().isNotEmpty
+        ? '${_servingSizeCtrl.text.trim()} $_servingUnit'.trim()
+        : '40 $_servingUnit';
+
+    final calories = _parseNutrient(['Calories', 'Energy']);
+    final protein = _parseNutrient(['Protein']);
+    final carbs = _parseNutrient([
+      'Carbohydrates',
+      'Carbs',
+      'Total Carbohydrate',
+    ]);
+    final fat = _parseNutrient(['Total Fat', 'Fat']);
+    final satFat = _parseNutrient(['Saturated Fat', 'Sat. Fat', 'Sat Fat']);
+    final fiber = _parseNutrient(['Fibre', 'Fiber', 'Dietary Fiber']);
+    final sugar = _parseNutrient(['Sugar', 'Sugars', 'Total Sugars']);
+    final sodium = _parseNutrient(['Sodium']);
+    final ingredients = _ingredientsCtrl.text.trim();
+    final allergens = _selectedAllergens.toList();
+
+    final hasNutrients =
+        calories != null ||
+        protein != null ||
+        carbs != null ||
+        fat != null ||
+        sugar != null ||
+        sodium != null;
+
+    debugPrint('\n==============================================');
+    debugPrint('[MANUAL ENTRY]');
+    debugPrint('productName = $name');
+    debugPrint('brand = $brand');
+    debugPrint('servingSize = $servingSize');
+    debugPrint('nutritionProvided = $hasNutrients');
+    debugPrint('ingredientsProvided = ${ingredients.isNotEmpty}');
+    debugPrint('==============================================\n');
+
+    final data = <String, dynamic>{
+      'productName': name,
+      'brand': brand,
+      'servingSize': _servingSizeCtrl.text.trim(),
+      'servingUnit': _servingUnit,
+      'perServing': _perServing,
+      'nutrients': {
+        for (final e in _nutrientCtrls.entries) e.key: e.value.text,
+      },
+      'extraNutrients': {
+        for (final e in _extraNutrientCtrls.entries) e.key: e.value.text,
+      },
+      'ingredients': ingredients,
+      'allergens': allergens,
+    };
     widget.onAnalyze?.call(data);
 
-    final product = FoodProduct(
-      barcode: '',
-      name: _productNameCtrl.text.isEmpty
-          ? 'Unknown Product'
-          : _productNameCtrl.text.trim(),
-      brand: _brandCtrl.text.isEmpty ? 'Manual Entry' : _brandCtrl.text.trim(),
-      imageUrl: '',
-      ingredients: _ingredientsCtrl.text.trim(),
-      allergens: _selectedAllergens.toList(),
-      calories: double.tryParse(_nutrientCtrls['Calories']?.text ?? ''),
-      protein: double.tryParse(_nutrientCtrls['Protein']?.text ?? ''),
-      carbohydrates: double.tryParse(_nutrientCtrls['Carbs']?.text ?? ''),
-      fat: double.tryParse(_nutrientCtrls['Fat']?.text ?? ''),
-      fiber: double.tryParse(_nutrientCtrls['Fiber']?.text ?? ''),
-      sugar: double.tryParse(_nutrientCtrls['Sugar']?.text ?? ''),
-      sodium: double.tryParse(_nutrientCtrls['Sodium']?.text ?? ''),
+    // Look up real product to fetch image / real metadata if available
+    FoodProduct? matchedProduct;
+    final lookupQuery = brand.isNotEmpty && brand != 'Manual Entry'
+        ? '$name $brand'.trim()
+        : name;
+
+    debugPrint('\n[PRODUCT LOOKUP]');
+    debugPrint('query = $lookupQuery');
+    debugPrint('source = OpenFoodFacts/USDA/UPC/Gemini');
+
+    if (name.isNotEmpty && name != 'Unknown Product') {
+      try {
+        final products = await FoodService().searchProducts(
+          lookupQuery,
+          pageSize: 1,
+        );
+        if (products.isNotEmpty) {
+          matchedProduct = products.first;
+        }
+      } catch (e) {
+        debugPrint('[PRODUCT LOOKUP] Lookup error: $e');
+      }
+    }
+
+    final resultFound = matchedProduct != null;
+    debugPrint('resultFound = $resultFound');
+
+    // Create ONE canonical product preserving all user-entered nutrition data
+    final canonicalProduct = FoodProduct(
+      barcode: matchedProduct?.barcode ?? '',
+      name: name,
+      brand: brand,
+      imageUrl: matchedProduct?.imageUrl ?? '',
+      ingredients: ingredients.isNotEmpty
+          ? ingredients
+          : (matchedProduct?.ingredients ?? ''),
+      allergens: allergens.isNotEmpty
+          ? allergens
+          : (matchedProduct?.allergens ?? const []),
+      calories: calories ?? matchedProduct?.calories,
+      protein: protein ?? matchedProduct?.protein,
+      carbohydrates: carbs ?? matchedProduct?.carbohydrates,
+      fat: fat ?? matchedProduct?.fat,
+      saturatedFat: satFat ?? matchedProduct?.saturatedFat,
+      fiber: fiber ?? matchedProduct?.fiber,
+      sugar: sugar ?? matchedProduct?.sugar,
+      sodium: sodium ?? matchedProduct?.sodium,
+      servingSize: servingSize,
+      nutriScore: matchedProduct?.nutriScore,
+      novaGroup: matchedProduct?.novaGroup,
+      source: 'manual',
     );
 
-    ScanHistoryService.instance.saveScan(product);
+    ScanHistoryService.instance.saveScan(canonicalProduct);
+
+    if (!mounted) return;
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AiAnalysisScreen(
-          product: product,
-          productName: product.name,
-          productSubtitle: product.brand,
-          servingInfo:
-              '${_servingSizeCtrl.text} $_servingUnit',
+          product: canonicalProduct,
+          productName: canonicalProduct.name,
+          productSubtitle: canonicalProduct.brand,
+          servingInfo: servingSize,
         ),
       ),
     );
   }
 
+  void _openCameraScan() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CameraScanScreen(source: CameraSource.scan),
+      ),
+    );
+  }
+
+  void _showHelpSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (sheetContext) => _NutritionHelpSheet(
+        onScanLabelTap: () {
+          Navigator.pop(sheetContext);
+          (widget.onScanLabelTap ?? _openCameraScan).call();
+        },
+        onUploadImageTap: () {
+          Navigator.pop(sheetContext);
+          widget.onUploadImageTap?.call();
+        },
+      ),
+    );
+  }
+
   @override
-
-
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
@@ -184,20 +297,18 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
                     position: _slide(0.0, 0.35),
                     child: _TopHeader(
                       uiScale: scale,
-                      onBack: widget.onBack,
-                      onNeedHelpTap: widget.onNeedHelpTap,
+                      onBack: widget.onBack ?? () => Navigator.pop(context),
+                      onNeedHelpTap: widget.onNeedHelpTap ?? _showHelpSheet,
                     ),
                   ),
                 ),
-                SizedBox(height: 16 * scale),
-
                 FadeTransition(
                   opacity: _fade(0.05, 0.35),
                   child: SlideTransition(
                     position: _slide(0.05, 0.4),
                     child: _EntryTabsBar(
                       uiScale: scale,
-                      onScanLabelTap: widget.onScanLabelTap,
+                      onScanLabelTap: widget.onScanLabelTap ?? _openCameraScan,
                       onUploadImageTap: widget.onUploadImageTap,
                     ),
                   ),
@@ -209,16 +320,16 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
                   child: SlideTransition(
                     position: _slide(0.12, 0.46),
                     child: _GlassCard(
-  uiScale: scale,
-  child: _ProductInfoSection(
-    uiScale: scale,
-    productNameCtrl: _productNameCtrl,
-    brandCtrl: _brandCtrl,
-    servingSizeCtrl: _servingSizeCtrl,
-    selectedUnit: _servingUnit,
-    onUnitChanged: (v) => setState(() => _servingUnit = v),
-  ),
-),
+                      uiScale: scale,
+                      child: _ProductInfoSection(
+                        uiScale: scale,
+                        productNameCtrl: _productNameCtrl,
+                        brandCtrl: _brandCtrl,
+                        servingSizeCtrl: _servingSizeCtrl,
+                        selectedUnit: _servingUnit,
+                        onUnitChanged: (v) => setState(() => _servingUnit = v),
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(height: 16 * scale),
@@ -271,9 +382,8 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
                         selected: _selectedAllergens,
                         showOtherInput: _showOtherInput,
                         otherCtrl: _otherAllergenCtrl,
-                        onToggleOtherInput: () => setState(
-                          () => _showOtherInput = !_showOtherInput,
-                        ),
+                        onToggleOtherInput: () =>
+                            setState(() => _showOtherInput = !_showOtherInput),
                         onToggle: (name) => setState(() {
                           if (_selectedAllergens.contains(name)) {
                             _selectedAllergens.remove(name);
@@ -324,6 +434,281 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
   }
 }
 
+class _NutritionHelpSheet extends StatelessWidget {
+  const _NutritionHelpSheet({
+    required this.onScanLabelTap,
+    required this.onUploadImageTap,
+  });
+
+  final VoidCallback onScanLabelTap;
+  final VoidCallback onUploadImageTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 720),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + bottomInset),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF9F7FF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD8D0EE),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'How to Enter Nutrition Facts',
+                    style: TextStyle(
+                      color: Color(0xFF1B1B2E),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ],
+            ),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Enter the information exactly as it appears on your food package for the most accurate analysis.',
+                style: TextStyle(
+                  color: Color(0xFF6B6B7B),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _HelpSection(
+                      number: '1',
+                      title: 'PRODUCT NAME',
+                      body:
+                          'Enter the exact product name printed on the package.\nExample: Dairy Milk Silk',
+                    ),
+                    const _HelpSection(
+                      number: '2',
+                      title: 'BRAND',
+                      body:
+                          "Enter the product's brand/manufacturer.\nExample: Cadbury",
+                    ),
+                    const _HelpSection(
+                      number: '3',
+                      title: 'SERVING SIZE',
+                      body:
+                          'Enter the serving size exactly as shown on the package.\nExample: 40 g\nAvailable units: g / ml / cup.',
+                    ),
+                    const _HelpSection(
+                      number: '4',
+                      title: 'NUTRITION FACTS',
+                      body:
+                          'Per 100 g/ml shows nutrition for a fixed 100 g or 100 ml amount. Per Serving shows nutrition for the serving size listed on the package. Select the option that matches the label before entering values.\n\nYou can enter Calories, Protein, Carbohydrates, Total Fat, Sugar, Fiber, Sodium, and any other values shown.',
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE7FF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFD8C9FF)),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'IMPORTANT TIP',
+                            style: TextStyle(
+                              color: Color(0xFF6C4EF5),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.7,
+                            ),
+                          ),
+                          SizedBox(height: 5),
+                          Text(
+                            "Don't convert the values yourself. Enter them exactly as printed on the package and select Per 100 g/ml or Per Serving accordingly.",
+                            style: TextStyle(
+                              color: Color(0xFF38334D),
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Prefer an easier way?',
+                      style: TextStyle(
+                        color: Color(0xFF1B1B2E),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _HelpActionButton(
+                      icon: Icons.qr_code_scanner_rounded,
+                      label: 'Scan Barcode',
+                      onTap: onScanLabelTap,
+                    ),
+                    const SizedBox(height: 8),
+                    _HelpActionButton(
+                      icon: Icons.image_outlined,
+                      label: 'Upload Nutrition Label',
+                      onTap: onUploadImageTap,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF6C4EF5),
+                          side: const BorderSide(color: Color(0xFFD8C9FF)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HelpSection extends StatelessWidget {
+  const _HelpSection({
+    required this.number,
+    required this.title,
+    required this.body,
+  });
+
+  final String number;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFF6C4EF5),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF6C4EF5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: Color(0xFF4D4A5B),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HelpActionButton extends StatelessWidget {
+  const _HelpActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.tonalIcon(
+        onPressed: onTap,
+        icon: Icon(icon),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          foregroundColor: const Color(0xFF5B3ED2),
+          backgroundColor: const Color(0xFFEDE7FF),
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Ambient glass backdrop — soft blurred colour blobs behind the frosted cards
 // ---------------------------------------------------------------------------
@@ -364,18 +749,18 @@ class _GlassBackdrop extends StatelessWidget {
   }
 
   Widget _blob(double size, Color color) => ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.22),
-            ),
-          ),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.22),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +783,10 @@ class _GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.62),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 1.2),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.75),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF6C4EF5).withValues(alpha: 0.08),
@@ -725,11 +1113,16 @@ class _EntryTab extends StatelessWidget {
           curve: Curves.easeOut,
           padding: EdgeInsets.symmetric(vertical: 10 * uiScale),
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withValues(alpha: 0.85) : Colors.transparent,
+            color: selected
+                ? Colors.white.withValues(alpha: 0.85)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: selected
                 ? Border(
-                    bottom: const BorderSide(color: Color(0xFF6C4EF5), width: 2),
+                    bottom: const BorderSide(
+                      color: Color(0xFF6C4EF5),
+                      width: 2,
+                    ),
                   )
                 : null,
           ),
@@ -799,16 +1192,29 @@ class _GlassTextField extends StatelessWidget {
         maxLines: maxLines,
         maxLength: maxLength,
         keyboardType: keyboardType,
-        style: TextStyle(fontSize: 12.5 * uiScale, color: const Color(0xFF1B1B2E)),
+        style: TextStyle(
+          fontSize: 12.5 * uiScale,
+          color: const Color(0xFF1B1B2E),
+        ),
         decoration: InputDecoration(
           counterText: '',
           hintText: hint,
-          hintStyle: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFFB0ACC2)),
+          hintStyle: TextStyle(
+            fontSize: 12 * uiScale,
+            color: const Color(0xFFB0ACC2),
+          ),
           prefixIcon: icon == null
               ? null
               : Padding(
-                  padding: EdgeInsets.only(left: 12 * uiScale, right: 6 * uiScale),
-                  child: Icon(icon, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+                  padding: EdgeInsets.only(
+                    left: 12 * uiScale,
+                    right: 6 * uiScale,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 16 * uiScale,
+                    color: const Color(0xFF6C4EF5),
+                  ),
                 ),
           prefixIconConstraints: BoxConstraints(minWidth: 32 * uiScale),
           suffixIcon: trailing,
@@ -824,7 +1230,11 @@ class _GlassTextField extends StatelessWidget {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.uiScale, required this.text, this.required = false});
+  const _FieldLabel({
+    required this.uiScale,
+    required this.text,
+    this.required = false,
+  });
   final double uiScale;
   final String text;
   final bool required;
@@ -843,7 +1253,10 @@ class _FieldLabel extends StatelessWidget {
           children: [
             TextSpan(text: text),
             if (required)
-              const TextSpan(text: ' *', style: TextStyle(color: Color(0xFFE0862E))),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Color(0xFFE0862E)),
+              ),
           ],
         ),
       ),
@@ -876,60 +1289,61 @@ class _ProductInfoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(uiScale: uiScale, number: 1, title: 'Product Information'),
+        _SectionTitle(
+          uiScale: uiScale,
+          number: 1,
+          title: 'Product Information',
+        ),
         SizedBox(height: 14 * uiScale),
         LayoutBuilder(
           builder: (context, constraints) {
             final narrow = constraints.maxWidth < 340;
             final nameField = Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    _FieldLabel(
-      uiScale: uiScale,
-      text: 'Product Name',
-      required: true,
-    ),
-    _GlassTextField(
-      uiScale: uiScale,
-      controller: productNameCtrl,
-      hint: 'Enter product name',
-      icon: Icons.deblur_rounded,
-    ),
-  ],
-);
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FieldLabel(
+                  uiScale: uiScale,
+                  text: 'Product Name',
+                  required: true,
+                ),
+                _GlassTextField(
+                  uiScale: uiScale,
+                  controller: productNameCtrl,
+                  hint: 'Enter product name',
+                  icon: Icons.deblur_rounded,
+                ),
+              ],
+            );
 
-final brandField = Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    _FieldLabel(
-      uiScale: uiScale,
-      text: 'Brand (Optional)',
-    ),
-    _GlassTextField(
-      uiScale: uiScale,
-      controller: brandCtrl,
-      hint: 'Enter brand name',
-      icon: Icons.storefront_rounded,
-    ),
-  ],
-);
+            final brandField = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FieldLabel(uiScale: uiScale, text: 'Brand (Optional)'),
+                _GlassTextField(
+                  uiScale: uiScale,
+                  controller: brandCtrl,
+                  hint: 'Enter brand name',
+                  icon: Icons.storefront_rounded,
+                ),
+              ],
+            );
             if (narrow) {
               return Column(
-  children: [
-    nameField,
-    SizedBox(height: 12 * uiScale),
-    brandField,
-  ],
-);
+                children: [
+                  nameField,
+                  SizedBox(height: 12 * uiScale),
+                  brandField,
+                ],
+              );
             }
             return Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Expanded(child: nameField),
-    SizedBox(width: 12 * uiScale),
-    Expanded(child: brandField),
-  ],
-);
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: nameField),
+                SizedBox(width: 12 * uiScale),
+                Expanded(child: brandField),
+              ],
+            );
           },
         ),
         SizedBox(height: 12 * uiScale),
@@ -994,7 +1408,9 @@ class _UnitToggleGroup extends StatelessWidget {
                 vertical: 9 * uiScale,
               ),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF6C4EF5) : Colors.transparent,
+                color: isSelected
+                    ? const Color(0xFF6C4EF5)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -1024,19 +1440,59 @@ class _NutrientField {
   final Color color;
 
   static const basics = [
-    _NutrientField('Calories', 'kcal', 'assets/images/calories.jpeg', Color(0xFFE0862E)),
-    _NutrientField('Protein', 'g', 'assets/images/protein.jpeg', Color(0xFF1E8A4C)),
-    _NutrientField('Carbohydrates', 'g', 'assets/images/carbohydrate.jpeg', Color(0xFF6C4EF5)),
-    _NutrientField('Total Fat', 'g', 'assets/images/fat.jpeg', Color(0xFFE0B32E)),
+    _NutrientField(
+      'Calories',
+      'kcal',
+      'assets/images/calories.jpeg',
+      Color(0xFFE0862E),
+    ),
+    _NutrientField(
+      'Protein',
+      'g',
+      'assets/images/protein.jpeg',
+      Color(0xFF1E8A4C),
+    ),
+    _NutrientField(
+      'Carbohydrates',
+      'g',
+      'assets/images/carbohydrate.jpeg',
+      Color(0xFF6C4EF5),
+    ),
+    _NutrientField(
+      'Total Fat',
+      'g',
+      'assets/images/fat.jpeg',
+      Color(0xFFE0B32E),
+    ),
     _NutrientField('Fibre', 'g', 'assets/images/fibre.jpeg', Color(0xFF1E8A4C)),
     _NutrientField('Sugar', 'g', 'assets/images/sugar.jpeg', Color(0xFFE84D6B)),
-    _NutrientField('Sodium', 'mg', 'assets/images/sodium.jpeg', Color(0xFF3B82F6)),
+    _NutrientField(
+      'Sodium',
+      'mg',
+      'assets/images/sodium.jpeg',
+      Color(0xFF3B82F6),
+    ),
   ];
 
   static const extras = [
-    _NutrientField('Saturated Fat', 'g', 'assets/images/saturated_fat.jpeg', Color(0xFFE0B32E)),
-    _NutrientField('Cholesterol', 'mg', 'assets/images/cholesterol.jpeg', Color(0xFFE0862E)),
-    _NutrientField('Calcium', 'mg', 'assets/images/calcium.jpeg', Color(0xFFB0ACC2)),
+    _NutrientField(
+      'Saturated Fat',
+      'g',
+      'assets/images/saturated_fat.jpeg',
+      Color(0xFFE0B32E),
+    ),
+    _NutrientField(
+      'Cholesterol',
+      'mg',
+      'assets/images/cholesterol.jpeg',
+      Color(0xFFE0862E),
+    ),
+    _NutrientField(
+      'Calcium',
+      'mg',
+      'assets/images/calcium.jpeg',
+      Color(0xFFB0ACC2),
+    ),
     _NutrientField('Iron', 'mg', 'assets/images/iron.jpeg', Color(0xFF6B6B7B)),
   ];
 }
@@ -1083,15 +1539,22 @@ class _NutritionFactsSection extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 4 * uiScale),
-                  Icon(Icons.info_outline_rounded,
-                      size: 14 * uiScale, color: const Color(0xFFB0ACC2)),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 14 * uiScale,
+                    color: const Color(0xFFB0ACC2),
+                  ),
                 ],
               ),
             ),
           ],
         ),
         SizedBox(height: 10 * uiScale),
-        _PerServingToggle(uiScale: uiScale, perServing: perServing, onToggle: onToggle),
+        _PerServingToggle(
+          uiScale: uiScale,
+          perServing: perServing,
+          onToggle: onToggle,
+        ),
         SizedBox(height: 14 * uiScale),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -1138,7 +1601,11 @@ class _NutritionFactsSection extends StatelessWidget {
                     color: Color(0xFF6C4EF5),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.add, size: 15 * uiScale, color: Colors.white),
+                  child: Icon(
+                    Icons.add,
+                    size: 15 * uiScale,
+                    color: Colors.white,
+                  ),
                 ),
                 SizedBox(width: 10 * uiScale),
                 Expanded(
@@ -1166,8 +1633,11 @@ class _NutritionFactsSection extends StatelessWidget {
                 AnimatedRotation(
                   turns: showMore ? 0.25 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: Icon(Icons.chevron_right_rounded,
-                      size: 20 * uiScale, color: const Color(0xFF6C4EF5)),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20 * uiScale,
+                    color: const Color(0xFF6C4EF5),
+                  ),
                 ),
               ],
             ),
@@ -1240,7 +1710,9 @@ class _PerServingToggle extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 padding: EdgeInsets.symmetric(vertical: 9 * uiScale),
                 decoration: BoxDecoration(
-                  color: !perServing ? const Color(0xFF6C4EF5) : Colors.transparent,
+                  color: !perServing
+                      ? const Color(0xFF6C4EF5)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(13),
                 ),
                 alignment: Alignment.center,
@@ -1262,23 +1734,31 @@ class _PerServingToggle extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 padding: EdgeInsets.symmetric(vertical: 9 * uiScale),
                 decoration: BoxDecoration(
-                  color: perServing ? const Color(0xFF6C4EF5) : Colors.transparent,
+                  color: perServing
+                      ? const Color(0xFF6C4EF5)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(13),
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add,
-                        size: 12 * uiScale,
-                        color: perServing ? Colors.white : const Color(0xFF6B6B7B)),
+                    Icon(
+                      Icons.add,
+                      size: 12 * uiScale,
+                      color: perServing
+                          ? Colors.white
+                          : const Color(0xFF6B6B7B),
+                    ),
                     SizedBox(width: 3 * uiScale),
                     Text(
                       'Per Serving',
                       style: TextStyle(
                         fontSize: 11.5 * uiScale,
                         fontWeight: FontWeight.w700,
-                        color: perServing ? Colors.white : const Color(0xFF6B6B7B),
+                        color: perServing
+                            ? Colors.white
+                            : const Color(0xFF6B6B7B),
                       ),
                     ),
                   ],
@@ -1320,18 +1800,22 @@ class _NutrientCell extends StatelessWidget {
           Row(
             children: [
               field.asset.isNotEmpty
-    ? Image.asset(
-        field.asset,
-        width: 70 * uiScale,
-        height: 70 * uiScale,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(
-          fallbackIcon ?? Icons.circle,
-          size: 30 * uiScale,
-          color: field.color,
-        ),
-      )
-                  : Icon(fallbackIcon ?? Icons.circle, size: 14 * uiScale, color: field.color),
+                  ? Image.asset(
+                      field.asset,
+                      width: 70 * uiScale,
+                      height: 70 * uiScale,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(
+                        fallbackIcon ?? Icons.circle,
+                        size: 30 * uiScale,
+                        color: field.color,
+                      ),
+                    )
+                  : Icon(
+                      fallbackIcon ?? Icons.circle,
+                      size: 14 * uiScale,
+                      color: field.color,
+                    ),
             ],
           ),
           SizedBox(height: 2 * uiScale),
@@ -1340,7 +1824,9 @@ class _NutrientCell extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: TextStyle(
                     fontSize: 13 * uiScale,
                     fontWeight: FontWeight.w700,
@@ -1398,7 +1884,10 @@ class _IngredientsSection extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: Text(
             '${controller.text.length}/500',
-            style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFFB0ACC2)),
+            style: TextStyle(
+              fontSize: 10 * uiScale,
+              color: const Color(0xFFB0ACC2),
+            ),
           ),
         ),
       ],
@@ -1420,11 +1909,20 @@ class _AllergenItem {
     _AllergenItem('Milk', 'assets/images/milk.jpeg', Color(0xFF3B82F6)),
     _AllergenItem('Egg', 'assets/images/egg.jpeg', Color(0xFFE0862E)),
     _AllergenItem('Peanut', 'assets/images/peanut.jpeg', Color(0xFFB2662E)),
-    _AllergenItem('Tree Nuts', 'assets/images/tree_nut.jpeg', Color(0xFF8A5A2E)),
+    _AllergenItem(
+      'Tree Nuts',
+      'assets/images/tree_nut.jpeg',
+      Color(0xFF8A5A2E),
+    ),
     _AllergenItem('Soy', 'assets/images/soy.jpeg', Color(0xFF1E8A4C)),
     _AllergenItem('Wheat', 'assets/images/wheat.jpeg', Color(0xFFE0B32E)),
     _AllergenItem('Fish', 'assets/images/fish.jpeg', Color(0xFF3B82F6)),
-    _AllergenItem('Shellfish', 'assets/images/shellfish.jpeg', Color(0xFFE84D6B), fallbackIcon: Icons.set_meal_rounded),
+    _AllergenItem(
+      'Shellfish',
+      'assets/images/shellfish.jpeg',
+      Color(0xFFE84D6B),
+      fallbackIcon: Icons.set_meal_rounded,
+    ),
     _AllergenItem('Sesame', 'assets/images/sesame.jpeg', Color(0xFFE0862E)),
     _AllergenItem('Other', 'assets/images/other.jpeg', Color(0xFF6C4EF5)),
   ];
@@ -1468,7 +1966,10 @@ class _AllergensSection extends StatelessWidget {
             Expanded(
               child: Text(
                 'Select all that apply',
-                style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(
+                  fontSize: 10.5 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
               ),
             ),
             GestureDetector(
@@ -1485,7 +1986,11 @@ class _AllergensSection extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add, size: 12 * uiScale, color: const Color(0xFF6C4EF5)),
+                    Icon(
+                      Icons.add,
+                      size: 12 * uiScale,
+                      color: const Color(0xFF6C4EF5),
+                    ),
                     SizedBox(width: 3 * uiScale),
                     Text(
                       'Add Other',
@@ -1505,7 +2010,10 @@ class _AllergensSection extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           child: showOtherInput
               ? Padding(
-                  padding: EdgeInsets.only(top: 10 * uiScale, bottom: 4 * uiScale),
+                  padding: EdgeInsets.only(
+                    top: 10 * uiScale,
+                    bottom: 4 * uiScale,
+                  ),
                   child: _GlassTextField(
                     uiScale: uiScale,
                     controller: otherCtrl,
@@ -1566,9 +2074,14 @@ class _AllergenChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: EdgeInsets.symmetric(horizontal: 9 * uiScale, vertical: 8 * uiScale),
+        padding: EdgeInsets.symmetric(
+          horizontal: 9 * uiScale,
+          vertical: 8 * uiScale,
+        ),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF1ECFB) : Colors.white.withValues(alpha: 0.75),
+          color: selected
+              ? const Color(0xFFF1ECFB)
+              : Colors.white.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
             color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFEDEAF7),
@@ -1588,7 +2101,11 @@ class _AllergenChip extends StatelessWidget {
                       color: item.color,
                     ),
                   )
-                : Icon(item.fallbackIcon ?? Icons.circle, size: 14 * uiScale, color: item.color),
+                : Icon(
+                    item.fallbackIcon ?? Icons.circle,
+                    size: 14 * uiScale,
+                    color: item.color,
+                  ),
             AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               width: 15 * uiScale,
@@ -1597,7 +2114,9 @@ class _AllergenChip extends StatelessWidget {
                 color: selected ? const Color(0xFF6C4EF5) : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFD9CDF5),
+                  color: selected
+                      ? const Color(0xFF6C4EF5)
+                      : const Color(0xFFD9CDF5),
                   width: 1.4,
                 ),
               ),
@@ -1623,78 +2142,75 @@ class _AiHelperCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
-  clipBehavior: Clip.none,
-  children: [
-    Padding(
-      padding: EdgeInsets.only(top: 35 * uiScale),
-      child: _GlassCard(
-        uiScale: uiScale,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 95 * uiScale, // space for robot
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 35 * uiScale),
+          child: _GlassCard(
+            uiScale: uiScale,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 95 * uiScale, // space for robot
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Flexible(
-                    child: Text(
-                      'Let AI do the heavy lifting!',
-                      style: TextStyle(
-                        fontSize: 15 * uiScale,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Let AI do the heavy lifting!',
+                          style: TextStyle(
+                            fontSize: 15 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1B1B2E),
+                          ),
+                        ),
                       ),
-                    ),
+                      SizedBox(width: 4 * uiScale),
+                      Icon(
+                        Icons.auto_awesome,
+                        size: 14 * uiScale,
+                        color: const Color(0xFF6C4EF5),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 4 * uiScale),
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 14 * uiScale,
-                    color: const Color(0xFF6C4EF5),
+                  SizedBox(height: 6 * uiScale),
+                  Text(
+                    'Our AI will analyze the nutrition data and provide health insights, product rating and healthier options.',
+                    style: TextStyle(
+                      fontSize: 11.5 * uiScale,
+                      height: 1.4,
+                      color: const Color(0xFF6B6B7B),
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 6 * uiScale),
-              Text(
-                'Our AI will analyze the nutrition data and provide health insights, product rating and healthier options.',
-                style: TextStyle(
-                  fontSize: 11.5 * uiScale,
-                  height: 1.4,
-                  color: const Color(0xFF6B6B7B),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    ),
 
-    Positioned(
-      left: -8 * uiScale,
-      top: 20 * uiScale,
-      child: AnimatedBuilder(
-        animation: ambientCtrl,
-        builder: (context, child) {
-          final bob = math.sin(ambientCtrl.value * math.pi) * 5;
+        Positioned(
+          left: -8 * uiScale,
+          top: 20 * uiScale,
+          child: AnimatedBuilder(
+            animation: ambientCtrl,
+            builder: (context, child) {
+              final bob = math.sin(ambientCtrl.value * math.pi) * 5;
 
-          return Transform.translate(
-            offset: Offset(0, -bob),
-            child: child,
-          );
-        },
-        child: Image.asset(
-          'assets/images/robot_pointing.png',
-          width: 130 * uiScale,
-          height: 150 * uiScale,
-          fit: BoxFit.contain,
+              return Transform.translate(offset: Offset(0, -bob), child: child);
+            },
+            child: Image.asset(
+              'assets/images/robot_pointing.png',
+              width: 130 * uiScale,
+              height: 150 * uiScale,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
-      ),
-    ),
-  ],
-);
+      ],
+    );
   }
 }
 
@@ -1743,7 +2259,11 @@ class _AnalyzeButtonState extends State<_AnalyzeButton> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.auto_awesome, color: Colors.white, size: 16 * widget.uiScale),
+              Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 16 * widget.uiScale,
+              ),
               SizedBox(width: 8 * widget.uiScale),
               Text(
                 'Analyze with AI',
@@ -1761,7 +2281,11 @@ class _AnalyzeButtonState extends State<_AnalyzeButton> {
                   color: Colors.white.withValues(alpha: 0.22),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.arrow_forward, color: Colors.white, size: 14 * widget.uiScale),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: Colors.white,
+                  size: 14 * widget.uiScale,
+                ),
               ),
             ],
           ),
@@ -1780,11 +2304,18 @@ class _PrivacyNote extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.lock_outline_rounded, size: 12 * uiScale, color: const Color(0xFFB0ACC2)),
+        Icon(
+          Icons.lock_outline_rounded,
+          size: 12 * uiScale,
+          color: const Color(0xFFB0ACC2),
+        ),
         SizedBox(width: 5 * uiScale),
         Text(
           'Your data is private and secure with us.',
-          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFFB0ACC2)),
+          style: TextStyle(
+            fontSize: 10.5 * uiScale,
+            color: const Color(0xFFB0ACC2),
+          ),
         ),
       ],
     );

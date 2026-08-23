@@ -160,6 +160,24 @@ const chatCoach = async (req, res, next) => {
       Personalization.findOne({ userId: req.user._id }),
     ]);
 
+    const dietType = personalization?.dietType || userProfile?.dietType || 'Vegetarian';
+    const goals = (personalization?.goals || []).join(', ') || 'Healthy Eating';
+    const allergies = personalization?.allergies || userProfile?.allergies || [];
+    const ingredientCount = product?.ingredients
+      ? (typeof product.ingredients === 'string' ? product.ingredients.split(',').length : (Array.isArray(product.ingredients) ? product.ingredients.length : 1))
+      : 0;
+
+    console.log('\n==============================================');
+    console.log('[AI COACH CONTEXT]');
+    console.log(`productName = ${product?.name || 'N/A'}`);
+    console.log(`brand = ${product?.brand || 'N/A'}`);
+    console.log(`compatibilityScore = ${product?.compatibilityScore ?? 'N/A'}`);
+    console.log(`ingredientCount = ${ingredientCount}`);
+    console.log(`userDiet = ${dietType}`);
+    console.log(`userGoal = ${goals}`);
+    console.log(`allergyCount = ${allergies.length}`);
+    console.log('==============================================\n');
+
     const result = await geminiService.chatWithNutritionCoach({
       userMessage: message.trim(),
       conversationHistory: Array.isArray(history) ? history : [],

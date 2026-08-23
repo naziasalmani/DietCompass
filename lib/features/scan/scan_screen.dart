@@ -37,7 +37,7 @@ import '../../core/services/product_image_analyzer.dart';
 /// card are real, functional, animated Flutter UI matching the reference.
 ///
 /// Add to pubspec.yaml:
-/// 
+///
 ///yaml
 /// flutter:
 ///   assets:
@@ -137,6 +137,56 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _handleImportGallery() async {
+    final XFile? image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (image == null) return;
+
+    final analyzer = ProductImageAnalyzer();
+    try {
+      final product = await analyzer.analyze(image);
+      if (!mounted) return;
+
+      if (product == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not identify the product. Please upload a clearer image.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiAnalysisScreen(
+            capturedImage: FileImage(File(image.path)),
+            product: product,
+            productName: product.name,
+            productSubtitle: product.brand ?? 'Food Product',
+            servingInfo: 'Serving information unavailable',
+            foodTypeLabel: 'Food Product',
+          ),
+        ),
+      );
+    } finally {
+      await analyzer.dispose();
+    }
+  }
+
+  void _openCameraScan() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CameraScanScreen(source: CameraSource.scan),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     ScanHistoryService.instance.removeListener(_onScanHistoryChanged);
@@ -147,14 +197,12 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   }
 
   Animation<double> _fade(double s, double e) => CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: Interval(s, e, curve: Curves.easeOut),
-      );
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
-  Animation<Offset> _slide(double s, double e) => Tween<Offset>(
-        begin: const Offset(0, 0.12),
-        end: Offset.zero,
-      ).animate(
+  Animation<Offset> _slide(double s, double e) =>
+      Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero).animate(
         CurvedAnimation(
           parent: _entranceCtrl,
           curve: Interval(s, e, curve: Curves.easeOutCubic),
@@ -235,15 +283,15 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                     child: _ScanProductCta(
                       uiScale: scale,
                       onTap: () {
-  Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const CameraScanScreen(
-      source: CameraSource.scan,
-    ),
-  ),
-);
-},
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CameraScanScreen(
+                              source: CameraSource.scan,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -255,60 +303,40 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                     position: _slide(0.3, 0.66),
                     child: _QuickActionsGrid(
                       uiScale: scale,
-                      onScanBarcode: widget.onScanBarcodeTap,
-                      onScanLabel: widget.onScanLabelTap,
-                     onImportGallery: () async {
-  final XFile? image = await ImagePicker().pickImage(
-    source: ImageSource.gallery,
-  );
-
-  if (image == null) return;
-
-  final analyzer = ProductImageAnalyzer();
-
-  try {
-    final product = await analyzer.analyze(image);
-
-    if (!mounted) return;
-
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not identify the product. Please upload a clearer image.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AiAnalysisScreen(
-          capturedImage: FileImage(
-            File(image.path),
-          ),
-          product: product,
-          productName: product.name,
-          productSubtitle: product.brand ?? 'Food Product',
-          servingInfo: 'Serving information unavailable',
-          foodTypeLabel: 'Food Product',
-        ),
-      ),
-    );
-  } finally {
-    await analyzer.dispose();
-  }
-},
+                      onScanBarcode: widget.onScanBarcodeTap ?? _openCameraScan,
+                      onScanLabel: widget.onScanLabelTap ?? _openCameraScan,
+                      onImportGallery: _handleImportGallery,
                       onManualEntry: () {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ManualEntryScreen(),
-    ),
-  );
-},
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ManualEntryScreen(
+                              onBack: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ScanScreen(
+                                      userName: widget.userName,
+                                      initialNavIndex: 1,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onScanLabelTap: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CameraScanScreen(
+                                      source: CameraSource.scan,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onUploadImageTap: _handleImportGallery,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -321,13 +349,14 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                     child: _RecentScansSection(
                       uiScale: scale,
                       scans: _liveScans,
-                      onViewAll: widget.onViewAllScans ??
+                      onViewAll:
+                          widget.onViewAllScans ??
                           () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const ScanHistoryScreen(),
-                                ),
-                              ).then((_) => _loadScans()),
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ScanHistoryScreen(),
+                            ),
+                          ).then((_) => _loadScans()),
                       onProductTap: (index) {
                         if (widget.onProductTap != null) {
                           widget.onProductTap!(index);
@@ -347,9 +376,8 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                       onScanProductTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const CameraScanScreen(
-                            source: CameraSource.scan,
-                          ),
+                          builder: (_) =>
+                              const CameraScanScreen(source: CameraSource.scan),
                         ),
                       ).then((_) => _loadScans()),
                     ),
@@ -373,46 +401,48 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
         uiScale: scale,
         selectedIndex: _navIndex,
         onTap: (i) {
-  if (_navIndex == i) return;
+          if (_navIndex == i) return;
 
-  setState(() => _navIndex = i);
+          setState(() => _navIndex = i);
 
-  switch (i) {
-case 0:
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => HomeScreen(userName: widget.userName)),
-  );
-  break;
+          switch (i) {
+            case 0:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomeScreen(userName: widget.userName),
+                ),
+              );
+              break;
 
-case 1:
-  // Already on Scan
-  break;
+            case 1:
+              // Already on Scan
+              break;
 
-case 2:
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => const AiShoppingScreen()),
-  );
-  break;
+            case 2:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const AiShoppingScreen()),
+              );
+              break;
 
-case 3:
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => PantryScreen()),
-  );
-  break;
+            case 3:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => PantryScreen()),
+              );
+              break;
 
-case 4:
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => DashboardScreen()),
-  );
-  break;
-}
+            case 4:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => DashboardScreen()),
+              );
+              break;
+          }
 
-  widget.onNavTap?.call(i);
-},
+          widget.onNavTap?.call(i);
+        },
       ),
     );
   }
@@ -437,24 +467,22 @@ class _HeaderRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-       Container(
-  width: 60 * uiScale,
-  height: 60 * uiScale,
-  decoration: const BoxDecoration(
-  shape: BoxShape.circle,
-),
-  clipBehavior: Clip.antiAlias,
-  child: ClipOval(
-    child: SizedBox(
-      width: 60 * uiScale,
-      height: 60 * uiScale,
-      child: Image.asset(
-        'assets/images/robot_badge.png',
-        fit: BoxFit.cover,
-      ),
-    ),
-  ),
-),
+        Container(
+          width: 60 * uiScale,
+          height: 60 * uiScale,
+          decoration: const BoxDecoration(shape: BoxShape.circle),
+          clipBehavior: Clip.antiAlias,
+          child: ClipOval(
+            child: SizedBox(
+              width: 60 * uiScale,
+              height: 60 * uiScale,
+              child: Image.asset(
+                'assets/images/robot_badge.png',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
         SizedBox(width: 10 * uiScale),
         Expanded(
           child: Column(
@@ -569,10 +597,10 @@ class _HeadlineBlock extends StatelessWidget {
   const _HeadlineBlock({required this.uiScale});
   final double uiScale;
 
- @override
-Widget build(BuildContext context) {
-  return const SizedBox();
-}
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -588,10 +616,7 @@ class _HeroIllustration extends StatelessWidget {
       borderRadius: BorderRadius.circular(22),
       child: AspectRatio(
         aspectRatio: 900 / 600,
-        child: Image.asset(
-          'assets/images/scan_hero.png',
-          fit: BoxFit.cover,
-        ),
+        child: Image.asset('assets/images/scan_hero.png', fit: BoxFit.cover),
       ),
     );
   }
@@ -1119,15 +1144,19 @@ class _ProductCardState extends State<_ProductCard> {
                               ),
                             ),
                           )
-                        : (widget.imageUrl.isNotEmpty && widget.imageUrl.startsWith('assets/')
-                            ? Image.asset(widget.imageUrl, fit: BoxFit.contain)
-                            : Center(
-                                child: Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 28 * widget.uiScale,
-                                  color: const Color(0xFFB0B0C4),
-                                ),
-                              )),
+                        : (widget.imageUrl.isNotEmpty &&
+                                  widget.imageUrl.startsWith('assets/')
+                              ? Image.asset(
+                                  widget.imageUrl,
+                                  fit: BoxFit.contain,
+                                )
+                              : Center(
+                                  child: Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 28 * widget.uiScale,
+                                    color: const Color(0xFFB0B0C4),
+                                  ),
+                                )),
                   ),
                 ),
               ),
@@ -1240,13 +1269,13 @@ class _TipsCard extends StatelessWidget {
                   );
                 },
                 child: SizedBox(
-  width: 100 * uiScale,
-  height: 130 * uiScale,
-  child: Image.asset(
-    'assets/images/robot_pointing.png',
-    fit: BoxFit.cover,
-  ),
-),
+                  width: 100 * uiScale,
+                  height: 130 * uiScale,
+                  child: Image.asset(
+                    'assets/images/robot_pointing.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               SizedBox(width: 12 * uiScale),
               Expanded(
@@ -1313,12 +1342,12 @@ class _BottomNavBar extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = [
-  (icon: Icons.home_rounded, label: 'Home'),
-  (icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
-  (icon: Icons.smart_toy_rounded, label: 'AI'),
-  (icon: Icons.kitchen_rounded, label: 'Pantry'),
-  (icon: Icons.pie_chart_rounded, label: 'Dashboard'),
-];
+    (icon: Icons.home_rounded, label: 'Home'),
+    (icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
+    (icon: Icons.smart_toy_rounded, label: 'AI'),
+    (icon: Icons.kitchen_rounded, label: 'Pantry'),
+    (icon: Icons.pie_chart_rounded, label: 'Dashboard'),
+  ];
 
   @override
   Widget build(BuildContext context) {

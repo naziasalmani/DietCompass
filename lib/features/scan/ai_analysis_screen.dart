@@ -6,6 +6,9 @@ import 'package:diet_compass/features/scan/result_screen.dart';
 import '../ai/ai_recommendation_screen.dart';
 import 'manual_entry_screen.dart';
 import '../../core/model/food_product.dart';
+import '../../core/model/ai_analysis_model.dart';
+import '../../core/services/ai_service.dart';
+import '../../core/services/recommendation_service.dart';
 
 /// DietCompass — AI Analysis Screen
 /// -----------------------------------------------------------------------
@@ -254,6 +257,8 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   late final AnimationController _entranceCtrl;
   late final AnimationController _ambientCtrl;
   bool _completionHandled = false;
+  ProductAiAnalysisResult? _analysisResult;
+  ProductCompatibility? _compatibility;
 
   // Each step's [start, end] fraction of the simulation timeline —
   // overlapping like a real pipeline, matching the reference snapshot.
@@ -281,8 +286,52 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
       duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
 
+    _logAndStartAnalysis();
+
     if (_ownsController) {
       _runSimulation();
+    }
+  }
+
+  void _logAndStartAnalysis() {
+    final product = widget.product;
+    final hasNutrition = product?.calories != null ||
+        product?.protein != null ||
+        product?.carbohydrates != null ||
+        product?.fat != null ||
+        product?.sugar != null ||
+        product?.sodium != null;
+    final hasImage = widget.capturedImage != null ||
+        (product?.imageUrl.trim().isNotEmpty ?? false);
+
+    debugPrint('\n==============================================');
+    debugPrint('[AI PRODUCT ANALYSIS]');
+    debugPrint('productName = ${widget.productName}');
+    debugPrint('brand = ${widget.productSubtitle}');
+    debugPrint('nutritionSource = ${hasNutrition ? "manual/api" : "none"}');
+    debugPrint('imageAvailable = $hasImage');
+    debugPrint('userProfileLoaded = true');
+    debugPrint('==============================================\n');
+
+    if (product != null) {
+      _compatibility = RecommendationService.instance.evaluateCompatibility(product);
+      AiService.instance.analyzeProduct(product).then((res) {
+        _analysisResult = res;
+        if (mounted) {
+          setState(() {
+            _compatibility = res.compatibility;
+          });
+        }
+      }).catchError((e) {
+        debugPrint('[AiAnalysisScreen] Background AI analysis error: $e');
+      }).whenComplete(() {
+        debugPrint('\n==============================================');
+        debugPrint('[AI ANALYSIS RESULT]');
+        debugPrint('productName = ${widget.productName}');
+        debugPrint('compatibilityScore = ${_compatibility?.score ?? 0}');
+        debugPrint('analysisSource = ${_analysisResult != null ? "gemini" : "deterministic"}');
+        debugPrint('==============================================\n');
+      });
     }
   }
 
@@ -305,30 +354,51 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
     sim.forward();
   }
 
-void _handleControllerChange() {
-  if (!mounted) return;
+  void _handleControllerChange() {
+    if (!mounted) return;
 
-  setState(() {});
+    setState(() {});
 
-  if (_controller.isComplete && !_completionHandled) {
-    _completionHandled = true;
+    if (_controller.isComplete && !_completionHandled) {
+      _completionHandled = true;
 
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
+      final product = widget.product;
+      final hasNutrition = product?.calories != null ||
+          product?.protein != null ||
+          product?.carbohydrates != null ||
+          product?.fat != null ||
+          product?.sugar != null ||
+          product?.sodium != null;
+      final hasImage = widget.capturedImage != null ||
+          (product?.imageUrl.trim().isNotEmpty ?? false);
 
-      if (widget.product != null) {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ResultScreen(
-        product: widget.product!,
-      ),
-    ),
-  );
-}
-    });
+      debugPrint('\n==============================================');
+      debugPrint('[AI RESULT]');
+      debugPrint('productName = ${widget.productName}');
+      debugPrint('brand = ${widget.productSubtitle}');
+      debugPrint('imageAvailable = $hasImage');
+      debugPrint('nutritionAvailable = $hasNutrition');
+      debugPrint('source = ${product?.source ?? "manual"}');
+      debugPrint('==============================================\n');
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+
+        if (widget.product != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ResultScreen(
+                product: widget.product!,
+                productImage: widget.capturedImage,
+                initialCompatibility: _compatibility,
+              ),
+            ),
+          );
+        }
+      });
+    }
   }
-}
 
   @override
   void dispose() {
@@ -384,8 +454,8 @@ void _handleControllerChange() {
                       ),
                       child: _ProductCard(
                         uiScale: scale,
-                        image: widget.capturedImage ??
-                            const AssetImage('assets/images/product_quaker.png'),
+                        image: widget.capturedImage,
+                        product: widget.product,
                         name: widget.productName,
                         subtitle: widget.productSubtitle,
                         servingInfo: widget.servingInfo,
@@ -615,7 +685,8 @@ class _CancelPillState extends State<_CancelPill> {
 class _ProductCard extends StatelessWidget {
   const _ProductCard({
     required this.uiScale,
-    required this.image,
+    this.image,
+    this.product,
     required this.name,
     required this.subtitle,
     required this.servingInfo,
@@ -624,15 +695,57 @@ class _ProductCard extends StatelessWidget {
   });
 
   final double uiScale;
-  final ImageProvider image;
+  final ImageProvider? image;
+  final FoodProduct? product;
   final String name;
   final String subtitle;
   final String servingInfo;
   final String imageQualityLabel;
   final String foodTypeLabel;
 
+  ImageProvider? _resolveImage() {
+    if (image != null) return image;
+    final imgUrl = product?.imageUrl.trim() ?? '';
+    if (imgUrl.isNotEmpty) {
+      if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
+        return NetworkImage(imgUrl);
+      } else if (imgUrl.startsWith('assets/')) {
+        return AssetImage(imgUrl);
+      }
+    }
+    return null;
+  }
+
+  Widget _buildPlaceholder(double uiScale) {
+    return Container(
+      color: const Color(0xFFEDE7FA),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.fastfood_rounded,
+            size: 26 * uiScale,
+            color: const Color(0xFF8E72F8),
+          ),
+          SizedBox(height: 4 * uiScale),
+          Text(
+            'No Image',
+            style: TextStyle(
+              fontSize: 9.5 * uiScale,
+              color: const Color(0xFF9A96A8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final resolvedImage = _resolveImage();
+
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
@@ -651,7 +764,13 @@ class _ProductCard extends StatelessWidget {
               width: 78 * uiScale,
               height: 96 * uiScale,
               color: const Color(0xFFF3F0FB),
-              child: Image(image: image, fit: BoxFit.cover),
+              child: resolvedImage != null
+                  ? Image(
+                      image: resolvedImage,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildPlaceholder(uiScale),
+                    )
+                  : _buildPlaceholder(uiScale),
             ),
           ),
           SizedBox(width: 12 * uiScale),

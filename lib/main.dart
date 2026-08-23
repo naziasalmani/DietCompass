@@ -6,8 +6,6 @@ import 'core/services/api_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/personalization_service.dart';
 import 'core/services/profile_service.dart';
-import 'core/services/recommendation_service.dart';
-import 'core/services/scan_history_service.dart';
 import 'core/services/storage_service.dart';
 import 'features/forgot_password/forgot_password_screen.dart';
 import 'features/forgot_password/reset_password_screen.dart';
@@ -82,8 +80,46 @@ class _AppFlowState extends State<AppFlow> {
   @override
   void initState() {
     super.initState();
+    AuthService.instance.addListener(_handleAuthStateChanged);
     _initDeepLinks();
     _initializeStartup();
+  }
+
+  @override
+  void dispose() {
+    AuthService.instance.removeListener(_handleAuthStateChanged);
+    super.dispose();
+  }
+
+  void _handleAuthStateChanged() {
+    if (!mounted) return;
+
+    final user = AuthService.instance.currentUser;
+    if (user != null && _state == _AppState.auth) {
+      setState(() {
+        _user = AuthUser(
+          id: user.id,
+          fullName: user.fullName,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          countryCode: user.countryCode,
+          accountType: user.accountType,
+        );
+        _state = _AppState.home;
+      });
+      return;
+    }
+
+    if (user == null &&
+        _state != _AppState.splash &&
+        _state != _AppState.auth) {
+      setState(() {
+        _user = null;
+        _initialPersonalizationData = null;
+        _state = _AppState.auth;
+      });
+    }
   }
 
   // ── Deep link setup ───────────────────────────────────────────────────────
@@ -101,24 +137,27 @@ class _AppFlowState extends State<AppFlow> {
   }
 
   void _handleDeepLink(Uri uri) {
-    if (uri.scheme != _kDeepLinkScheme && uri.scheme != 'http' && uri.scheme != 'https') return;
-    
+    if (uri.scheme != _kDeepLinkScheme &&
+        uri.scheme != 'http' &&
+        uri.scheme != 'https')
+      return;
+
     // Support dietcompass://reset-password?token=XYZ and dietcompass://reset-password/<token>
     String token = uri.queryParameters['token'] ?? '';
     if (token.isEmpty) {
       final segments = uri.pathSegments;
       if (segments.length >= 2 && segments[0] == _kResetPasswordPath) {
         token = segments[1];
-      } else if (segments.isNotEmpty && segments[0] == _kResetPasswordPath && uri.hasQuery) {
+      } else if (segments.isNotEmpty &&
+          segments[0] == _kResetPasswordPath &&
+          uri.hasQuery) {
         token = uri.queryParameters['token'] ?? '';
       }
     }
 
     if (token.isNotEmpty) {
       _navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => ResetPasswordScreen(token: token),
-        ),
+        MaterialPageRoute(builder: (_) => ResetPasswordScreen(token: token)),
       );
     }
   }
@@ -134,7 +173,9 @@ class _AppFlowState extends State<AppFlow> {
 
     try {
       // Ensure smooth splash entrance without artificial long wait (~1.4s minimum)
-      final minSplashDuration = Future.delayed(const Duration(milliseconds: 1400));
+      final minSplashDuration = Future.delayed(
+        const Duration(milliseconds: 1400),
+      );
 
       // 1. Check intro onboarding state
       final introSeenFuture = StorageService.instance.hasSeenIntroOnboarding();
@@ -158,16 +199,23 @@ class _AppFlowState extends State<AppFlow> {
 
       // 3. Authenticated user: verify personalization / cloud profile
       try {
-        final profile = await ProfileService.instance.getProfile(forceRefresh: true);
+        final profile = await ProfileService.instance.getProfile(
+          forceRefresh: true,
+        );
         if (profile.isPersonalizationComplete) {
-          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
+          await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
           await minSplashDuration;
           if (!mounted) return;
           setState(() => _state = _AppState.home);
           return;
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
-          _initialPersonalizationData = pers?.toOnboardingData() ??
+          final pers = await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
+          _initialPersonalizationData =
+              pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
           await minSplashDuration;
           if (!mounted) return;
@@ -196,22 +244,32 @@ class _AppFlowState extends State<AppFlow> {
   /// Called by LoginScreen.onLogin — authenticates and checks personalization.
   Future<void> _handleLogin(String identifier, String password) async {
     try {
-      final user = await AuthService.instance
-          .login(identifier: identifier, password: password);
+      final user = await AuthService.instance.login(
+        identifier: identifier,
+        password: password,
+      );
       if (!mounted) return;
       _user = user;
 
       // Fetch cloud profile to check if personalization is complete
       try {
-        final profile = await ProfileService.instance.getProfile(forceRefresh: true);
+        final profile = await ProfileService.instance.getProfile(
+          forceRefresh: true,
+        );
         if (!mounted) return;
 
         if (profile.isPersonalizationComplete) {
-          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
+          await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
-          _initialPersonalizationData = pers?.toOnboardingData() ?? (OnboardingData()..fullName = profile.fullName);
+          final pers = await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
+          _initialPersonalizationData =
+              pers?.toOnboardingData() ??
+              (OnboardingData()..fullName = profile.fullName);
           setState(() => _state = _AppState.personalization);
         }
       } catch (_) {
@@ -229,14 +287,21 @@ class _AppFlowState extends State<AppFlow> {
       if (!mounted || user == null) return;
       _user = user;
       try {
-        final profile = await ProfileService.instance.getProfile(forceRefresh: true);
+        final profile = await ProfileService.instance.getProfile(
+          forceRefresh: true,
+        );
         if (!mounted) return;
         if (profile.isPersonalizationComplete) {
-          await PersonalizationService.instance.getPersonalization(forceRefresh: true);
+          await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(forceRefresh: true);
-          _initialPersonalizationData = pers?.toOnboardingData() ??
+          final pers = await PersonalizationService.instance.getPersonalization(
+            forceRefresh: true,
+          );
+          _initialPersonalizationData =
+              pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
           setState(() => _state = _AppState.personalization);
         }
@@ -292,7 +357,10 @@ class _AppFlowState extends State<AppFlow> {
   /// Called when 7-step personalization is completed.
   Future<void> _handlePersonalizationComplete(OnboardingData data) async {
     try {
-      await PersonalizationService.instance.savePersonalization(data, isCompleted: true);
+      await PersonalizationService.instance.savePersonalization(
+        data,
+        isCompleted: true,
+      );
       // Refresh user profile in memory
       await ProfileService.instance.getProfile(forceRefresh: true);
     } catch (e) {
@@ -306,7 +374,10 @@ class _AppFlowState extends State<AppFlow> {
   Future<void> _handlePersonalizationSkip() async {
     try {
       final fallbackData = _initialPersonalizationData ?? OnboardingData();
-      await PersonalizationService.instance.savePersonalization(fallbackData, isCompleted: true);
+      await PersonalizationService.instance.savePersonalization(
+        fallbackData,
+        isCompleted: true,
+      );
       await ProfileService.instance.getProfile(forceRefresh: true);
     } catch (e) {
       debugPrint('Personalization skip sync error: $e');
@@ -326,10 +397,6 @@ class _AppFlowState extends State<AppFlow> {
 
   /// Logs out the current device session and returns to the auth flow.
   Future<void> _handleLogout() async {
-    ProfileService.instance.clearCache();
-    PersonalizationService.instance.clearCache();
-    RecommendationService.instance.clearCompatibilityCache();
-    ScanHistoryService.instance.clearCache();
     await AuthService.instance.logout();
     if (!mounted) return;
     setState(() {
@@ -406,10 +473,8 @@ class _AuthenticatedApp extends StatelessWidget {
     return Navigator(
       key: navigatorKey,
       onGenerateRoute: (_) => MaterialPageRoute(
-        builder: (_) => HomeScreen(
-          userName: user.displayName,
-          onLogout: onLogout,
-        ),
+        builder: (_) =>
+            HomeScreen(userName: user.displayName, onLogout: onLogout),
       ),
     );
   }

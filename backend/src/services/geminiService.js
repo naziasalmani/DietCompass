@@ -831,8 +831,130 @@ const callGeminiChatAPI = async (contents, systemInstruction = '') => {
 /**
  * Smart query-aware fallback generator when Gemini API is unavailable
  */
-const generateCoachFallback = ({ userMessage, userName, dietType, goals, allergies, dislikedFoods, conditions, product }) => {
+const generateCoachFallback = ({ userMessage, userName, dietType, goals, allergies, dislikedFoods, conditions, product, targetCalories }) => {
   const query = (userMessage || '').toLowerCase();
+
+  // If a specific product is provided, ALWAYS ground the response in this product
+  if (product && product.name) {
+    const prodName = product.name;
+    const prodBrand = product.brand || '';
+    const calories = product.calories ?? product.nutrition?.calories;
+    const protein = product.protein ?? product.nutrition?.protein;
+    const carbs = product.carbohydrates ?? product.nutrition?.carbohydrates;
+    const fat = product.fat ?? product.nutrition?.fat;
+    const sugar = product.sugar ?? product.nutrition?.sugar;
+    const fiber = product.fiber ?? product.nutrition?.fiber;
+    const sodium = product.sodium ?? product.nutrition?.sodium;
+    const score = product.compatibilityScore ?? 51;
+    const status = product.compatibilityStatus || (score >= 70 ? 'Good Match' : (score >= 50 ? 'Moderate Match' : 'Consider Alternatives'));
+    const concerns = Array.isArray(product.concerns) && product.concerns.length > 0 ? product.concerns : [];
+    const ingredients = product.ingredients || '';
+
+    // 1. Product Identification
+    if (query.includes('what product') || query.includes('looking at') || query.includes('what is this') || query.includes('which product') || query.includes('what food')) {
+      return `You are currently looking at **${prodName}**${prodBrand ? ` by **${prodBrand}**` : ''}.\n\n` +
+        `• **Nutritional Summary (per 100g):**\n` +
+        (calories != null ? `  - Calories: **${calories} kcal**\n` : '') +
+        (sugar != null ? `  - Sugar: **${sugar}g**\n` : '') +
+        (fat != null ? `  - Total Fat: **${fat}g**\n` : '') +
+        (protein != null ? `  - Protein: **${protein}g**\n` : '') +
+        `• **Personal Compatibility:** **${score}%** (${status}) for your **${dietType}** diet.`;
+    }
+
+    // 2. Score Explanation ("Why is my compatibility score 51%?", "Why did I get 51%?", "Why this score?")
+    if (query.includes('score') || query.includes('51%') || (query.includes('why') && (query.includes('compatibility') || query.includes('low') || query.includes('high') || query.includes('percent') || query.includes('%')))) {
+      let reasons = [];
+      if (sugar != null && sugar > 15) {
+        reasons.push(`**High Sugar Content:** Contains **${sugar}g sugar per 100g**, which impacts metabolic balance and ${goals} goals.`);
+      }
+      if (calories != null && calories > 350) {
+        reasons.push(`**High Calorie Density:** Contains **${calories} kcal per 100g**, requiring strict portion control.`);
+      }
+      if (sodium != null && sodium > 400) {
+        reasons.push(`**Elevated Sodium:** Contains **${sodium}mg sodium**, which increases water retention.`);
+      }
+      if (protein != null && protein < 4) {
+        reasons.push(`**Low Protein (${protein}g):** Provides limited satiety support.`);
+      }
+      if (concerns.length > 0) {
+        concerns.forEach(c => reasons.push(typeof c === 'string' ? c : (c.title || c.subtitle)));
+      }
+      if (reasons.length === 0) {
+        reasons.push('Standard nutritional composition evaluated against your profile targets.');
+      }
+
+      return `**Why ${prodName} received a ${score}% Compatibility Score:**\n\n` +
+        `Your personalized score is calculated based on your **${dietType}** diet, **${goals}** goal, and nutritional balance:\n\n` +
+        reasons.map(r => `• ${r}`).join('\n') +
+        `\n\n• **Summary:** It is categorized as **${status}**. Enjoy in moderation or consider cleaner alternatives.`;
+    }
+
+    // 3. Diet Suitability ("Is this suitable for my diet?", "Is this good for me?", "Can I eat this?")
+    if (query.includes('suitable') || query.includes('diet') || query.includes('good for me') || query.includes('can i eat') || query.includes('vegetarian') || query.includes('vegan') || query.includes('non-veg')) {
+      const lowerIngs = (ingredients || '').toLowerCase();
+      const isNonVeg = lowerIngs.includes('chicken') || lowerIngs.includes('meat') || lowerIngs.includes('beef') || lowerIngs.includes('pork') || lowerIngs.includes('fish') || lowerIngs.includes('gelatin') || lowerIngs.includes('egg');
+
+      if (dietType.toLowerCase().includes('veg') && !dietType.toLowerCase().includes('non-veg') && isNonVeg) {
+        return `⚠️ **Dietary Conflict Detected for ${prodName}:**\n\n` +
+          `• **Diet Incompatible:** This product contains animal-derived ingredients that do not align with your **${dietType}** preference.\n` +
+          `• **Recommendation:** We recommend avoiding this product and selecting a verified ${dietType} alternative.`;
+      }
+
+      const isHighSugar = sugar != null && sugar > 15;
+      return `**Dietary Suitability for ${prodName}:**\n\n` +
+        `• **Your Profile:** Evaluated for your **${dietType}** diet and **${goals}** health goal.\n` +
+        `• **Ingredient Alignment:** ${isNonVeg ? 'Contains animal ingredients.' : `Suitable for ${dietType} consumption.`}\n` +
+        (isHighSugar ? `• **Nutrient Caution:** High in sugar (${sugar}g/100g), which may slow down ${goals} progress.\n` : '') +
+        `• **Verdict:** **${status}** (${score}%). Suitable as an occasional treat rather than a daily staple.`;
+    }
+
+    // 4. Ingredients / Concerns ("What ingredients should I be concerned about?", "What is wrong with this product?")
+    if (query.includes('ingredient') || query.includes('concern') || query.includes('wrong') || query.includes('bad') || query.includes('harmful') || query.includes('additives')) {
+      return `**Ingredient & Nutrition Concerns for ${prodName}:**\n\n` +
+        (sugar != null && sugar > 12 ? `• **Added Sugars:** **${sugar}g sugar per 100g** contributes to rapid glycemic spikes.\n` : '') +
+        (fat != null && fat > 15 ? `• **Saturated Fat:** **${fat}g fat per 100g**, primarily from refined oils or milk fats.\n` : '') +
+        (sodium != null && sodium > 400 ? `• **Sodium:** **${sodium}mg sodium per 100g**.\n` : '') +
+        `• **Full Ingredients:** ${ingredients ? ingredients : 'No detailed ingredient list available on label.'}\n` +
+        `• **Health Guidance:** Prioritize products with short ingredient lists free from artificial sweeteners and trans-fats.`;
+    }
+
+    // 5. Sugar Content ("Is the sugar content actually high?")
+    if (query.includes('sugar') || query.includes('sweet')) {
+      const sugarVal = sugar != null ? `${sugar}g` : 'moderate/high';
+      const isHigh = sugar != null ? sugar > 12 : true;
+      return `**Sugar Analysis for ${prodName}:**\n\n` +
+        `• **Total Sugar:** **${sugarVal} per 100g**.\n` +
+        `• **Impact:** ${isHigh ? `Yes, this is considered **high sugar** (>12g/100g). Consuming large quantities quickly exceeds the recommended daily added sugar intake (25g for women, 36g for men).` : `The sugar content is within moderate/low limits.`}\n` +
+        `• **For your ${goals} Goal:** Minimizing high-sugar packaged items helps prevent insulin spikes and cravings.`;
+    }
+
+    // 6. Portion & Regularity ("Can I eat this regularly?", "What portion would be reasonable?")
+    if (query.includes('regularly') || query.includes('portion') || query.includes('how much') || query.includes('often') || query.includes('frequency') || query.includes('daily')) {
+      return `**Portion & Frequency Guide for ${prodName}:**\n\n` +
+        `• **Regular Consumption:** Given its ${calories != null ? `${calories} kcal` : 'caloric density'}${sugar != null ? ` and ${sugar}g sugar` : ''}, this is best consumed **occasionally** (1–2 times per week).\n` +
+        `• **Suggested Serving:** A controlled portion of **20–25g** (e.g. 1–2 squares or a small serving) fits comfortably within your daily calorie target of ${targetCalories} kcal.\n` +
+        `• **Tip:** Pair with a glass of water or a handful of raw nuts to slow sugar absorption and promote satiety.`;
+    }
+
+    // 7. Healthier Alternatives ("What are healthier alternatives?", "Better options?")
+    if (query.includes('alternative') || query.includes('better') || query.includes('swap') || query.includes('substitute') || query.includes('other')) {
+      const alternativesList = Array.isArray(product.alternatives) && product.alternatives.length > 0
+        ? product.alternatives.map(a => typeof a === 'string' ? a : a.name).join(', ')
+        : (prodName.toLowerCase().includes('chocolate') ? '70%+ Dark Chocolate, Cacao Nibs, or Roasted Almonds' : 'Unsweetened whole-food snacks, fruit with nuts, or Greek yogurt');
+
+      return `**Healthier Alternatives to ${prodName}:**\n\n` +
+        `• **Recommended Swaps:** ${alternativesList}\n` +
+        `• **Why Switch?** Cleaner alternatives provide antioxidants, dietary fiber, and healthy fats without excess refined sugars and artificial additives.\n` +
+        `• **Check the "AI Recommendation" tab** on your result screen for customized options!`;
+    }
+
+    // Generic Product Query
+    return `**AI Coach Analysis for ${prodName}:**\n\n` +
+      `• **Brand:** ${prodBrand || 'N/A'}\n` +
+      (calories != null ? `• **Nutrition:** ${calories} kcal | Sugar: ${sugar ?? 'N/A'}g | Protein: ${protein ?? 'N/A'}g\n` : '') +
+      `• **Compatibility:** **${score}%** (${status}) tailored to your **${dietType}** diet.\n` +
+      `• Ask me about its ingredients, sugar levels, portion size, or healthier alternatives!`;
+  }
 
   // 1. Maggi / Instant noodles query
   if (query.includes('maggi') || query.includes('instant noodle') || query.includes('ramen') || query.includes('noodles')) {
@@ -899,17 +1021,7 @@ const generateCoachFallback = ({ userMessage, userName, dietType, goals, allergi
       allergenLine;
   }
 
-  // 8. Product-specific context fallback
-  if (product && product.name) {
-    return `**Product Insights for ${product.name}:**\n\n` +
-      `• **Brand / Category:** ${product.brand || 'Food Item'}\n` +
-      (product.calories != null ? `• **Calories:** ${product.calories} kcal per 100g\n` : '') +
-      (product.protein != null ? `• **Protein:** ${product.protein}g | **Carbs:** ${product.carbohydrates ?? 'N/A'}g | **Fat:** ${product.fat ?? 'N/A'}g\n` : '') +
-      (product.sugar != null ? `• **Sugar:** ${product.sugar}g | **Sodium:** ${product.sodium ?? 'N/A'}mg\n` : '') +
-      `• **Suitability:** Evaluated for your ${dietType} diet and ${goals} goals. Check ingredient labels for artificial additives and hidden syrups.`;
-  }
-
-  // 9. Personalized general fallback
+  // 8. Personalized general fallback
   return `Hello ${userName}! Regarding your question about **${userMessage}**:\n\n` +
     `• For your **${dietType}** diet and **${goals}** goals, focus on minimally processed whole foods with balanced macronutrients.\n` +
     `• Prioritize complex carbs, adequate hydration, and lean protein sources while monitoring added sugars and sodium.\n\n` +
@@ -928,26 +1040,26 @@ const chatWithNutritionCoach = async ({ userMessage, conversationHistory = [], u
   const conditions = (personalization?.healthConditions || []).join(', ') || 'None reported';
   const targetCalories = personalization?.targetCalories || userProfile?.calorieGoal || 2000;
 
-  const systemInstruction = `You are the DietCompass AI Nutrition Coach — a knowledgeable, warm, empathetic, and evidence-based clinical nutrition and food intelligence coach.
+  const systemInstruction = `You are the DietCompass AI Nutrition Coach — an evidence-based clinical nutrition and food intelligence coach.
 
-USER PROFILE & CONTEXT:
+USER PROFILE:
 - Name: ${userName}
-- Diet Type: ${dietType}
-- Food Allergies: ${allergies} (CRITICAL: Strictly warn/exclude any allergen ingredients)
-- Disliked Foods: ${dislikedFoods}
-- Health Conditions: ${conditions}
+- Diet Preference: ${dietType} (Strictly evaluate compatibility against this diet)
+- Food Allergies: ${allergies} (Strictly warn/exclude any allergen conflicts)
 - Health Goals: ${goals}
+- Health Conditions: ${conditions}
 - Daily Calorie Target: ${targetCalories} kcal
 
-MANDATORY COACHING PRINCIPLES:
-1. DIRECT & DYNAMIC: Immediately and directly answer the user's specific question (e.g., if asked "is Maggie good for me?", "how much sugar does Dairy Milk have?", or "what is protein?"). Do NOT start every response with a repetitive generic greeting.
-2. CONVERSATIONAL CONTINUITY: Understand context and references from previous turns in the conversation history.
-3. PRODUCT & INGREDIENT INTELLIGENCE:
-   - When asked about specific packaged foods, assess them accurately (hidden sugars, ultra-processed additives, sodium, refined flour/oils).
-   - Tailor the evaluation to the user's ${dietType} diet and ${goals} goals.
-   - Suggest 1-2 realistic, healthier whole-food swaps when relevant.
-   - Do not invent artificial numbers if exact product data is not provided; provide authentic standard nutritional facts or clearly state general nutrition benchmarks.
-4. STRUCTURE & TONE: Warm, encouraging, clear, formatted with markdown bullet points and bold highlights for effortless reading.`;
+MANDATORY PRODUCT-CENTRIC COACHING RULES:
+1. FOCUS ON THE SCANNED PRODUCT: If a product context is provided below, every answer must be specifically grounded in that product's ingredients, nutrition, compatibility score, and factors.
+2. ACCURACY & NO HALLUCINATION: Never invent nutrition numbers or ingredients not present in the provided product data. If data is unavailable, state that it is unavailable.
+3. CONTEXTUAL REASONING:
+   - If asked "What product am I looking at?", identify the product name and brand.
+   - If asked "Why is my compatibility score X%?" or "Why did I get this score?", explain the actual factors that influenced that score (e.g. high sugar, low protein, additives, or diet fit).
+   - If asked "Is this suitable for my diet?", directly check the product against the user's ${dietType} diet and allergies.
+   - If asked about sugar/ingredients/portion/alternatives, give specific, actionable advice grounded in the product data.
+4. NO UNRELATED RECIPES: Do NOT randomly output recipes (e.g. oats, banana, power bowls) unless the user explicitly asks for recipe ideas.
+5. FORMATTING: Direct, clear, formatted with markdown bullet points and bold highlights.`;
 
   // Build multi-turn contents array
   const contents = [];
@@ -972,22 +1084,31 @@ MANDATORY COACHING PRINCIPLES:
     }
   }
 
-  // Build current turn message
+  // Build current turn message with complete product context
   let currentTurnText = userMessage.trim();
   if (product && (product.name || product.ingredients)) {
     const prodDetails = [
-      product.name ? `Product: ${product.name}` : '',
+      product.name ? `Product Name: ${product.name}` : '',
       product.brand ? `Brand: ${product.brand}` : '',
+      product.barcode ? `Barcode: ${product.barcode}` : '',
       product.ingredients ? `Ingredients: ${product.ingredients}` : '',
       product.calories != null ? `Calories: ${product.calories} kcal` : '',
       product.protein != null ? `Protein: ${product.protein}g` : '',
-      product.carbohydrates != null ? `Carbs: ${product.carbohydrates}g` : '',
+      product.carbohydrates != null ? `Carbohydrates: ${product.carbohydrates}g` : '',
       product.sugar != null ? `Sugar: ${product.sugar}g` : '',
       product.fat != null ? `Fat: ${product.fat}g` : '',
+      product.fiber != null ? `Fiber: ${product.fiber}g` : '',
       product.sodium != null ? `Sodium: ${product.sodium}mg` : '',
-    ].filter(Boolean).join(' | ');
+      product.compatibilityScore != null ? `Compatibility Score: ${product.compatibilityScore}/100` : '',
+      product.compatibilityStatus ? `Compatibility Status: ${product.compatibilityStatus}` : '',
+      Array.isArray(product.positiveFactors) && product.positiveFactors.length > 0 ? `Positive Factors: ${product.positiveFactors.join('; ')}` : '',
+      Array.isArray(product.concerns) && product.concerns.length > 0 ? `Concerns / Factors lowering score: ${product.concerns.join('; ')}` : '',
+      Array.isArray(product.allergyAlerts) && product.allergyAlerts.length > 0 ? `Allergen Conflicts: ${product.allergyAlerts.join('; ')}` : '',
+      Array.isArray(product.dietaryAlerts) && product.dietaryAlerts.length > 0 ? `Diet Incompatibility: ${product.dietaryAlerts.join('; ')}` : '',
+      Array.isArray(product.alternatives) && product.alternatives.length > 0 ? `Healthier Alternatives: ${product.alternatives.map(a => typeof a === 'string' ? a : a.name).join(', ')}` : '',
+    ].filter(Boolean).join('\n• ');
 
-    currentTurnText = `[Product Context: ${prodDetails}]\n\n${currentTurnText}`;
+    currentTurnText = `[CURRENT SCANNED PRODUCT CONTEXT]\n• ${prodDetails}\n\n[USER QUESTION]\n${currentTurnText}`;
   }
 
   if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
@@ -1014,13 +1135,14 @@ MANDATORY COACHING PRINCIPLES:
       dislikedFoods,
       conditions,
       product,
+      targetCalories,
     });
   }
 
   return {
     message: aiReply,
+    sender: 'coach',
     timestamp: new Date().toISOString(),
-    userContext: { userName, dietType, goals },
   };
 };
 
