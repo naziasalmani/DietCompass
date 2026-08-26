@@ -244,7 +244,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => const CameraScanScreen(source: CameraSource.scan),
+        builder: (_) => const CameraScanScreen(
+          source: CameraSource.scan,
+          initialMode: ScanMode.ocr,
+        ),
       ),
     );
   }

@@ -11,6 +11,9 @@ import '../home/home_screen.dart';
 import 'saved_recipes_screen.dart';
 import 'personal_info_screen.dart';
 import 'health_profile_screen.dart';
+import 'dietary_preferences_screen.dart';
+import 'activity_level_screen.dart';
+import 'notifications_screen.dart';
 
 /// DietCompass — My Profile Screen
 /// -----------------------------------------------------------------------
@@ -208,6 +211,37 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
 
+  void _openDietaryPreferences() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DietaryPreferencesScreen(
+          initialData: _personalization?.toOnboardingData(),
+        ),
+      ),
+    ).then((_) => _loadCloudProfile());
+  }
+
+  void _openActivityLevel() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActivityLevelScreen(
+          initialActivityLevel: _personalization?.activityLevel,
+        ),
+      ),
+    ).then((_) => _loadCloudProfile());
+  }
+
+  void _openNotifications({int initialTab = 0}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsScreen(initialTab: initialTab),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -236,8 +270,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: _TopHeader(
                       uiScale: scale,
                       ambientCtrl: _ambientCtrl,
-                      onNotificationsTap: widget.onNotificationsTap,
-                      onSettingsTap: widget.onSettingsTap,
+                      onNotificationsTap: widget.onNotificationsTap ??
+                          () => _openNotifications(initialTab: 0),
+                      onSettingsTap: widget.onSettingsTap ??
+                          () => _openNotifications(initialTab: 1),
                     ),
                   ),
                 ),
@@ -407,7 +443,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFFE0862E),
                             title: 'Dietary Preferences',
                             subtitle: 'Manage allergies and food preferences',
-                            onTap: widget.onDietaryPreferencesTap,
+                            onTap: widget.onDietaryPreferencesTap ??
+                                _openDietaryPreferences,
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(
@@ -417,7 +454,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF3B82F6),
                             title: 'Activity Level',
                             subtitle: 'Set your daily activity level',
-                            onTap: widget.onActivityLevelTap,
+                            onTap: widget.onActivityLevelTap ??
+                                _openActivityLevel,
                           ),
                           const _TileDivider(),
 
@@ -445,7 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFFE0475B),
                             title: 'Notifications',
                             subtitle: 'Manage your notification settings',
-                            onTap: widget.onNotificationSettingsTap,
+                            onTap: widget.onNotificationSettingsTap ??
+                                () => _openNotifications(initialTab: 1),
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(

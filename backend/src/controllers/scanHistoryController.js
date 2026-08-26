@@ -189,9 +189,76 @@ const clearScanHistory = async (req, res, next) => {
   }
 };
 
+/**
+ * Retrieve aggregated Health Compass stats for authenticated user
+ * GET /api/scan-history/stats
+ */
+const getHealthCompassStats = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const scans = await ScanHistory.find({ userId }).sort({ scannedAt: -1 });
+
+    const totalScans = scans.length;
+    if (totalScans === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          averageCompatibility: null,
+          productsAnalyzed: 0,
+          ingredientsFlagged: 0,
+          betterAlternatives: 0,
+          scansThisWeek: 0,
+        },
+      });
+    }
+
+    const totalScore = scans.reduce((acc, s) => acc + (s.score || 85), 0);
+    const averageCompatibility = Math.round(totalScore / totalScans);
+
+    // Unique products analyzed
+    const uniqueProducts = new Set();
+    scans.forEach((s) => {
+      const key = s.barcode ? s.barcode.trim() : `${s.productName.trim().toLowerCase()}_${(s.brand || '').trim().toLowerCase()}`;
+      uniqueProducts.add(key);
+    });
+
+    // Scans in the last 7 days
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const scansThisWeek = scans.filter((s) => new Date(s.scannedAt) >= sevenDaysAgo).length;
+
+    // Flagged ingredients across scans
+    const flaggedSet = new Set();
+    scans.forEach((s) => {
+      if (Array.isArray(s.allergens)) {
+        s.allergens.forEach((a) => {
+          if (a && a.trim()) flaggedSet.add(a.trim().toLowerCase());
+        });
+      }
+      if (s.nutrients && s.nutrients.sodium && Number(s.nutrients.sodium) >= 400) {
+        flaggedSet.add('high sodium');
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        averageCompatibility,
+        productsAnalyzed: uniqueProducts.size,
+        ingredientsFlagged: flaggedSet.size,
+        betterAlternatives: 0,
+        scansThisWeek,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   saveScan,
   getScanHistory,
   deleteScan,
   clearScanHistory,
+  getHealthCompassStats,
 };

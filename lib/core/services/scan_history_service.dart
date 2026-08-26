@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../model/food_product.dart';
+import '../model/health_compass_data.dart';
 import '../model/scan_history_item.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
+import 'ingredient_intelligence_service.dart';
+import 'product_category_service.dart';
+import 'recommendation_service.dart';
 import 'storage_service.dart';
 
 /// DietCompass — Scan History Service
@@ -250,4 +254,126 @@ class ScanHistoryService extends ChangeNotifier {
 
     return localItem;
   }
+
+  /// Dynamically computes the 5 "Your Health Compass" metrics strictly from the authenticated user's scan history.
+  HealthCompassData computeHealthCompass({List<ScanHistoryItem>? customHistory}) {
+    final history = customHistory ?? _cachedHistory;
+    if (history.isEmpty) {
+      return HealthCompassData.empty();
+    }
+
+    // 1. AVERAGE COMPATIBILITY
+    // Real arithmetic mean of all compatibility scores belonging to the authenticated user
+    final totalScore = history.fold<int>(0, (sum, item) => sum + item.score);
+    final avgScore = (totalScore / history.length).round().clamp(0, 100);
+
+    // 2. PRODUCTS ANALYZED (Count of unique real products analyzed by the current user)
+    final uniqueProductsMap = <String, FoodProduct>{};
+    final uniqueProductNames = <String>[];
+
+    for (final item in history) {
+      final key = item.barcode.isNotEmpty
+          ? item.barcode.trim()
+          : '${item.productName.trim().toLowerCase()}_${item.brand.trim().toLowerCase()}';
+      if (!uniqueProductsMap.containsKey(key)) {
+        final product = item.toFoodProduct();
+        uniqueProductsMap[key] = product;
+        uniqueProductNames.add(item.productName.trim());
+      }
+    }
+    final productsAnalyzedCount = uniqueProductsMap.length;
+
+    // 3. INGREDIENTS FLAGGED
+    // Real ingredients flagged across user's analyzed products via IngredientIntelligenceService + allergens + elevated sodium
+    final flaggedIngredients = <String>{};
+    for (final product in uniqueProductsMap.values) {
+      final intel = IngredientIntelligenceService.instance.analyze(product);
+
+      // Sugar-related ingredients
+      for (final s in intel.sugarRelatedIngredients) {
+        if (s.name.trim().isNotEmpty) {
+          flaggedIngredients.add(s.name.trim().toLowerCase());
+        }
+      }
+      // Food additives & preservatives
+      for (final a in intel.additives) {
+        if (a.name.trim().isNotEmpty) {
+          flaggedIngredients.add(a.name.trim().toLowerCase());
+        }
+      }
+      // Low-calorie / artificial sweeteners
+      for (final sw in intel.artificialSweeteners) {
+        if (sw.name.trim().isNotEmpty) {
+          flaggedIngredients.add(sw.name.trim().toLowerCase());
+        }
+      }
+      // Product Allergens
+      for (final allergen in product.allergens) {
+        if (allergen.trim().isNotEmpty) {
+          flaggedIngredients.add(allergen.trim().toLowerCase());
+        }
+      }
+      // Elevated sodium alert (>= 400 mg / 100g)
+      final sodiumVal = product.sodium;
+      if (sodiumVal != null) {
+        final sodiumMg = sodiumVal <= 10.0 ? sodiumVal * 1000.0 : sodiumVal;
+        if (sodiumMg >= 400.0) {
+          flaggedIngredients.add('high sodium');
+        }
+      }
+    }
+
+    // 4. BETTER ALTERNATIVES
+    // Count of real healthier alternatives / recommendations available for analyzed products
+    final uniqueAlternatives = <String>{};
+    for (final product in uniqueProductsMap.values) {
+      try {
+        final category = ProductCategoryService.instance.classifyProduct(product);
+        final fallbacks = RecommendationService.instance.getCategoryFallbackProducts(category);
+        final currentScore = RecommendationService.instance.calculateCompatibilityScore(product);
+        final alts = RecommendationService.instance.filterAndRankAlternatives(
+          currentProduct: product,
+          candidates: fallbacks,
+          limit: 6,
+        );
+        for (final alt in alts) {
+          final isHigherScore = alt.compatibility.score > currentScore;
+          final hasNutrImprovement = alt.nutritionComparison != null &&
+              (alt.nutritionComparison!.sugarDiff > 0 ||
+                  alt.nutritionComparison!.proteinDiff > 0 ||
+                  alt.nutritionComparison!.fiberDiff > 0 ||
+                  alt.nutritionComparison!.calorieDiff > 0 ||
+                  alt.nutritionComparison!.sodiumDiff > 0);
+          if (isHigherScore || hasNutrImprovement) {
+            final altKey = alt.product.barcode.isNotEmpty
+                ? alt.product.barcode
+                : '${alt.product.name.trim().toLowerCase()}_${alt.product.brand.trim().toLowerCase()}';
+            uniqueAlternatives.add(altKey);
+          }
+        }
+      } catch (e) {
+        debugPrint('[ScanHistoryService] Health compass alt calculation error: $e');
+      }
+    }
+
+    // 5. SCANS THIS WEEK
+    // Real product scans performed by the current user during the last 7 days
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final scansThisWeek = history.where((item) {
+      return item.scannedAt.isAfter(sevenDaysAgo) &&
+          item.scannedAt.isBefore(now.add(const Duration(minutes: 5)));
+    }).length;
+
+    return HealthCompassData(
+      averageCompatibility: avgScore,
+      productsAnalyzed: productsAnalyzedCount,
+      ingredientsFlagged: flaggedIngredients.length,
+      betterAlternatives: uniqueAlternatives.length,
+      scansThisWeek: scansThisWeek,
+      flaggedIngredientNames: flaggedIngredients.toList(),
+      uniqueProductNames: uniqueProductNames,
+    );
+  }
 }
+

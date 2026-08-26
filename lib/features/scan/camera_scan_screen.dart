@@ -21,6 +21,8 @@ import '../../core/services/scan_history_service.dart';
 
 enum CameraSource { home, scan }
 
+enum ScanMode { product, barcode, ocr }
+
 /// DietCompass — Scan Product (live camera) screen
 /// -----------------------------------------------------------------------
 /// A full-screen camera capture UI matching the reference exactly: the
@@ -55,6 +57,7 @@ class CameraScanScreen extends StatefulWidget {
   const CameraScanScreen({
     super.key,
     required this.source,
+    this.initialMode = ScanMode.product,
     this.onCaptured,
     this.onGalleryTap,
     this.onHowToScanTap,
@@ -64,6 +67,7 @@ class CameraScanScreen extends StatefulWidget {
   });
 
   final CameraSource source;
+  final ScanMode initialMode;
 
   /// Called with the captured photo once the shutter button is pressed
   /// and the picture has been taken.
@@ -1068,63 +1072,110 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
       if (!mounted) return;
 
-      // --------------------------------------------------
-      // STEP 1: Check for barcode in captured image
-      // --------------------------------------------------
+      if (widget.initialMode == ScanMode.ocr) {
+        // --------------------------------------------------
+        // OCR / NUTRITION LABEL PRIORITIZED
+        // --------------------------------------------------
+        debugPrint('OCR mode: Starting smart OCR nutrition resolution...');
 
-      final barcodeFound = await _checkBarcode(image);
+        final product = await resolveProductFromOcr(image);
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (barcodeFound) {
-        return;
-      }
+        if (product != null) {
+          debugPrint('OCR identified product: ${product.name}');
+          debugPrint('OCR identified brand: ${product.brand}');
+          ScanHistoryService.instance.saveScan(product);
 
-      // --------------------------------------------------
-      // STEP 2: NO BARCODE → SMART OCR PRODUCT RESOLUTION
-      // --------------------------------------------------
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AiAnalysisScreen(
+                capturedImage: FileImage(File(image.path)),
+                product: product,
+                productName: product.name,
+                productSubtitle: product.brand,
+                servingInfo: product.servingSize ?? 'Serving information unavailable',
+                foodTypeLabel: 'Food Product',
+              ),
+            ),
+          );
+          return;
+        }
 
-      debugPrint('No barcode found. Starting smart OCR resolution...');
+        // Fallback: check for barcode if OCR didn't find nutrition facts
+        debugPrint('OCR found no product. Checking barcode fallback...');
+        final barcodeFound = await _checkBarcode(image);
+        if (!mounted) return;
+        if (barcodeFound) {
+          return;
+        }
 
-      final product = await resolveProductFromOcr(image);
-
-      if (!mounted) return;
-
-      if (product == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Could not identify the product. Please take a clearer photo.',
+              'Could not identify nutrition label. Please take a clearer photo.',
+            ),
+          ),
+        );
+        return;
+      } else {
+        // --------------------------------------------------
+        // DEFAULT / BARCODE PRIORITIZED
+        // STEP 1: Check for barcode in captured image
+        // --------------------------------------------------
+        final barcodeFound = await _checkBarcode(image);
+
+        if (!mounted) return;
+
+        if (barcodeFound) {
+          return;
+        }
+
+        // --------------------------------------------------
+        // STEP 2: NO BARCODE → SMART OCR PRODUCT RESOLUTION
+        // --------------------------------------------------
+        debugPrint('No barcode found. Starting smart OCR resolution...');
+
+        final product = await resolveProductFromOcr(image);
+
+        if (!mounted) return;
+
+        if (product == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not identify the product. Please take a clearer photo.',
+              ),
+            ),
+          );
+
+          return;
+        }
+
+        debugPrint('OCR identified product: ${product.name}');
+        debugPrint('OCR identified brand: ${product.brand}');
+        ScanHistoryService.instance.saveScan(product);
+
+        // --------------------------------------------------
+        // STEP 3: Show AI Analysis
+        // --------------------------------------------------
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AiAnalysisScreen(
+              capturedImage: FileImage(File(image.path)),
+              product: product,
+              productName: product.name,
+              productSubtitle: product.brand,
+              servingInfo: product.servingSize ?? 'Serving information unavailable',
+              foodTypeLabel: 'Food Product',
             ),
           ),
         );
 
-        return;
+        if (!mounted) return;
       }
-
-      debugPrint('OCR identified product: ${product.name}');
-      debugPrint('OCR identified brand: ${product.brand}');
-      ScanHistoryService.instance.saveScan(product);
-
-      // --------------------------------------------------
-      // STEP 4: Show AI Analysis
-      // --------------------------------------------------
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AiAnalysisScreen(
-            capturedImage: FileImage(File(image.path)),
-            product: product,
-            productName: product.name,
-            productSubtitle: product.brand,
-            servingInfo: 'Serving information unavailable',
-            foodTypeLabel: 'Food Product',
-          ),
-        ),
-      );
-
-      if (!mounted) return;
     } catch (e) {
       if (!mounted) return;
 
@@ -1139,10 +1190,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         _setProcessingState(false);
       }
 
-      // Restart barcode scanning.
+      // Restart barcode scanning if mode is not OCR.
       final currentCamera = _cameraController;
 
       if (mounted &&
+          widget.initialMode != ScanMode.ocr &&
           currentCamera != null &&
           currentCamera.value.isInitialized &&
           !currentCamera.value.isStreamingImages) {
@@ -1347,8 +1399,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       _cameraController = controller;
     });
 
-    // Start automatically checking camera frames for barcodes.
-    await controller.startImageStream(_processCameraImage);
+    // Start automatically checking camera frames for barcodes (unless mode is OCR).
+    if (widget.initialMode != ScanMode.ocr) {
+      await controller.startImageStream(_processCameraImage);
+    }
   }
 
   bool _isProcessingImage = false;
@@ -1547,6 +1601,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                   // TOP BAR
                   _TopBar(
                     uiScale: scale,
+                    mode: widget.initialMode,
                     flashOn: _flashOn,
                     onBack: _goBack,
                     onFlashToggle: _toggleFlash,
@@ -1564,6 +1619,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                             ),
                             child: _TipBanner(
                               uiScale: scale,
+                              mode: widget.initialMode,
                               onDismiss: () {
                                 setState(() {
                                   _showTip = false;
@@ -1835,15 +1891,39 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.uiScale,
+    this.mode = ScanMode.product,
     required this.flashOn,
     this.onBack,
     this.onFlashToggle,
   });
 
   final double uiScale;
+  final ScanMode mode;
   final bool flashOn;
   final VoidCallback? onBack;
   final VoidCallback? onFlashToggle;
+
+  String get _title {
+    switch (mode) {
+      case ScanMode.barcode:
+        return 'Scan Barcode';
+      case ScanMode.ocr:
+        return 'Scan Nutrition Label';
+      case ScanMode.product:
+        return 'Scan Product';
+    }
+  }
+
+  String get _subtitle {
+    switch (mode) {
+      case ScanMode.barcode:
+        return 'Align barcode within the frame';
+      case ScanMode.ocr:
+        return 'Capture nutrition facts or ingredients';
+      case ScanMode.product:
+        return 'Get AI-powered nutrition insights';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1869,7 +1949,7 @@ class _TopBar extends StatelessWidget {
                     ),
                     SizedBox(width: 5 * uiScale),
                     Text(
-                      'Scan Product',
+                      _title,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15.5 * uiScale,
@@ -1879,7 +1959,7 @@ class _TopBar extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  'Get AI-powered nutrition insights',
+                  _subtitle,
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 10.5 * uiScale,
@@ -2006,12 +2086,39 @@ class _FlashPillState extends State<_FlashPill> {
 // Tip banner (uses the DietCompass robot asset)
 // ---------------------------------------------------------------------------
 class _TipBanner extends StatelessWidget {
-  const _TipBanner({required this.uiScale, required this.onDismiss});
+  const _TipBanner({
+    required this.uiScale,
+    this.mode = ScanMode.product,
+    required this.onDismiss,
+  });
   final double uiScale;
+  final ScanMode mode;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
+    String tipPrefix;
+    String tipHighlight;
+    String tipSubtitle;
+
+    switch (mode) {
+      case ScanMode.barcode:
+        tipPrefix = 'Tip: Place the barcode ';
+        tipHighlight = 'inside the frame';
+        tipSubtitle = 'Make sure the barcode is clear, flat, and well-lit.';
+        break;
+      case ScanMode.ocr:
+        tipPrefix = 'Tip: Center the nutrition label ';
+        tipHighlight = 'inside the frame';
+        tipSubtitle = 'Ensure numbers and ingredients are sharp and well-lit.';
+        break;
+      case ScanMode.product:
+        tipPrefix = 'Tip: Center the product label ';
+        tipHighlight = 'in the frame';
+        tipSubtitle = 'Make sure the text is clear and well-lit.';
+        break;
+    }
+
     return Container(
       padding: EdgeInsets.all(10 * uiScale),
       decoration: BoxDecoration(
@@ -2051,18 +2158,18 @@ class _TipBanner extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
-                    children: const [
-                      TextSpan(text: 'Tip: Center the product label '),
+                    children: [
+                      TextSpan(text: tipPrefix),
                       TextSpan(
-                        text: 'in the frame',
-                        style: TextStyle(color: Color(0xFFB39CFB)),
+                        text: tipHighlight,
+                        style: const TextStyle(color: Color(0xFFB39CFB)),
                       ),
                     ],
                   ),
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
-                  'Make sure the text is clear and well-lit.',
+                  tipSubtitle,
                   style: TextStyle(
                     fontSize: 10.5 * uiScale,
                     color: Colors.white70,

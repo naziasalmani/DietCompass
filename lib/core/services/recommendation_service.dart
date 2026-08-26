@@ -674,7 +674,7 @@ class RecommendationService {
     }
 
     // Include authentic fallback products for the specific category to ensure 6–8 candidates
-    final categoryFallbacks = _getCategoryFallbackProducts(category);
+    final categoryFallbacks = getCategoryFallbackProducts(category);
     rawResults.addAll(categoryFallbacks);
 
     final uniqueCandidates = _removeDuplicates(rawResults);
@@ -821,7 +821,7 @@ class RecommendationService {
   }
 
   /// Authentic category fallback products to ensure 6–8 real alternatives are available
-  List<FoodProduct> _getCategoryFallbackProducts(FoodCategoryType category) {
+  List<FoodProduct> getCategoryFallbackProducts(FoodCategoryType category) {
     switch (category) {
       case FoodCategoryType.chocolateConfectionery:
         return [

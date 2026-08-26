@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../../core/services/personalization_service.dart';
-import '../../core/services/profile_service.dart';
 
 /// DietCompass — Health Profile Screen
 /// -----------------------------------------------------------------------
@@ -282,13 +281,11 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
     with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
   late Set<int> _selectedGoals;
-  late Set<int> _selectedDiets;
 
   @override
   void initState() {
     super.initState();
     _selectedGoals = {...widget.selectedGoals};
-    _selectedDiets = {...widget.selectedDiets};
     _entranceCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -306,16 +303,9 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
           newGoals.add(i);
         }
       }
-      final newDiets = <int>{};
-      for (int i = 0; i < widget.dietOptions.length; i++) {
-        if (pers.dietType == widget.dietOptions[i].label) {
-          newDiets.add(i);
-        }
-      }
       if (mounted) {
         setState(() {
           if (newGoals.isNotEmpty) _selectedGoals = newGoals;
-          if (newDiets.isNotEmpty) _selectedDiets = newDiets;
         });
       }
     }
@@ -350,16 +340,6 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
     _syncGoals();
   }
 
-  void _toggleDiet(int i) {
-    setState(() {
-      _selectedDiets.contains(i)
-          ? _selectedDiets.remove(i)
-          : _selectedDiets.add(i);
-    });
-    widget.onDietsChanged?.call(_selectedDiets);
-    _syncDiets();
-  }
-
   Future<void> _syncGoals() async {
     final goals = _selectedGoals
         .map((i) => widget.goalOptions[i].label)
@@ -367,20 +347,6 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
     try {
       await PersonalizationService.instance.updatePersonalization({
         'goals': goals,
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _syncDiets() async {
-    final diets = _selectedDiets
-        .map((i) => widget.dietOptions[i].label)
-        .toList();
-    try {
-      await PersonalizationService.instance.updatePersonalization({
-        'dietType': diets.isNotEmpty ? diets.first : 'Vegetarian',
-      });
-      await ProfileService.instance.updateProfile({
-        'dietType': diets.isNotEmpty ? diets.first : 'Vegetarian',
       });
     } catch (_) {}
   }
@@ -472,56 +438,6 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
                         bg: const Color(0xFFF1ECFB),
                         text: widget.goalSummary,
                         onTap: widget.onGoalSummaryTap,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 16 * scale),
-
-            FadeTransition(
-              opacity: _fade(0.16, 0.48),
-              child: SlideTransition(
-                position: _slide(0.16, 0.5),
-                child: _SectionCard(
-                  uiScale: scale,
-                  icon: Icons.restaurant_outlined,
-                  iconBg: const Color(0xFFE4F5E9),
-                  iconColor: const Color(0xFF1E8A4C),
-                  title: 'Dietary Preferences',
-                  subtitle: 'Your eating preferences and restrictions',
-                  onEdit: widget.onEditDiet,
-                  child: Column(
-                    children: [
-                      _ChipsWrap(
-                        uiScale: scale,
-                        children: [
-                          ...List.generate(widget.dietOptions.length, (i) {
-                            final d = widget.dietOptions[i];
-                            return _SelectableChip(
-                              uiScale: scale,
-                              icon: d.icon,
-                              label: d.label,
-                              color: d.color,
-                              selected: _selectedDiets.contains(i),
-                              onTap: () => _toggleDiet(i),
-                            );
-                          }),
-                          _AddMoreChip(
-                            uiScale: scale,
-                            onTap: widget.onAddMoreDiet,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 10 * scale),
-                      _HighlightRow(
-                        uiScale: scale,
-                        icon: Icons.info_outline,
-                        iconColor: const Color(0xFF1E8A4C),
-                        bg: const Color(0xFFE9F7EE),
-                        text: widget.allergiesSummary,
-                        onTap: widget.onAllergiesTap,
                       ),
                     ],
                   ),

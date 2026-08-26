@@ -187,6 +187,30 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _openCameraScanBarcode() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CameraScanScreen(
+          source: CameraSource.scan,
+          initialMode: ScanMode.barcode,
+        ),
+      ),
+    );
+  }
+
+  void _openCameraScanLabel() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CameraScanScreen(
+          source: CameraSource.scan,
+          initialMode: ScanMode.ocr,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     ScanHistoryService.instance.removeListener(_onScanHistoryChanged);
@@ -303,8 +327,10 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                     position: _slide(0.3, 0.66),
                     child: _QuickActionsGrid(
                       uiScale: scale,
-                      onScanBarcode: widget.onScanBarcodeTap ?? _openCameraScan,
-                      onScanLabel: widget.onScanLabelTap ?? _openCameraScan,
+                      onScanBarcode:
+                          widget.onScanBarcodeTap ?? _openCameraScanBarcode,
+                      onScanLabel:
+                          widget.onScanLabelTap ?? _openCameraScanLabel,
                       onImportGallery: _handleImportGallery,
                       onManualEntry: () {
                         Navigator.push(
@@ -328,6 +354,7 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
                                   MaterialPageRoute(
                                     builder: (_) => const CameraScanScreen(
                                       source: CameraSource.scan,
+                                      initialMode: ScanMode.ocr,
                                     ),
                                   ),
                                 );
@@ -490,12 +517,15 @@ class _HeaderRow extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Hi $name! ',
-                    style: TextStyle(
-                      fontSize: 17 * uiScale,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                  Flexible(
+                    child: Text(
+                      'Hi $name! ',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 17 * uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1B1B2E),
+                      ),
                     ),
                   ),
                   Text('👋', style: TextStyle(fontSize: 15 * uiScale)),

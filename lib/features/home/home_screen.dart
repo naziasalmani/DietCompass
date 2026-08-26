@@ -14,25 +14,18 @@ import '../dashboard/DashboardScreen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
 import '../ai_coach/ai_coach_screen.dart';
 import '../ai_coach/voice_assistant_modal.dart';
+import '../profile/notifications_screen.dart';
 import '../../core/model/food_product.dart';
+import '../../core/model/health_compass_data.dart';
 import '../../core/model/scan_history_item.dart';
 import '../../core/services/scan_history_service.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     this.userName = 'Nazia',
     this.avatarUrl,
-    this.nutritionScore = 92,
-    this.macros = const [
-      MacroStat(label: 'Calories', value: 1420, target: 1800, unit: 'kcal', icon: Icons.local_fire_department, color: Color(0xFF6C4EF5)),
-      MacroStat(label: 'Protein', value: 68, target: 100, unit: 'g', icon: Icons.fitness_center, color: Color(0xFF1E8A4C)),
-      MacroStat(label: 'Fiber', value: 22, target: 30, unit: 'g', icon: Icons.eco, color: Color(0xFFE0862E)),
-      MacroStat(label: 'Sugar', value: 24, target: 50, unit: 'g', icon: Icons.icecream, color: Color(0xFFE0525C)),
-      MacroStat(label: 'Water', value: 6, target: 8, unit: 'glasses', icon: Icons.water_drop, color: Color(0xFF3B82F6)),
-      MacroStat(label: 'Sodium', value: 1180, target: 2000, unit: 'mg', icon: Icons.grain, color: Color(0xFFE0862E)),
-    ],
+    this.healthCompassData,
     this.recentScans = const [],
     this.onScanTap,
     this.onNotificationTap,
@@ -52,8 +45,7 @@ class HomeScreen extends StatefulWidget {
 
   final String userName;
   final String? avatarUrl;
-  final int nutritionScore;
-  final List<MacroStat> macros;
+  final HealthCompassData? healthCompassData;
   final List<RecentScan> recentScans;
 
   final VoidCallback? onScanTap;
@@ -71,24 +63,6 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class MacroStat {
-  const MacroStat({
-    required this.label,
-    required this.value,
-    required this.target,
-    required this.unit,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final num value;
-  final num target;
-  final String unit;
-  final IconData icon;
-  final Color color;
 }
 
 class RecentScan {
@@ -220,6 +194,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
 
+  HealthCompassData? _liveCompassData;
+
   @override
   void initState() {
     super.initState();
@@ -240,43 +216,59 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .map((i) => RecentScan.fromHistoryItem(i))
           .toList();
     }
+    if (widget.healthCompassData != null) {
+      _liveCompassData = widget.healthCompassData;
+    } else if (ScanHistoryService.instance.currentHistory.isNotEmpty) {
+      _liveCompassData = ScanHistoryService.instance.computeHealthCompass();
+    }
     ScanHistoryService.instance.addListener(_onScanHistoryChanged);
     _loadRecentScans();
   }
 
   void _onScanHistoryChanged() {
-    if (widget.recentScans.isNotEmpty) return;
     if (!mounted) return;
     setState(() {
-      _liveRecentScans = ScanHistoryService.instance.currentHistory
-          .take(3)
-          .map((i) => RecentScan.fromHistoryItem(i))
-          .toList();
-      _isLoadingScans = false;
+      if (widget.recentScans.isEmpty) {
+        _liveRecentScans = ScanHistoryService.instance.currentHistory
+            .take(3)
+            .map((i) => RecentScan.fromHistoryItem(i))
+            .toList();
+        _isLoadingScans = false;
+      }
+      if (widget.healthCompassData == null) {
+        _liveCompassData = ScanHistoryService.instance.computeHealthCompass();
+      }
     });
   }
 
   Future<void> _loadRecentScans() async {
-    if (widget.recentScans.isNotEmpty) {
-      if (mounted) {
-        setState(() => _liveRecentScans = widget.recentScans);
-      }
-      return;
-    }
-
-    setState(() => _isLoadingScans = _liveRecentScans.isEmpty);
+    setState(() => _isLoadingScans = _liveRecentScans.isEmpty && widget.recentScans.isEmpty);
     try {
-      final items = await ScanHistoryService.instance.getScanHistory(limit: 3);
+      final items = await ScanHistoryService.instance.getScanHistory();
       if (mounted) {
         setState(() {
-          _liveRecentScans =
-              items.map((i) => RecentScan.fromHistoryItem(i)).toList();
+          if (widget.recentScans.isEmpty) {
+            _liveRecentScans =
+                items.take(3).map((i) => RecentScan.fromHistoryItem(i)).toList();
+          } else {
+            _liveRecentScans = widget.recentScans;
+          }
+          if (widget.healthCompassData == null) {
+            _liveCompassData = ScanHistoryService.instance.computeHealthCompass(customHistory: items);
+          }
           _isLoadingScans = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _isLoadingScans = false);
     }
+  }
+
+  void _openNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+    );
   }
 
   void _openVoiceAssistant() {
@@ -358,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       name: widget.userName,
                       greeting: _greeting,
                       avatarUrl: widget.avatarUrl,
-                      onNotificationTap: widget.onNotificationTap,
+                      onNotificationTap: widget.onNotificationTap ?? _openNotifications,
                       onLogout: widget.onLogout,
                     ),
                   ),
@@ -445,11 +437,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   opacity: _fade(0.3, 0.65),
                   child: SlideTransition(
                     position: _slide(0.3, 0.7),
-                    child: _NutritionScoreCard(
+                    child: _HealthCompassCard(
                       uiScale: scale,
-                      score: widget.nutritionScore,
-                      macros: widget.macros,
+                      data: widget.healthCompassData ??
+                          _liveCompassData ??
+                          ScanHistoryService.instance.computeHealthCompass(),
                       entranceCtrl: _entranceCtrl,
+                      onScanTap: widget.onScanTap ??
+                          () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const CameraScanScreen(
+                                    source: CameraSource.home,
+                                  ),
+                                ),
+                              ).then((_) => _loadRecentScans()),
                     ),
                   ),
                 ),
@@ -1363,166 +1365,294 @@ class _AiHubCardState extends State<_AiHubCard> {
 }
 
 // ---------------------------------------------------------------------------
-// Today's Nutrition Score card: animated gauge + macro grid
+// Your Health Compass card: dynamic average compatibility gauge + real metrics
 // ---------------------------------------------------------------------------
-class _NutritionScoreCard extends StatelessWidget {
-  const _NutritionScoreCard({
+class _HealthCompassCard extends StatelessWidget {
+  const _HealthCompassCard({
     required this.uiScale,
-    required this.score,
-    required this.macros,
+    required this.data,
     required this.entranceCtrl,
+    this.onScanTap,
   });
 
   final double uiScale;
-  final int score;
-  final List<MacroStat> macros;
+  final HealthCompassData data;
   final AnimationController entranceCtrl;
+  final VoidCallback? onScanTap;
 
   @override
   Widget build(BuildContext context) {
     final gaugeAnim = CurvedAnimation(
       parent: entranceCtrl,
-      curve: const Interval(0.45, 0.95, curve: Curves.easeOutCubic),
+      curve: const Interval(0.35, 0.95, curve: Curves.easeOutCubic),
     );
 
+    final hasScans = data.hasScans;
+    final displayScore = data.averageCompatibility ?? 0;
+    final statusLabel = data.compatibilityLabel;
+    final statusBadgeColor = data.statusBadgeColor;
+    final statusBadgeBg = data.statusBadgeBackgroundColor;
+    final statusBadgeIcon = data.statusBadgeIcon;
+
     return Container(
-      padding: EdgeInsets.all(16 * uiScale),
+      padding: EdgeInsets.all(20 * uiScale),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF6C4EF5).withOpacity(0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Header: YOUR HEALTH COMPASS
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Today's Nutrition Score",
-                style: TextStyle(
-                  fontSize: 14.5 * uiScale,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8 * uiScale),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C4EF5).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.explore_rounded,
+                      size: 18 * uiScale,
+                      color: const Color(0xFF6C4EF5),
+                    ),
+                  ),
+                  SizedBox(width: 10 * uiScale),
+                  Text(
+                    "YOUR HEALTH COMPASS",
+                    style: TextStyle(
+                      fontSize: 16 * uiScale,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.7,
+                      color: const Color(0xFF1B1B2E),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 4 * uiScale),
-              Icon(
-                Icons.info_outline,
-                size: 14 * uiScale,
-                color: const Color(0xFFB0ACC2),
+              Tooltip(
+                message: "Calculated from your real scan history and product analyses.",
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  size: 19 * uiScale,
+                  color: const Color(0xFFB0ACC2),
+                ),
               ),
             ],
           ),
-          SizedBox(height: 14 * uiScale),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 108 * uiScale,
-                height: 108 * uiScale,
-                child: AnimatedBuilder(
-                  animation: gaugeAnim,
-                  builder: (context, _) {
-                    final animatedScore = (score * gaugeAnim.value).round();
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CustomPaint(
-                          size: Size(108 * uiScale, 108 * uiScale),
-                          painter: _GaugePainter(
-                            progress: gaugeAnim.value * (score / 100),
+
+          SizedBox(height: 22 * uiScale),
+
+          // 2. Average Compatibility Gauge Section
+          Center(
+            child: AnimatedBuilder(
+              animation: gaugeAnim,
+              builder: (context, _) {
+                final animatedScore = hasScans
+                    ? (displayScore * gaugeAnim.value).round()
+                    : 0;
+                final progress = hasScans
+                    ? gaugeAnim.value * (displayScore / 100.0)
+                    : 0.0;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 220 * uiScale,
+                      height: 145 * uiScale,
+                      child: Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          CustomPaint(
+                            size: Size(220 * uiScale, 145 * uiScale),
+                            painter: _CompassGaugePainter(
+                              progress: progress,
+                              hasScans: hasScans,
+                            ),
                           ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '$animatedScore',
-                                    style: TextStyle(
-                                      fontSize: 26 * uiScale,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF1B1B2E),
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '/100',
-                                    style: TextStyle(
-                                      fontSize: 12 * uiScale,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF9A96A8),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: 2 * uiScale),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8 * uiScale,
-                                  vertical: 2 * uiScale,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE4F5E9),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.auto_awesome,
-                                      size: 10 * uiScale,
-                                      color: const Color(0xFF1E8A4C),
-                                    ),
-                                    SizedBox(width: 3 * uiScale),
-                                    Text(
-                                      'Excellent',
-                                      style: TextStyle(
-                                        fontSize: 9.5 * uiScale,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF1E8A4C),
+                          Positioned(
+                            top: 34 * uiScale,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: hasScans ? '$animatedScore' : '--',
+                                        style: TextStyle(
+                                          fontSize: 36 * uiScale,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.6,
+                                          color: const Color(0xFF1B1B2E),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      TextSpan(
+                                        text: ' /100',
+                                        style: TextStyle(
+                                          fontSize: 16 * uiScale,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF9A96A8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                                SizedBox(height: 5 * uiScale),
+                                Text(
+                                  'Average Compatibility',
+                                  style: TextStyle(
+                                    fontSize: 13 * uiScale,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF6B6B7B),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 12 * uiScale),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16 * uiScale,
+                        vertical: 7 * uiScale,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBadgeBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: statusBadgeColor.withOpacity(0.25),
+                          width: 1.2,
                         ),
-                      ],
-                    );
-                  },
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            statusBadgeIcon,
+                            size: 15 * uiScale,
+                            color: statusBadgeColor,
+                          ),
+                          SizedBox(width: 6 * uiScale),
+                          Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontSize: 13 * uiScale,
+                              fontWeight: FontWeight.w800,
+                              color: statusBadgeColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          // If brand new user with no scans, show gentle encouraging empty message
+          if (!hasScans) ...[
+            SizedBox(height: 14 * uiScale),
+            Center(
+              child: Text(
+                'Start scanning products to build your health insights.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5 * uiScale,
+                  color: const Color(0xFF9A96A8),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(width: 10 * uiScale),
+            ),
+          ],
+
+          SizedBox(height: 22 * uiScale),
+
+          // Divider
+          Container(
+            height: 1.2,
+            color: const Color(0xFFF0EDF8),
+          ),
+
+          SizedBox(height: 20 * uiScale),
+
+          // 3. 2x2 Grid of 4 Dynamic Metrics
+          Row(
+            children: [
               Expanded(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: macros.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 8 * uiScale,
-                    crossAxisSpacing: 8 * uiScale,
-                    childAspectRatio: 2.0,
-                  ),
-                  itemBuilder: (context, i) {
-                    return _MacroTile(
-                      uiScale: uiScale,
-                      stat: macros[i],
-                      anim: gaugeAnim,
-                    );
-                  },
+                child: _HealthCompassMetricTile(
+                  uiScale: uiScale,
+                  value: '${data.productsAnalyzed}',
+                  line1: 'Products',
+                  line2: 'Analyzed',
+                  icon: Icons.inventory_2_rounded,
+                  accentColor: const Color(0xFF6C4EF5),
+                  bgColor: const Color(0xFFF7F5FF),
+                  borderColor: const Color(0xFFE8E2FF),
+                ),
+              ),
+              SizedBox(width: 12 * uiScale),
+              Expanded(
+                child: _HealthCompassMetricTile(
+                  uiScale: uiScale,
+                  value: '${data.ingredientsFlagged}',
+                  line1: 'Ingredients',
+                  line2: 'Flagged',
+                  icon: Icons.flag_rounded,
+                  accentColor: const Color(0xFFE0525C),
+                  bgColor: const Color(0xFFFFF4F4),
+                  borderColor: const Color(0xFFFFE2E2),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 12 * uiScale),
+
+          Row(
+            children: [
+              Expanded(
+                child: _HealthCompassMetricTile(
+                  uiScale: uiScale,
+                  value: '${data.betterAlternatives}',
+                  line1: 'Better',
+                  line2: 'Alternatives',
+                  icon: Icons.swap_horiz_rounded,
+                  accentColor: const Color(0xFF1E8A4C),
+                  bgColor: const Color(0xFFF0FAF3),
+                  borderColor: const Color(0xFFD4F3DE),
+                ),
+              ),
+              SizedBox(width: 12 * uiScale),
+              Expanded(
+                child: _HealthCompassMetricTile(
+                  uiScale: uiScale,
+                  value: '${data.scansThisWeek}',
+                  line1: 'Scans',
+                  line2: 'This Week',
+                  icon: Icons.calendar_today_rounded,
+                  accentColor: const Color(0xFFE0862E),
+                  bgColor: const Color(0xFFFFF8F0),
+                  borderColor: const Color(0xFFFFE8D1),
                 ),
               ),
             ],
@@ -1533,121 +1663,153 @@ class _NutritionScoreCard extends StatelessWidget {
   }
 }
 
-class _MacroTile extends StatelessWidget {
-  const _MacroTile({
+class _HealthCompassMetricTile extends StatelessWidget {
+  const _HealthCompassMetricTile({
     required this.uiScale,
-    required this.stat,
-    required this.anim,
+    required this.value,
+    required this.line1,
+    required this.line2,
+    required this.icon,
+    required this.accentColor,
+    required this.bgColor,
+    required this.borderColor,
   });
 
   final double uiScale;
-  final MacroStat stat;
-  final Animation<double> anim;
+  final String value;
+  final String line1;
+  final String line2;
+  final IconData icon;
+  final Color accentColor;
+  final Color bgColor;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
-    final frac = (stat.value / stat.target).clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(
-          children: [
-            Icon(stat.icon, size: 11 * uiScale, color: stat.color),
-            SizedBox(width: 4 * uiScale),
-            Text(
-              stat.label,
-              style: TextStyle(
-                fontSize: 9.5 * uiScale,
-                color: const Color(0xFF6B6B7B),
-              ),
-            ),
-          ],
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * uiScale,
+        vertical: 14 * uiScale,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: borderColor,
+          width: 1.2,
         ),
-        Text.rich(
-          TextSpan(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              TextSpan(
-                text: '${stat.value}',
+              Text(
+                value,
                 style: TextStyle(
-                  fontSize: 12.5 * uiScale,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 24 * uiScale,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.4,
                   color: const Color(0xFF1B1B2E),
                 ),
               ),
-              TextSpan(
-                text: ' / ${stat.target} ${stat.unit}',
-                style: TextStyle(
-                  fontSize: 9 * uiScale,
-                  color: const Color(0xFF9A96A8),
+              Container(
+                padding: EdgeInsets.all(7 * uiScale),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  icon,
+                  size: 18 * uiScale,
+                  color: accentColor,
                 ),
               ),
             ],
           ),
-        ),
-        SizedBox(height: 3 * uiScale),
-        AnimatedBuilder(
-          animation: anim,
-          builder: (context, _) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: frac * anim.value,
-                minHeight: 4 * uiScale,
-                backgroundColor: const Color(0xFFEDEAF7),
-                valueColor: AlwaysStoppedAnimation(stat.color),
-              ),
-            );
-          },
-        ),
-      ],
+          SizedBox(height: 12 * uiScale),
+          Text(
+            '$line1\n$line2',
+            style: TextStyle(
+              fontSize: 12.5 * uiScale,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              color: const Color(0xFF4A475A),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _GaugePainter extends CustomPainter {
-  _GaugePainter({required this.progress});
+class _CompassGaugePainter extends CustomPainter {
+  _CompassGaugePainter({
+    required this.progress,
+    required this.hasScans,
+  });
+
   final double progress; // 0..1
+  final bool hasScans;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 6;
+    final center = Offset(size.width / 2, size.height * 0.78);
+    final radius = size.width / 2 - 16;
+
     final bgPaint = Paint()
       ..color = const Color(0xFFEDEAF7)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 9
+      ..strokeWidth = 12
       ..strokeCap = StrokeCap.round;
+
+    // 210 degrees arc spanning from 165 to 375 deg (bottom-left to bottom-right)
+    const startAngle = math.pi * 0.85;
+    const sweepAngle = math.pi * 1.30;
+
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      math.pi * 0.75,
-      math.pi * 1.5,
+      startAngle,
+      sweepAngle,
       false,
       bgPaint,
     );
 
-    final fgPaint = Paint()
-      ..shader = const SweepGradient(
-        colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
-        startAngle: 0,
-        endAngle: math.pi * 1.5,
-        transform: GradientRotation(math.pi * 0.75),
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 9
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      math.pi * 0.75,
-      math.pi * 1.5 * progress,
-      false,
-      fgPaint,
-    );
+    if (hasScans && progress > 0.001) {
+      final fgPaint = Paint()
+        ..shader = const SweepGradient(
+          colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+          startAngle: 0,
+          endAngle: math.pi * 1.5,
+          transform: GradientRotation(startAngle),
+        ).createShader(Rect.fromCircle(center: center, radius: radius))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 12
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle * progress.clamp(0.0, 1.0),
+        false,
+        fgPaint,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _GaugePainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _CompassGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.hasScans != hasScans;
 }
 
 // ---------------------------------------------------------------------------
