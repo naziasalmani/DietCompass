@@ -578,12 +578,17 @@ CRITICAL MANDATE:
 5. Scrutinize and verify any marketing claims (e.g. "Low Sugar", "All Natural", "High Protein") against the actual facts.
 6. Return a structured JSON response matching the required schema.`;
 
+  const isLiquid = product.isLiquid || 
+    (product.servingSize && /ml|liter|litre|l\b|fl\s*oz/i.test(product.servingSize)) ||
+    (product.name && /sprite|coke|coca|pepsi|fanta|soda|drink|juice|beverage|water|milk|tea|coffee/i.test(product.name));
+  const basisLabel = product.nutritionBasis || (isLiquid ? 'Per 100 ml' : 'Per 100 g');
+
   const prompt = `Analyze the following food product:
 Product Name: ${product.name}
 Brand: ${product.brand || 'Unknown'}
 Barcode: ${product.barcode || 'N/A'}
 Ingredients: ${product.ingredients || 'None listed'}
-Nutrition per 100g:
+Nutrition (${basisLabel}):
 - Calories: ${product.calories ?? product.nutrition?.calories ?? 'N/A'} kcal
 - Protein: ${product.protein ?? product.nutrition?.protein ?? 'N/A'} g
 - Carbohydrates: ${product.carbohydrates ?? product.nutrition?.carbohydrates ?? 'N/A'} g

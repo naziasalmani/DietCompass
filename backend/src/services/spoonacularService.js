@@ -342,26 +342,14 @@ const generatePantryRecipes = async ({
         if (res3?.results) addUniqueResults(res3.results);
       }
     } else {
-      // PANTRY MODE STRATEGY: Subset matching across pantry items
+      // PANTRY MODE STRATEGY: Iterate across all pantry ingredients and sensible combinations
       if (cleanPantry.length > 0) {
-        const topSubset = cleanPantry.slice(0, 2);
-        console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${topSubset.join(', ')}`);
-        const url1 = buildSearchUrl(topSubset.join(' '), topSubset, { applyDiet: true, applyType: true });
-        const res1 = await httpGet(url1);
-        if (res1?.results) addUniqueResults(res1.results);
-
-        if (combinedResults.length < 6 && cleanPantry[0]) {
-          console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${cleanPantry[0]}`);
-          const url2 = buildSearchUrl(cleanPantry[0], [cleanPantry[0]], { applyDiet: true, applyType: false });
-          const res2 = await httpGet(url2);
-          if (res2?.results) addUniqueResults(res2.results);
-        }
-
-        if (combinedResults.length < 6 && cleanPantry.length > 1) {
-          console.log(`\n[PANTRY SEARCH STRATEGY]\nselectedIngredients = ${cleanPantry[1]}`);
-          const url3 = buildSearchUrl(cleanPantry[1], [cleanPantry[1]], { applyDiet: false, applyType: false });
-          const res3 = await httpGet(url3);
-          if (res3?.results) addUniqueResults(res3.results);
+        for (const query of prioritized.queries.slice(0, 6)) {
+          if (combinedResults.length >= 16) break;
+          console.log(`\n[PANTRY SEARCH STRATEGY]\nquery = "${query}"`);
+          const url = buildSearchUrl(query, [], { applyDiet: true, applyType: false });
+          const res = await httpGet(url);
+          if (res?.results) addUniqueResults(res.results);
         }
       } else if (craving) {
         const urlCraving = buildSearchUrl(craving, []);

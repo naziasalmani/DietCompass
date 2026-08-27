@@ -277,7 +277,14 @@ const searchMealDbRecipes = async ({
 
   const searchTerms = isProductMode
     ? [primarySearchTerm]
-    : (cleanPantry.length > 0 ? cleanPantry.slice(0, 3) : [primarySearchTerm]);
+    : (cleanPantry.length > 0
+        ? [...new Set([
+            ...cleanPantry,
+            ...(cleanPantry.some((p) => p.includes('noodle')) ? ['noodles', 'pasta'] : []),
+            ...(cleanPantry.some((p) => p.includes('rice')) ? ['fried rice', 'risotto'] : []),
+            ...(cleanPantry.some((p) => p.includes('chilli') || p.includes('chili')) ? ['chilli', 'chili', 'peppers'] : []),
+          ])]
+        : [primarySearchTerm]);
 
   // 1. Search by name query (/search.php?s=...)
   for (const term of searchTerms) {

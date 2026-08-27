@@ -26,6 +26,10 @@ const NON_VEGAN_PATTERNS = [
   /\b(honey|beeswax|royal jelly)\b/i,
 ];
 
+const EGG_PATTERNS = [
+  /\b(egg|eggs|egg white|egg whites|egg yolk|egg yolks|mayonnaise|mayo|albumin)\b/i,
+];
+
 const SAFE_EXCEPTIONS = [
   'chickpea', 'chickpeas', 'eggplant', 'eggplants', 'cocoa butter', 'cacao butter',
   'shea butter', 'peanut butter', 'almond butter', 'cashew butter', 'apple butter',
@@ -56,7 +60,7 @@ const validateRecipeSafety = (recipe, userProfile, personalization) => {
     return { isCompatible: false, rejectionReason: 'Recipe is missing stable identity ID' };
   }
 
-  const dietType = (personalization?.dietType || userProfile?.dietType || 'Vegetarian').toLowerCase().trim();
+  const dietType = (personalization?.dietType || userProfile?.dietType || (userProfile || personalization ? 'Vegetarian' : '')).toLowerCase().trim();
   const allergies = (personalization?.allergies || userProfile?.allergies || []).map((a) => a.toLowerCase().trim());
   const dislikedFoods = (personalization?.dislikedFoods || []).map((d) => d.toLowerCase().trim());
 
@@ -125,37 +129,51 @@ const validateRecipeSafety = (recipe, userProfile, personalization) => {
     }
   }
 
-  // 4. Strict Dietary Constraints
-  const isVegetarian = dietType.includes('vegetarian') && !dietType.includes('non');
-  const isVegan = dietType.includes('vegan');
-  const isPescatarian = dietType.includes('pescatarian') || dietType.includes('pescetarian');
+  // 4. Strict Dietary Constraints (only if dietType is specified)
+  if (dietType) {
+    const isVegetarian = dietType.includes('vegetarian') && !dietType.includes('non') && !dietType.includes('eggetarian');
+    const isEggetarian = dietType.includes('eggetarian');
+    const isVegan = dietType.includes('vegan');
+    const isPescatarian = dietType.includes('pescatarian') || dietType.includes('pescetarian');
 
-  if (isVegetarian || isVegan) {
-    for (const p of MEAT_PATTERNS) {
-      const match = p.exec(sanitizedText);
-      if (match) {
-        return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates ${dietType} diet` };
-      }
-    }
-    for (const p of SEAFOOD_PATTERNS) {
-      const match = p.exec(sanitizedText);
-      if (match) {
-        return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates ${dietType} diet` };
-      }
-    }
-    if (isVegan) {
-      for (const p of NON_VEGAN_PATTERNS) {
+    if (isVegetarian || isVegan || isEggetarian) {
+      for (const p of MEAT_PATTERNS) {
         const match = p.exec(sanitizedText);
         if (match) {
-          return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates vegan diet` };
+          return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates ${dietType} diet` };
         }
       }
-    }
-  } else if (isPescatarian) {
-    for (const p of MEAT_PATTERNS) {
-      const match = p.exec(sanitizedText);
-      if (match) {
-        return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates pescatarian diet` };
+      for (const p of SEAFOOD_PATTERNS) {
+        const match = p.exec(sanitizedText);
+        if (match) {
+          return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates ${dietType} diet` };
+        }
+      }
+      if (isVegan) {
+        for (const p of NON_VEGAN_PATTERNS) {
+          const match = p.exec(sanitizedText);
+          if (match) {
+            return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates vegan diet` };
+          }
+        }
+      } else if (isVegetarian && !isEggetarian) {
+        // Standard Vegetarian prohibits eggs
+        if (recipe.vegetarian === false) {
+          return { isCompatible: false, rejectionReason: `Recipe marked as non-vegetarian (${recipe.dietType || 'non-veg'})` };
+        }
+        for (const p of EGG_PATTERNS) {
+          const match = p.exec(sanitizedText);
+          if (match) {
+            return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates vegetarian diet` };
+          }
+        }
+      }
+    } else if (isPescatarian) {
+      for (const p of MEAT_PATTERNS) {
+        const match = p.exec(sanitizedText);
+        if (match) {
+          return { isCompatible: false, rejectionReason: `Contains ${match[0]}, which violates pescatarian diet` };
+        }
       }
     }
   }
@@ -175,5 +193,6 @@ module.exports = {
   MEAT_PATTERNS,
   SEAFOOD_PATTERNS,
   NON_VEGAN_PATTERNS,
+  EGG_PATTERNS,
   SAFE_EXCEPTIONS,
 };

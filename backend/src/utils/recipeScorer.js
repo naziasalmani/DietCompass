@@ -1,10 +1,10 @@
 /**
  * DietCompass — Unified Recipe Relevance Scorer
- * Implements strict scoring rules according to user specifications across Spoonacular, Edamam, and AI
+ * Implements strict scoring rules according to user specifications across Spoonacular, TheMealDB, and AI
  */
 
 const { validateRecipeSafety } = require('./dietarySafetyValidator');
-const { normalizeSourceProduct, cleanPantryIngredients } = require('./productNormalizer');
+const { normalizeSourceProduct, cleanPantryIngredients, getMatchingPantryIngredients } = require('./productNormalizer');
 
 /**
  * Calculates relevance score for any normalized recipe
@@ -12,16 +12,15 @@ const { normalizeSourceProduct, cleanPantryIngredients } = require('./productNor
  * Scoring rules:
  * - SOURCE PRODUCT MATCH: +40
  * - PRIMARY CULINARY CATEGORY MATCH: +30
- * - PANTRY INGREDIENT MATCH: +10 per matching pantry ingredient
+ * - PANTRY INGREDIENT MATCH: +20 per matching pantry ingredient
  * - MEAL TYPE MATCH: +10
  * - DIET MATCH: +20
  * - USER GOAL MATCH: +10
  *
- * Penalties:
- * - Unrelated recipe: -50
- * - Diet violation: REJECT (null / score -9999)
- * - Missing image: REJECT
- * - Missing recipe identity: REJECT
+ * Hard Constraints / Rejections:
+ * - Dietary safety violation: REJECT (score -9999)
+ * - Missing image / stable ID: REJECT (score -9999)
+ * - PANTRY MODE with 0 matched pantry ingredients: REJECT (score -9999)
  */
 const scoreRecipe = ({
   recipe,
@@ -99,21 +98,26 @@ const scoreRecipe = ({
     }
   } else {
     // -------------------------------------------------------------------------
-    // PANTRY MODE SCORING: Subset matching (+15 per used pantry ingredient)
+    // PANTRY MODE SCORING & HARD REQUIREMENT
     // -------------------------------------------------------------------------
-    for (const pantryItem of cleanPantry) {
-      const p = pantryItem.toLowerCase().trim();
-      if (p.length > 2 && corpus.includes(p)) {
-        score += 15;
-        breakdown.pantryMatches.push(pantryItem);
-      }
-    }
-    breakdown.matchedPantryIngredients = breakdown.pantryMatches.length;
+    if (cleanPantry.length > 0) {
+      const matches = getMatchingPantryIngredients(recipe, cleanPantry);
+      breakdown.pantryMatches = matches;
+      breakdown.matchedPantryIngredients = matches.length;
 
-    // A recipe with zero meaningful pantry matches is penalized in pantry mode
-    if (cleanPantry.length > 0 && breakdown.pantryMatches.length === 0) {
-      score -= 40;
-      breakdown.unrelatedPenalty = -40;
+      // HARD CONSTRAINT: In pantry mode with non-empty pantry, EVERY recipe MUST contain >= 1 pantry ingredient
+      if (matches.length === 0) {
+        return {
+          score: -9999,
+          isValid: false,
+          rejectionReason: 'Does not contain any pantry ingredient in pantry mode',
+          breakdown: { ...breakdown, pantryMatchViolated: true },
+        };
+      }
+
+      // +20 per used pantry ingredient
+      const pantryScore = matches.length * 20;
+      score += pantryScore;
     }
   }
 
@@ -133,7 +137,6 @@ const scoreRecipe = ({
     score += 20;
     breakdown.dietMatch = 20;
   } else {
-    // If it passed hard dietary validation, grant base diet match
     score += 10;
     breakdown.dietMatch = 10;
   }
@@ -168,7 +171,7 @@ const scoreRecipe = ({
 };
 
 /**
- * Filter, score, and rank an array of recipes
+ * Filter, score, and rank an array of recipes with pantry ingredient diversity
  */
 const rankAndScoreRecipes = ({
   recipes = [],
@@ -178,7 +181,7 @@ const rankAndScoreRecipes = ({
   mealType = '',
   userProfile = null,
   personalization = null,
-  minScoreThreshold = 20,
+  minScoreThreshold = 10,
 }) => {
   if (!Array.isArray(recipes) || recipes.length === 0) {
     return {
@@ -205,19 +208,22 @@ const rankAndScoreRecipes = ({
     });
 
     if (evaluation.isValid && evaluation.score >= minScoreThreshold) {
+      const matchCount = evaluation.breakdown.matchedPantryIngredients || evaluation.breakdown.pantryMatches.length;
+      const matchedNames = evaluation.breakdown.pantryMatches || [];
       const enrichedRecipe = {
         ...recipe,
         score: evaluation.score,
         scoreBreakdown: evaluation.breakdown,
-        matchedPantryIngredients: evaluation.breakdown.matchedPantryIngredients || evaluation.breakdown.pantryMatches.length,
+        matchedPantryIngredients: matchCount,
+        usedIngredientCount: matchCount,
         pantryMatchSummary: !isProductMode && pantryIngredients.length > 0
-          ? `Uses ${evaluation.breakdown.pantryMatches.length} of ${pantryIngredients.length} pantry ingredients`
+          ? `Uses ${matchCount} of ${pantryIngredients.length} pantry ingredients (${matchedNames.join(', ')})`
           : recipe.pantryMatchSummary || '',
       };
       scored.push(enrichedRecipe);
     } else {
       rejected.push({
-        recipe,
+        recipeTitle: recipe.title,
         score: evaluation.score,
         reason: evaluation.rejectionReason || (evaluation.score < minScoreThreshold ? 'Score below relevance threshold' : 'Invalid recipe'),
         breakdown: evaluation.breakdown,
@@ -228,11 +234,37 @@ const rankAndScoreRecipes = ({
   // Sort descending by score
   scored.sort((a, b) => (b.score || 0) - (a.score || 0));
 
+  // Ingredient Diversity Selection in Pantry Mode:
+  // Ensure that diverse pantry ingredients are represented in the top recipes
+  let diverseList = scored;
+  if (!isProductMode && pantryIngredients.length > 1 && scored.length > 1) {
+    const selected = [];
+    const remaining = [...scored];
+    const coveredPantry = new Set();
+
+    // First pass: pick best recipe for each unique pantry ingredient
+    for (const p of pantryIngredients) {
+      const cleanP = (typeof p === 'string' ? p : p.name || p.label || '').toLowerCase().trim();
+      const matchIdx = remaining.findIndex((r) =>
+        (r.scoreBreakdown?.pantryMatches || []).some((m) => m.toLowerCase().includes(cleanP) || cleanP.includes(m.toLowerCase()))
+      );
+      if (matchIdx !== -1) {
+        const picked = remaining.splice(matchIdx, 1)[0];
+        selected.push(picked);
+        coveredPantry.add(cleanP);
+      }
+    }
+
+    // Second pass: fill remainder with highest scoring remaining recipes
+    selected.push(...remaining);
+    diverseList = selected;
+  }
+
   return {
-    validRecipes: scored,
+    validRecipes: diverseList,
     rejectedRecipes: rejected,
-    bestScore: scored.length > 0 ? scored[0].score : 0,
-    bestRecipe: scored.length > 0 ? scored[0] : null,
+    bestScore: diverseList.length > 0 ? diverseList[0].score : 0,
+    bestRecipe: diverseList.length > 0 ? diverseList[0] : null,
   };
 };
 

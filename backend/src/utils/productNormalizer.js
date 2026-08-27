@@ -95,6 +95,12 @@ const KNOWN_PRODUCT_MAPPINGS = [
     keywords: ['rice', 'basmati'],
   },
   {
+    triggers: ['chilli', 'chili', 'chillies', 'chilies', 'green chilli', 'red chilli', 'chilli powder', 'capsicum', 'peppers'],
+    primaryCategory: 'chilli',
+    aliases: ['chilli', 'chili', 'peppers', 'chilis'],
+    keywords: ['chilli', 'chili', 'chilies', 'chillies', 'peppers'],
+  },
+  {
     triggers: ['honey', 'maple syrup', 'agave', 'jaggery'],
     primaryCategory: 'honey',
     aliases: ['honey', 'syrup'],
@@ -159,21 +165,7 @@ const normalizeProductForRecipe = (sourceProduct) => {
     }
   }
 
-  // 3. Check Name + Brand against taxonomy
-  const nameBrandLower = `${rawBrand} ${rawName}`.toLowerCase();
-  for (const mapping of KNOWN_PRODUCT_MAPPINGS) {
-    for (const trigger of mapping.triggers) {
-      if (nameBrandLower.includes(trigger)) {
-        return {
-          originalProduct: rawName,
-          normalizedIngredient: mapping.primaryCategory,
-          recipeSearchQuery: mapping.primaryCategory,
-        };
-      }
-    }
-  }
-
-  // 4. Check Ingredients text against taxonomy
+  // 3. Check Ingredients Text
   const ingredientsLower = rawIngredients.toLowerCase();
   if (ingredientsLower) {
     for (const mapping of KNOWN_PRODUCT_MAPPINGS) {
@@ -189,26 +181,26 @@ const normalizeProductForRecipe = (sourceProduct) => {
     }
   }
 
-  // 5. Strip brand noise words
-  let cleaned = nameBrandLower;
+  // 4. Strip Brand Noise Words from Product Name
+  let cleaned = nameLower;
   for (const brand of BRAND_NOISE_WORDS) {
     const reg = new RegExp(`\\b${brand}\\b`, 'gi');
     cleaned = cleaned.replace(reg, '');
   }
-
   cleaned = cleaned.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const fallbackCategory = cleaned || rawName.toLowerCase();
+
+  // Fallback term
+  const finalQuery = cleaned.length > 2 ? cleaned : 'food';
 
   return {
     originalProduct: rawName,
-    normalizedIngredient: fallbackCategory,
-    recipeSearchQuery: fallbackCategory,
+    normalizedIngredient: finalQuery,
+    recipeSearchQuery: finalQuery,
   };
 };
 
-
 /**
- * Normalizes a source product object or name to a clean culinary description
+ * Normalizes sourceProduct safely for all service consumers
  */
 const normalizeSourceProduct = (sourceProduct) => {
   if (!sourceProduct) {
@@ -234,7 +226,6 @@ const normalizeSourceProduct = (sourceProduct) => {
     cleanQuery: normalized.recipeSearchQuery,
   };
 };
-
 
 /**
  * Cleans pantry ingredients by stripping branded terms or source product mentions
@@ -275,12 +266,73 @@ const cleanPantryIngredients = (pantryItems = [], sourceProduct = null) => {
 };
 
 /**
- * Build prioritized search query attempts for Edamam / Spoonacular
- * e.g. for Cadbury Dairy Milk + Banana + Oats + Breakfast:
- * Attempt 1: "chocolate banana oats"
- * Attempt 2: "chocolate banana"
- * Attempt 3: "chocolate oats"
- * Attempt 4: "chocolate breakfast"
+ * Matches a recipe against user's pantry ingredients using robust semantic dictionary
+ * Returns the array of matching pantry ingredients (empty if 0 matches)
+ */
+const getMatchingPantryIngredients = (recipe, pantryIngredients = []) => {
+  if (!recipe || !Array.isArray(pantryIngredients) || pantryIngredients.length === 0) {
+    return [];
+  }
+
+  const title = (recipe.title || '').toLowerCase();
+  const summary = (recipe.summary || recipe.description || '').toLowerCase();
+  const ings = (recipe.ingredients || recipe.extendedIngredients || recipe.ingredientLines || [])
+    .map((i) => (typeof i === 'string' ? i : `${i.name || i.original || i.text || ''}`))
+    .join(' ')
+    .toLowerCase();
+  const corpus = `${title} ${summary} ${ings}`;
+
+  const matched = [];
+  for (const pantryItem of pantryIngredients) {
+    const raw = (typeof pantryItem === 'string' ? pantryItem : pantryItem?.name || pantryItem?.label || '').toLowerCase().trim();
+    if (!raw || raw.length < 2) continue;
+
+    // Stem / alias dictionary for comprehensive culinary matching
+    const aliases = [raw];
+    if (raw === 'noodle') aliases.push('noodles', 'ramen', 'pasta', 'spaghetti', 'chow mein', 'macaroni', 'penne', 'fusilli');
+    else if (raw === 'noodles') aliases.push('noodle', 'ramen', 'pasta', 'spaghetti', 'chow mein', 'macaroni');
+    else if (raw === 'rice') aliases.push('rice', 'basmati', 'risotto', 'fried rice', 'pulao', 'pilaf', 'jasmine rice');
+    else if (raw === 'chilli' || raw === 'chili') aliases.push('chilli', 'chili', 'chilies', 'chillies', 'peppers', 'pepper', 'capsicum', 'jalapeno', 'paprika', 'cayenne', 'hot sauce');
+    else if (raw === 'oat' || raw === 'oats') aliases.push('oats', 'oat', 'oatmeal', 'porridge', 'granola', 'muesli');
+    else if (raw === 'egg' || raw === 'eggs') aliases.push('egg', 'eggs', 'omelette', 'scramble', 'scrambled');
+    else if (raw === 'banana' || raw === 'bananas') aliases.push('banana', 'bananas');
+    else if (raw === 'tomato' || raw === 'tomatoes') aliases.push('tomato', 'tomatoes', 'cherry tomato');
+    else if (raw === 'potato' || raw === 'potatoes') aliases.push('potato', 'potatoes', 'tater');
+    else if (raw === 'milk') aliases.push('milk', 'dairy');
+    else if (raw === 'cheese') aliases.push('cheese', 'cheddar', 'mozzarella', 'parmesan', 'feta');
+    else if (raw === 'bread') aliases.push('bread', 'toast', 'bun', 'pita', 'bagel');
+    else if (raw === 'spinach') aliases.push('spinach', 'palak', 'greens');
+    else if (raw === 'mushroom' || raw === 'mushrooms') aliases.push('mushroom', 'mushrooms');
+    else if (raw.endsWith('s')) aliases.push(raw.substring(0, raw.length - 1));
+    else aliases.push(`${raw}s`);
+
+    if (raw === 'egg' || raw === 'eggs') {
+      const cleanCorpusNoEggplant = corpus.replace(/\begg\s*plants?\b/gi, '');
+      if (!/\beggs?\b/i.test(cleanCorpusNoEggplant) && !/\b(omelette|scramble|scrambled)\b/i.test(cleanCorpusNoEggplant)) {
+        continue;
+      }
+    }
+
+    let isMatch = false;
+    for (const alias of aliases) {
+      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp(`\\b${escaped}\\b`, 'i').test(corpus)) {
+        isMatch = true;
+        break;
+      }
+    }
+
+    if (isMatch) {
+      matched.push(raw);
+    }
+  }
+
+  return [...new Set(matched)];
+};
+
+/**
+ * Builds diverse search query attempts across individual pantry ingredients and sensible combinations
+ * Ensures NO single ingredient dominates and all pantry items receive search opportunities.
  */
 const buildPrioritizedQueries = ({ sourceProduct, pantryIngredients = [], mealType = '', craving = '' }) => {
   const normalized = normalizeSourceProduct(sourceProduct);
@@ -300,27 +352,18 @@ const buildPrioritizedQueries = ({ sourceProduct, pantryIngredients = [], mealTy
   };
 
   if (primaryCat) {
-    // Attempt 1: Product category + Top 2 pantry ingredients
     if (cleanPantry.length >= 2) {
       addQuery(`${primaryCat} ${cleanPantry[0]} ${cleanPantry[1]}`);
     }
-
-    // Attempt 2: Product category + 1st pantry ingredient
     if (cleanPantry.length >= 1) {
       addQuery(`${primaryCat} ${cleanPantry[0]}`);
     }
-
-    // Attempt 3: Product category + 2nd pantry ingredient
     if (cleanPantry.length >= 2) {
       addQuery(`${primaryCat} ${cleanPantry[1]}`);
     }
-
-    // Attempt 4: Product category + Meal Type (e.g. "chocolate breakfast")
     if (meal) {
       addQuery(`${primaryCat} ${meal}`);
     }
-
-    // Attempt 5: Product category alone
     addQuery(primaryCat);
   } else if (craving) {
     if (cleanPantry.length >= 1) {
@@ -328,15 +371,24 @@ const buildPrioritizedQueries = ({ sourceProduct, pantryIngredients = [], mealTy
     }
     addQuery(craving);
   } else {
-    // No source product, use pantry ingredients
-    if (cleanPantry.length >= 2) {
-      addQuery(`${cleanPantry[0]} ${cleanPantry[1]}`);
+    // PANTRY MODE: Generate diverse individual & combination queries for ALL pantry items
+    // 1. Every individual pantry ingredient alone
+    for (const p of cleanPantry) {
+      addQuery(p);
     }
-    if (cleanPantry.length >= 1) {
-      addQuery(cleanPantry[0]);
+
+    // 2. Sensible pairs across pantry items
+    for (let i = 0; i < cleanPantry.length; i++) {
+      for (let j = i + 1; j < cleanPantry.length; j++) {
+        addQuery(`${cleanPantry[i]} ${cleanPantry[j]}`);
+      }
     }
+
+    // 3. With meal type
     if (meal) {
-      addQuery(meal);
+      for (const p of cleanPantry.slice(0, 3)) {
+        addQuery(`${p} ${meal}`);
+      }
     }
   }
 
@@ -352,7 +404,7 @@ module.exports = {
   normalizeProductForRecipe,
   normalizeSourceProduct,
   cleanPantryIngredients,
+  getMatchingPantryIngredients,
   buildPrioritizedQueries,
   KNOWN_PRODUCT_MAPPINGS,
 };
-

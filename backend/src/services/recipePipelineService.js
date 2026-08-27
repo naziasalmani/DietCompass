@@ -1,12 +1,18 @@
 const spoonacularService = require('./spoonacularService');
 const mealDbService = require('./mealDbService');
 const aiRecipeService = require('./aiRecipeService');
-const { normalizeProductForRecipe, normalizeSourceProduct, cleanPantryIngredients } = require('../utils/productNormalizer');
+const { normalizeProductForRecipe, cleanPantryIngredients, getMatchingPantryIngredients } = require('../utils/productNormalizer');
+const {
+  findMatchingHardcodedRecipes,
+  findPantryMatchingHardcodedRecipes,
+  getFallbackHardcodedRecipes,
+  getHardcodedRecipeById,
+} = require('../data/hardcodedRecipes');
 
 /**
  * Checks if a recipe set qualifies as "good results"
  */
-const isGoodRecipeResult = (result, hasSourceProduct = false) => {
+const isGoodRecipeResult = (result, hasSourceProduct = false, cleanPantry = []) => {
   if (!result || !Array.isArray(result.recipes) || result.recipes.length === 0) {
     return false;
   }
@@ -15,20 +21,30 @@ const isGoodRecipeResult = (result, hasSourceProduct = false) => {
     return false;
   }
 
+  // If pantry mode with pantry ingredients, ensure every recipe has >= 1 pantry match
+  if (!hasSourceProduct && cleanPantry && cleanPantry.length > 0) {
+    const validPantryRecipes = result.recipes.filter(
+      (r) => getMatchingPantryIngredients(r, cleanPantry).length >= 1
+    );
+    if (validPantryRecipes.length === 0) {
+      return false;
+    }
+  }
+
   const topRecipe = result.recipes[0];
   if (!topRecipe || !topRecipe.image || !topRecipe.id) {
     return false;
   }
 
   if (hasSourceProduct) {
-    return result.bestScore >= 35;
+    return result.bestScore >= 30;
   }
 
-  return result.bestScore >= 20;
+  return result.bestScore >= 15;
 };
 
 /**
- * Main Fallback Pipeline: Spoonacular -> TheMealDB -> Gemini AI
+ * Main Fallback Pipeline: Spoonacular -> TheMealDB -> Gemini AI -> Curated Fallback
  */
 const generatePersonalizedRecipes = async ({
   mode = '',
@@ -44,6 +60,7 @@ const generatePersonalizedRecipes = async ({
 }) => {
   const isProductMode = mode === 'product' || (mode === '' && Boolean(sourceProduct));
   const effectiveMode = isProductMode ? 'product' : 'pantry';
+  const hasExplicitCraving = Boolean(craving && craving.trim().length > 0 && !isProductMode);
 
   const normalized = isProductMode ? normalizeProductForRecipe(sourceProduct) : { originalProduct: '', normalizedIngredient: '', recipeSearchQuery: '' };
   const allPantry = isProductMode
@@ -55,9 +72,14 @@ const generatePersonalizedRecipes = async ({
 
   const cleanPantry = isProductMode ? [] : cleanPantryIngredients(allPantry, null);
   const userDiet = personalization?.dietType || userProfile?.dietType || 'Vegetarian';
+  const userGoal = (personalization?.goals && personalization.goals.length > 0) ? personalization.goals.join(', ') : 'Weight Loss';
+  const userNutrition = personalization?.nutritionPreference || 'Balanced';
+  const userTime = maxTime ? `Under ${maxTime} minutes` : 'Under 20 minutes';
+  const effectiveMealType = mealType || 'Breakfast';
   const hasSourceProduct = isProductMode && Boolean(normalized.originalProduct);
   const effectiveSourceProduct = isProductMode ? sourceProduct : null;
   const primaryIngredient = normalized.normalizedIngredient || (isProductMode ? '' : craving) || 'food';
+  const searchQuery = primaryIngredient;
 
   // Empty Pantry / Input Guard for Pantry Mode
   if (!isProductMode && allPantry.length === 0 && !craving) {
@@ -71,190 +93,321 @@ const generatePersonalizedRecipes = async ({
   }
 
   console.log('\n==============================================');
-  console.log('[RECIPE MODE]');
-  if (isProductMode) {
-    console.log('mode = product\n');
-    console.log('[PRODUCT NORMALIZATION]');
-    console.log(`originalProduct = ${normalized.originalProduct || sourceProduct?.name || 'None'}`);
-    console.log(`normalizedIngredient = ${primaryIngredient}\n`);
-    console.log('[RECIPE SEARCH]');
-    console.log(`searchQuery = ${primaryIngredient}`);
-    console.log('pantryIngredients = IGNORED');
-  } else {
-    console.log('mode = pantry\n');
-    console.log('[PANTRY RECIPE SEARCH]');
-    console.log(`pantryIngredients = ${allPantry.join(', ')}`);
-  }
-  console.log('==============================================');
+  console.log('[BACKEND RECIPE DEBUG]');
+  console.log(`mode = ${effectiveMode}`);
+  console.log(`pantryIngredients = [${allPantry.join(', ')}]`);
+  console.log(`normalizedPantryIngredients = [${cleanPantry.join(', ')}]`);
+  console.log(`userPreferences = { diet: "${userDiet}", mealType: "${effectiveMealType}", goal: "${userGoal}", nutrition: "${userNutrition}", time: "${userTime}" }`);
+  console.log('==============================================\n');
 
+  // Retrieve matching hardcoded candidates ONLY for explicit search/craving query
+  const matchingHardcoded = hasExplicitCraving
+    ? findMatchingHardcodedRecipes(craving, { userProfile, personalization, maxTime })
+    : [];
+
+  // Helper to merge matching hardcoded candidates in explicit search mode without overriding API recipes
+  const enrichSearchResults = (apiRecipes) => {
+    if (!hasExplicitCraving || matchingHardcoded.length === 0) {
+      return apiRecipes;
+    }
+    const combined = [...apiRecipes];
+    const existingTitles = new Set(apiRecipes.map((r) => (r.title || '').toLowerCase().trim()));
+    for (const hc of matchingHardcoded) {
+      const hcTitle = hc.title.toLowerCase().trim();
+      if (!existingTitles.has(hcTitle) && combined.length < number) {
+        combined.push(hc);
+        existingTitles.add(hcTitle);
+      }
+    }
+    return combined;
+  };
+
+  // Helper to log candidate analysis
+  const logCandidates = (sourceName, recipes) => {
+    console.log(`\n[${sourceName} CANDIDATE ANALYSIS] (Found ${recipes.length} candidates):`);
+    for (const r of recipes) {
+      const pMatches = getMatchingPantryIngredients(r, cleanPantry);
+      console.log(`[CANDIDATE]`);
+      console.log(`title = ${r.title}`);
+      console.log(`ingredients = ${(r.ingredients || []).map((i) => i.name || i.original || '').join(', ')}`);
+      console.log(`pantryMatches = [${pMatches.join(', ')}]`);
+      console.log(`pantryMatchCount = ${pMatches.length}`);
+
+      const isAccepted = isProductMode || hasExplicitCraving || cleanPantry.length === 0 || pMatches.length >= 1;
+      console.log(`[FILTER]`);
+      console.log(`title = ${r.title}`);
+      console.log(`accepted/rejected = ${isAccepted ? 'ACCEPTED' : 'REJECTED'}`);
+      console.log(`reason = ${isAccepted ? 'OK (matches pantry)' : 'REJECTED (0 pantry matches in pantry mode)'}\n`);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // STEP 1: Attempt Spoonacular
   // ---------------------------------------------------------------------------
+  console.log('[SPOONACULAR QUERY]');
+  console.log(`query = ${isProductMode ? searchQuery : (craving || cleanPantry.join(' '))}`);
+  console.log(`includeIngredients = ${isProductMode ? 'None' : cleanPantry.join(',')}`);
+  console.log(`diet = ${userDiet}`);
+  console.log(`mealType = ${effectiveMealType}`);
+  console.log(`maxReadyTime = ${maxTime || 20}\n`);
+
   let spoonacularResult = await spoonacularService.generatePantryRecipes({
     mode: effectiveMode,
     ingredients: isProductMode ? [] : ingredients,
     pantryItems: isProductMode ? [] : pantryItems,
-    mealType,
+    mealType: effectiveMealType,
     maxTime,
-    craving,
+    craving: isProductMode ? searchQuery : craving,
     sourceProduct: effectiveSourceProduct,
     userProfile,
     personalization,
     number,
   });
 
-  const spoonacularGood = isGoodRecipeResult(spoonacularResult, hasSourceProduct);
-
-  let spoonacularStatus = spoonacularResult.status;
-  if (!spoonacularGood && spoonacularStatus === 'SPOONACULAR_SUCCESS') {
-    spoonacularStatus = 'SPOONACULAR_LOW_RELEVANCE';
+  if (spoonacularResult?.recipes?.length > 0) {
+    logCandidates('SPOONACULAR', spoonacularResult.recipes);
   }
 
-  console.log('[SPOONACULAR]');
-  console.log(`status = ${spoonacularStatus}`);
-  console.log(`results = ${spoonacularResult.validCount}`);
+  const spoonacularGood = isGoodRecipeResult(spoonacularResult, hasSourceProduct, cleanPantry);
 
   if (spoonacularGood) {
-    const top = spoonacularResult.recipes[0];
-    console.log('\n[FINAL RECIPE]');
-    console.log(`source = Spoonacular`);
-    console.log(`title = ${top.title}`);
-    console.log(`image = ${top.image}`);
-    console.log(`ingredients = ${(top.ingredients || []).map((i) => i.name).join(', ')}`);
-    console.log('==============================================\n');
+    let validRecipes = spoonacularResult.recipes;
+    if (!isProductMode && cleanPantry.length > 0) {
+      validRecipes = validRecipes.filter((r) => getMatchingPantryIngredients(r, cleanPantry).length >= 1);
+    }
 
-    return {
-      recipes: spoonacularResult.recipes,
-      totalFound: spoonacularResult.recipes.length,
-      recipeSource: 'spoonacular',
-      pantrySummary: isProductMode
-        ? `Generated ${spoonacularResult.recipes.length} recipes for ${normalized.originalName || 'your product'}.`
-        : `Generated ${spoonacularResult.recipes.length} recipes from your pantry.`,
-      pantryIngredients: allPantry,
-    };
+    if (validRecipes.length > 0) {
+      const finalRecipes = enrichSearchResults(validRecipes);
+      console.log('\n[FINAL PANTRY RESULTS]');
+      console.log(`count = ${finalRecipes.length}`);
+      console.log(`source = pantry_api (spoonacular)`);
+      finalRecipes.forEach((r, idx) => {
+        const pMatches = getMatchingPantryIngredients(r, cleanPantry);
+        console.log(`  Recipe ${idx + 1}: "${r.title}" | Matched: [${pMatches.join(', ')}]`);
+      });
+      console.log('==============================================\n');
+
+      return {
+        recipes: finalRecipes,
+        totalFound: finalRecipes.length,
+        recipeSource: 'spoonacular',
+        pantrySummary: isProductMode
+          ? `Generated ${finalRecipes.length} recipes for ${normalized.originalProduct || 'your product'}.`
+          : hasExplicitCraving
+          ? `Found ${finalRecipes.length} recipes matching "${craving}".`
+          : `Generated ${finalRecipes.length} recipes from your pantry.`,
+        pantryIngredients: allPantry,
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // STEP 2: Spoonacular Unusable -> Fallback to TheMealDB (Free V1 API)
+  // STEP 2: Fallback to TheMealDB (Free V1 API)
   // ---------------------------------------------------------------------------
-  console.log('\n[THEMEALDB]');
-  console.log(`fallbackTriggered = true`);
+  console.log('[MEALDB QUERY]');
+  console.log(`query = ${isProductMode ? searchQuery : (cleanPantry.join(', ') || 'healthy')}\n`);
 
   let mealDbResult = await mealDbService.searchMealDbRecipes({
     mode: effectiveMode,
     sourceProduct: effectiveSourceProduct,
     ingredients: isProductMode ? [] : ingredients,
     pantryItems: isProductMode ? [] : pantryItems,
-    mealType,
-    craving,
+    mealType: effectiveMealType,
+    craving: isProductMode ? searchQuery : craving,
     userProfile,
     personalization,
     number,
   });
 
-  const mealDbGood = isGoodRecipeResult(mealDbResult, hasSourceProduct);
-
-  let mealDbStatus = mealDbResult.status;
-  if (!mealDbGood && mealDbStatus === 'THEMEALDB_SUCCESS') {
-    mealDbStatus = 'THEMEALDB_LOW_RELEVANCE';
+  if (mealDbResult?.recipes?.length > 0) {
+    logCandidates('THEMEALDB', mealDbResult.recipes);
   }
 
-  console.log(`status = ${mealDbStatus}`);
-  console.log(`results = ${mealDbResult.validCount}`);
+  const mealDbGood = isGoodRecipeResult(mealDbResult, hasSourceProduct, cleanPantry);
 
   if (mealDbGood) {
-    const top = mealDbResult.recipes[0];
-    console.log('\n[FINAL RECIPE]');
-    console.log(`source = TheMealDB`);
-    console.log(`title = ${top.title}`);
-    console.log(`image = ${top.image}`);
-    console.log(`ingredients = ${(top.ingredients || []).map((i) => i.name).join(', ')}`);
-    console.log('==============================================\n');
+    let validRecipes = mealDbResult.recipes;
+    if (!isProductMode && cleanPantry.length > 0) {
+      validRecipes = validRecipes.filter((r) => getMatchingPantryIngredients(r, cleanPantry).length >= 1);
+    }
 
-    return {
-      recipes: mealDbResult.recipes,
-      totalFound: mealDbResult.recipes.length,
-      recipeSource: 'themealdb',
-      pantrySummary: isProductMode
-        ? `Generated ${mealDbResult.recipes.length} recipes for ${normalized.originalName || 'your product'} from TheMealDB.`
-        : `Generated ${mealDbResult.recipes.length} recipes from your pantry from TheMealDB.`,
-      pantryIngredients: allPantry,
-    };
+    if (validRecipes.length > 0) {
+      const finalRecipes = enrichSearchResults(validRecipes);
+      console.log('\n[FINAL PANTRY RESULTS]');
+      console.log(`count = ${finalRecipes.length}`);
+      console.log(`source = pantry_api (themealdb)`);
+      finalRecipes.forEach((r, idx) => {
+        const pMatches = getMatchingPantryIngredients(r, cleanPantry);
+        console.log(`  Recipe ${idx + 1}: "${r.title}" | Matched: [${pMatches.join(', ')}]`);
+      });
+      console.log('==============================================\n');
+
+      return {
+        recipes: finalRecipes,
+        totalFound: finalRecipes.length,
+        recipeSource: 'themealdb',
+        pantrySummary: isProductMode
+          ? `Generated ${finalRecipes.length} recipes for ${normalized.originalProduct || 'your product'} from TheMealDB.`
+          : hasExplicitCraving
+          ? `Found ${finalRecipes.length} recipes matching "${craving}" from TheMealDB.`
+          : `Generated ${finalRecipes.length} recipes from your pantry from TheMealDB.`,
+        pantryIngredients: allPantry,
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // STEP 3: Fallback to Gemini AI Generation
+  // STEP 3: Fallback to Gemini AI Recipe Generation
   // ---------------------------------------------------------------------------
-  console.log('\n[GEMINI AI FALLBACK]');
-  console.log(`fallbackTriggered = true`);
+  console.log('[AI QUERY]');
+  console.log(`prompt ingredients = ${isProductMode ? normalized.originalProduct : cleanPantry.join(', ')}`);
+  console.log(`diet = ${userDiet}, mealType = ${effectiveMealType}\n`);
 
   const aiRecipes = await aiRecipeService.generateAiFallbackRecipe({
     mode: effectiveMode,
     sourceProduct: effectiveSourceProduct,
     ingredients: isProductMode ? [] : ingredients,
     pantryItems: isProductMode ? [] : pantryItems,
-    mealType,
-    craving,
+    mealType: effectiveMealType,
+    craving: isProductMode ? searchQuery : craving,
     userProfile,
     personalization,
   });
 
   if (aiRecipes.length > 0) {
-    const top = aiRecipes[0];
-    console.log('\n[FINAL RECIPE]');
-    console.log(`source = AI`);
-    console.log(`title = ${top.title}`);
-    console.log(`image = ${top.image}`);
-    console.log(`ingredients = ${(top.ingredients || []).map((i) => i.name).join(', ')}`);
+    let validAiRecipes = aiRecipes;
+    if (!isProductMode && cleanPantry.length > 0) {
+      validAiRecipes = validAiRecipes.filter((r) => getMatchingPantryIngredients(r, cleanPantry).length >= 1);
+    }
+
+    if (validAiRecipes.length > 0) {
+      const finalRecipes = enrichSearchResults(validAiRecipes);
+      console.log('\n[FINAL PANTRY RESULTS]');
+      console.log(`count = ${finalRecipes.length}`);
+      console.log(`source = pantry_ai`);
+      finalRecipes.forEach((r, idx) => {
+        const pMatches = getMatchingPantryIngredients(r, cleanPantry);
+        console.log(`  Recipe ${idx + 1}: "${r.title}" | Matched: [${pMatches.join(', ')}]`);
+      });
+      console.log('==============================================\n');
+
+      return {
+        recipes: finalRecipes,
+        totalFound: finalRecipes.length,
+        recipeSource: 'ai',
+        pantrySummary: isProductMode
+          ? `Generated recipe for ${normalized.originalProduct || 'your product'} using DietCompass AI Chef.`
+          : `Generated ${finalRecipes.length} recipes crafted from your pantry using DietCompass AI Chef.`,
+        pantryIngredients: allPantry,
+      };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 4: ZERO-RESULT FALLBACK PIPELINE
+  // When live generation/APIs return 0 valid recipes
+  // ---------------------------------------------------------------------------
+  console.log('[STEP 4: Live Generation produced 0 valid pantry recipes -> HARDCODED / FALLBACK PIPELINE]');
+
+  // CASE 2: Explicit Search Mode zero-result resolution
+  if (hasExplicitCraving) {
+    if (matchingHardcoded.length > 0) {
+      console.log(`matchedHardcodedCount = ${matchingHardcoded.length}`);
+      console.log(`source = curated`);
+      console.log('==============================================\n');
+      return {
+        recipes: matchingHardcoded,
+        totalFound: matchingHardcoded.length,
+        recipeSource: 'curated',
+        pantrySummary: `Found curated recipes matching "${craving}".`,
+        pantryIngredients: allPantry,
+      };
+    }
+
+    const genericFallback = getFallbackHardcodedRecipes({ userProfile, personalization, maxTime, limit: number });
+    console.log(`genericFallbackCount = ${genericFallback.length}`);
+    console.log('source = fallback');
     console.log('==============================================\n');
 
     return {
-      recipes: aiRecipes,
-      totalFound: aiRecipes.length,
-      recipeSource: 'ai',
-      pantrySummary: `Generated recipe using DietCompass AI Chef.`,
+      recipes: genericFallback,
+      totalFound: genericFallback.length,
+      recipeSource: 'hardcoded_fallback',
+      pantrySummary: `No direct matches for "${craving}". Here are wholesome recipe recommendations based on your preferences.`,
       pantryIngredients: allPantry,
     };
   }
 
-  console.log('\n[FINAL RECIPE]');
-  console.log('source = None');
-  console.log('title = No suitable recipe found');
+  // CASE 1: Pantry Mode zero-result resolution
+  if (!isProductMode) {
+    // Check if any hardcoded recipes match at least 1 pantry ingredient
+    const pantryMatchingHardcoded = findPantryMatchingHardcodedRecipes(allPantry, { userProfile, personalization, maxTime });
+    if (pantryMatchingHardcoded.length > 0) {
+      console.log(`pantryMatchingHardcodedCount = ${pantryMatchingHardcoded.length}`);
+      console.log('source = curated');
+      console.log('==============================================\n');
+      return {
+        recipes: pantryMatchingHardcoded,
+        totalFound: pantryMatchingHardcoded.length,
+        recipeSource: 'curated',
+        pantrySummary: `Generated ${pantryMatchingHardcoded.length} recipes from your available pantry ingredients.`,
+        pantryIngredients: allPantry,
+      };
+    }
+
+    // If zero pantry-matching recipes found anywhere, use safe fallback recipes so UI never breaks
+    const pantryFallback = getFallbackHardcodedRecipes({ userProfile, personalization, maxTime, limit: number });
+    console.log(`[ZERO PANTRY MATCH FALLBACK TRIGGERED] Returning ${pantryFallback.length} fallback suggestions`);
+    console.log('recipeSource = hardcoded_fallback');
+    console.log('==============================================\n');
+    return {
+      recipes: pantryFallback,
+      totalFound: pantryFallback.length,
+      recipeSource: 'hardcoded_fallback',
+      pantrySummary: 'We couldn\'t generate recipes matching your exact pantry items, so here are delicious recommendations for your diet.',
+      pantryIngredients: allPantry,
+    };
+  }
+
+  // Product Mode fallback
+  const productFallback = getFallbackHardcodedRecipes({ userProfile, personalization, maxTime, limit: number });
+  console.log(`productFallbackCount = ${productFallback.length}`);
+  console.log('source = hardcoded_fallback');
   console.log('==============================================\n');
 
   return {
-    recipes: [],
-    totalFound: 0,
-    recipeSource: 'none',
-    pantrySummary: 'No suitable recipes found with your current pantry and preferences.',
-    spoonacularStatus,
-    mealDbStatus,
+    recipes: productFallback,
+    totalFound: productFallback.length,
+    recipeSource: 'hardcoded_fallback',
+    pantrySummary: 'We couldn\'t find specific recipes for this product, so here are wholesome suggestions tailored for you.',
   };
 };
 
 /**
  * Get detailed recipe info by ID
  */
-const getRecipeDetails = async (id, userProfile, personalization) => {
+const getRecipeDetails = async (id, userProfile = null, personalization = null) => {
   if (!id) return null;
 
-  const idStr = String(id);
-
-  // If ID starts with "ai_"
-  if (idStr.startsWith('ai_')) {
-    return null;
+  // 1. Check curated / hardcoded catalog
+  const hardcodedMatch = getHardcodedRecipeById(id);
+  if (hardcodedMatch) {
+    return hardcodedMatch;
   }
 
-  // Try Spoonacular first if API key is present
-  const spoonacularRecipe = await spoonacularService.getRecipeDetails(id, userProfile, personalization);
-  if (spoonacularRecipe) return spoonacularRecipe;
+  // 2. Spoonacular ID (numeric string)
+  if (!isNaN(id)) {
+    return await spoonacularService.getRecipeDetails(id, userProfile, personalization);
+  }
 
-  // Try TheMealDB lookup
-  const mealDbRecipe = await mealDbService.getMealDbRecipeDetails(id, userProfile, personalization);
-  if (mealDbRecipe) return mealDbRecipe;
+  // 3. TheMealDB ID (starts with mealdb_)
+  if (typeof id === 'string' && id.startsWith('mealdb_')) {
+    const rawMealDbId = id.replace('mealdb_', '');
+    return await mealDbService.getMealDbRecipeDetails(rawMealDbId, userProfile, personalization);
+  }
 
-  return null;
+  // 4. Default to Spoonacular ID handler
+  return await spoonacularService.getRecipeDetails(id, userProfile, personalization);
 };
 
 module.exports = {
