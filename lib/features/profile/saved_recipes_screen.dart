@@ -1,18 +1,15 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import '../../core/model/recipe_history_item.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/recipe_history_service.dart';
+import '../recipe_generator/recipe_detail_screen.dart';
+import '../recipe_generator/recipe_generator_screen.dart';
 
 /// DietCompass — Saved Recipes Screen
 /// -----------------------------------------------------------------------
-/// Matches the visual language of the rest of the app: lavender background
-/// (0xFFF3F0FB), purple → green brand accents, frosted glassmorphism
-/// cards/pills, staggered entrance choreography, and a per-card reveal
-/// animation as recipes scroll into view. Bookmark buttons pop on tap.
-///
-/// Recipe photos are optional — pass an `imageAsset` per RecipeItem and it
-/// will render via Image.asset with a graceful colour-tinted icon fallback
-/// if the asset isn't found yet, so the screen works before you wire in
-/// real photography.
+/// Displays actual saved recipes for the authenticated user, synchronized with
+/// backend RecipeHistory and RecipeHistoryService.
 class RecipeItem {
   const RecipeItem({
     required this.title,
@@ -24,6 +21,7 @@ class RecipeItem {
     this.imageAsset,
     this.isVegetarian = true,
     this.isBookmarked = true,
+    this.historyItem,
   });
 
   final String title;
@@ -35,6 +33,35 @@ class RecipeItem {
   final String? imageAsset;
   final bool isVegetarian;
   final bool isBookmarked;
+  final RecipeHistoryItem? historyItem;
+
+  factory RecipeItem.fromHistoryItem(RecipeHistoryItem h) {
+    String label = 'Saved recently';
+    final now = DateTime.now();
+    final diff = now.difference(h.generatedAt);
+    if (diff.inDays == 0 && now.day == h.generatedAt.day) {
+      label = 'Saved today';
+    } else if (diff.inDays <= 1) {
+      label = 'Saved yesterday';
+    } else if (diff.inDays < 7) {
+      label = 'Saved ${diff.inDays} days ago';
+    } else {
+      label = 'Saved earlier';
+    }
+
+    return RecipeItem(
+      title: h.title,
+      tags: h.tagsLabel,
+      timeMinutes: h.timeMinutes,
+      kcal: h.calories?.toInt() ?? 300,
+      proteinG: h.protein?.toInt() ?? 10,
+      savedLabel: label,
+      imageAsset: h.imageUrl.isNotEmpty ? h.imageUrl : null,
+      isVegetarian: h.isVegetarian,
+      isBookmarked: h.isBookmarked,
+      historyItem: h,
+    );
+  }
 }
 
 class CategoryTab {
@@ -45,81 +72,24 @@ class CategoryTab {
 }
 
 class SavedRecipesScreen extends StatefulWidget {
-  SavedRecipesScreen({
+  const SavedRecipesScreen({
     super.key,
-    List<RecipeItem>? recipes,
+    this.recipes,
     this.onBack,
     this.onSearchTap,
     this.onRecipeTap,
     this.onRecipeMenuTap,
     this.onBookmarkToggle,
     this.onFilterTap,
-  }) : recipes = recipes ?? _defaultRecipes;
+  });
 
-  final List<RecipeItem> recipes;
+  final List<RecipeItem>? recipes;
   final VoidCallback? onBack;
   final VoidCallback? onSearchTap;
   final ValueChanged<RecipeItem>? onRecipeTap;
   final ValueChanged<RecipeItem>? onRecipeMenuTap;
   final void Function(RecipeItem recipe, bool bookmarked)? onBookmarkToggle;
   final VoidCallback? onFilterTap;
-
-  static const _defaultRecipes = [
-    RecipeItem(
-      title: 'Banana Oats Power Bowl',
-      tags: 'Healthy • Quick • Delicious',
-      timeMinutes: 15,
-      kcal: 320,
-      proteinG: 12,
-      savedLabel: 'Saved today',
-      imageAsset: 'assets/images/recipe_banana_oats_power_bowl.jpeg',
-    ),
-    RecipeItem(
-      title: 'Apple Cinnamon Oatmeal',
-      tags: 'Warm • Comforting • Wholesome',
-      timeMinutes: 12,
-      kcal: 310,
-      proteinG: 9,
-      savedLabel: 'Saved 1 day ago',
-      imageAsset: 'assets/images/recipe_apple_cinnamon_oatmeal.jpeg',
-    ),
-    RecipeItem(
-      title: 'Quinoa Veggie Salad',
-      tags: 'Healthy • Light • Refreshing',
-      timeMinutes: 20,
-      kcal: 280,
-      proteinG: 10,
-      savedLabel: 'Saved 2 days ago',
-      imageAsset: 'assets/images/quinoa_veggie_salad.jpeg',
-    ),
-    RecipeItem(
-      title: 'Chickpea Curry with Rice',
-      tags: 'Hearty • Spicy • Comforting',
-      timeMinutes: 25,
-      kcal: 450,
-      proteinG: 15,
-      savedLabel: 'Saved 4 days ago',
-      imageAsset: 'assets/images/chickpea_curry.jpeg',
-    ),
-    RecipeItem(
-      title: 'Berry Banana Smoothie',
-      tags: 'Quick • Healthy • Energizing',
-      timeMinutes: 5,
-      kcal: 210,
-      proteinG: 6,
-      savedLabel: 'Saved 5 days ago',
-      imageAsset: 'assets/images/berry_banana_smoothie.jpeg',
-    ),
-    RecipeItem(
-      title: 'Avocado Egg Toast',
-      tags: 'High Protein • Quick • Filling',
-      timeMinutes: 10,
-      kcal: 350,
-      proteinG: 14,
-      savedLabel: 'Saved 1 week ago',
-      imageAsset: 'assets/images/avocado_egg_toast.jpeg',
-    ),
-  ];
 
   @override
   State<SavedRecipesScreen> createState() => _SavedRecipesScreenState();
@@ -130,14 +100,7 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen>
   late final AnimationController _entranceCtrl;
   int _selectedCategory = 0;
   String _sortLabel = 'Recently Added';
-
-  static const _categories = [
-    CategoryTab(icon: Icons.bookmark_rounded, label: 'All Recipes', count: 24),
-    CategoryTab(icon: Icons.wb_sunny_rounded, label: 'Breakfast', count: 8),
-    CategoryTab(icon: Icons.ramen_dining_rounded, label: 'Lunch', count: 6),
-    CategoryTab(icon: Icons.nightlight_round, label: 'Dinner', count: 7),
-    CategoryTab(icon: Icons.cookie_rounded, label: 'Snacks', count: 3),
-  ];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -146,6 +109,18 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
+
+    _loadSavedRecipes();
+  }
+
+  Future<void> _loadSavedRecipes() async {
+    if (widget.recipes == null) {
+      setState(() => _isLoading = true);
+      await RecipeHistoryService.instance.getRecipeHistory(tab: 'saved');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -171,10 +146,91 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen>
 
   void _handleSortSelected(String value) => setState(() => _sortLabel = value);
 
+  List<RecipeItem> _buildRecipeList(List<RecipeHistoryItem> savedHistory) {
+    if (widget.recipes != null) {
+      return widget.recipes!;
+    }
+    return savedHistory.map((h) => RecipeItem.fromHistoryItem(h)).toList();
+  }
+
+  List<RecipeItem> _filterAndSort(List<RecipeItem> items) {
+    var result = List<RecipeItem>.from(items);
+
+    // 1. Category Filter
+    if (_selectedCategory == 1) {
+      result = result.where((r) {
+        final t = r.tags.toLowerCase();
+        final title = r.title.toLowerCase();
+        return t.contains('breakfast') || title.contains('oat') || title.contains('egg') || title.contains('pancake');
+      }).toList();
+    } else if (_selectedCategory == 2) {
+      result = result.where((r) {
+        final t = r.tags.toLowerCase();
+        final title = r.title.toLowerCase();
+        return t.contains('lunch') || title.contains('salad') || title.contains('rice') || title.contains('pasta') || title.contains('curry');
+      }).toList();
+    } else if (_selectedCategory == 3) {
+      result = result.where((r) {
+        final t = r.tags.toLowerCase();
+        final title = r.title.toLowerCase();
+        return t.contains('dinner') || title.contains('stew') || title.contains('soup') || title.contains('roast');
+      }).toList();
+    } else if (_selectedCategory == 4) {
+      result = result.where((r) {
+        final t = r.tags.toLowerCase();
+        final title = r.title.toLowerCase();
+        return t.contains('snack') || title.contains('smoothie') || title.contains('bites') || title.contains('bar');
+      }).toList();
+    }
+
+    // 2. Sorting
+    switch (_sortLabel) {
+      case 'A–Z':
+        result.sort((a, b) => a.title.compareTo(b.title));
+        break;
+      case 'Quickest First':
+        result.sort((a, b) => a.timeMinutes.compareTo(b.timeMinutes));
+        break;
+      case 'Lowest Calories':
+        result.sort((a, b) => a.kcal.compareTo(b.kcal));
+        break;
+      case 'Highest Protein':
+        result.sort((a, b) => b.proteinG.compareTo(a.proteinG));
+        break;
+      case 'Recently Added':
+      default:
+        // Preserves natural order from newest to oldest
+        break;
+    }
+
+    return result;
+  }
+
+  void _onRecipeClicked(RecipeItem recipe) {
+    if (widget.onRecipeTap != null) {
+      widget.onRecipeTap!(recipe);
+    } else if (recipe.historyItem != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailScreen(recipe: recipe.historyItem!.toRecipe()),
+        ),
+      );
+    }
+  }
+
+  void _onBookmarkClicked(RecipeItem recipe, bool isBookmarked) {
+    if (recipe.historyItem != null) {
+      RecipeHistoryService.instance.toggleBookmark(recipe.historyItem!, isBookmarked);
+    }
+    widget.onBookmarkToggle?.call(recipe, isBookmarked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final userId = AuthService.instance.currentUser?.id ?? 'guest_user';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
@@ -183,80 +239,156 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen>
         children: [
           _GlassBackdrop(uiScale: scale),
           SafeArea(
-            child: ListView.builder(
-              padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 24 * scale),
-              physics: const BouncingScrollPhysics(),
-              itemCount: widget.recipes.length + 4,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return FadeTransition(
-                    opacity: _fade(0.0, 0.3),
-                    child: SlideTransition(
-                      position: _slide(0.0, 0.34),
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 16 * scale),
-                        child: _TopHeader(
-                          uiScale: scale,
-                          onBack: widget.onBack,
-                          onSearchTap: widget.onSearchTap,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (index == 1) {
-                  return FadeTransition(
-                    opacity: _fade(0.08, 0.38),
-                    child: SlideTransition(
-                      position: _slide(0.08, 0.42),
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 14 * scale),
-                        child: _CategoryTabsRow(
-                          uiScale: scale,
-                          categories: _categories,
-                          selectedIndex: _selectedCategory,
-                          onSelected: (i) => setState(() => _selectedCategory = i),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (index == 2) {
-                  return FadeTransition(
-                    opacity: _fade(0.14, 0.42),
-                    child: SlideTransition(
-                      position: _slide(0.14, 0.46),
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 4 * scale),
-                        child: _SortFilterRow(
-                          uiScale: scale,
-                          sortLabel: _sortLabel,
-                          onSortSelected: _handleSortSelected,
-                          onFilterTap: widget.onFilterTap,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (index == 3) {
-                  return Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10 * scale),
-                    child: Divider(height: 1, color: const Color(0xFFE1DAF2)),
-                  );
-                }
+            child: ListenableBuilder(
+              listenable: RecipeHistoryService.instance,
+              builder: (context, _) {
+                final savedHistory = RecipeHistoryService.instance.savedRecipes;
+                final allRecipes = _buildRecipeList(savedHistory);
 
-                final recipeIndex = index - 4;
-                final recipe = widget.recipes[recipeIndex];
-                return Padding(
-                  padding: EdgeInsets.only(bottom: 14 * scale),
-                  child: _RecipeCard(
-                    uiScale: scale,
-                    index: recipeIndex,
-                    recipe: recipe,
-                    onTap: () => widget.onRecipeTap?.call(recipe),
-                    onMenuTap: () => widget.onRecipeMenuTap?.call(recipe),
-                    onBookmarkToggle: (v) => widget.onBookmarkToggle?.call(recipe, v),
+                debugPrint('\n==============================================');
+                debugPrint('[SAVED RECIPES PROFILE TRACE]');
+                debugPrint('userId = $userId');
+                debugPrint('savedRecipeCount = ${allRecipes.length}');
+                debugPrint('recipeTitles = [${allRecipes.map((r) => r.title).join(', ')}]');
+                debugPrint('==============================================\n');
+
+                final categories = [
+                  CategoryTab(icon: Icons.bookmark_rounded, label: 'All Recipes', count: allRecipes.length),
+                  CategoryTab(
+                    icon: Icons.wb_sunny_rounded,
+                    label: 'Breakfast',
+                    count: allRecipes.where((r) => r.tags.toLowerCase().contains('breakfast') || r.title.toLowerCase().contains('oat') || r.title.toLowerCase().contains('egg')).length,
                   ),
+                  CategoryTab(
+                    icon: Icons.ramen_dining_rounded,
+                    label: 'Lunch',
+                    count: allRecipes.where((r) => r.tags.toLowerCase().contains('lunch') || r.title.toLowerCase().contains('salad') || r.title.toLowerCase().contains('rice') || r.title.toLowerCase().contains('pasta')).length,
+                  ),
+                  CategoryTab(
+                    icon: Icons.nightlight_round,
+                    label: 'Dinner',
+                    count: allRecipes.where((r) => r.tags.toLowerCase().contains('dinner') || r.title.toLowerCase().contains('curry') || r.title.toLowerCase().contains('stew')).length,
+                  ),
+                  CategoryTab(
+                    icon: Icons.cookie_rounded,
+                    label: 'Snacks',
+                    count: allRecipes.where((r) => r.tags.toLowerCase().contains('snack') || r.title.toLowerCase().contains('smoothie') || r.title.toLowerCase().contains('pudding')).length,
+                  ),
+                ];
+
+                final filteredRecipes = _filterAndSort(allRecipes);
+
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(18 * scale, 8 * scale, 18 * scale, 24 * scale),
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    FadeTransition(
+                      opacity: _fade(0.0, 0.3),
+                      child: SlideTransition(
+                        position: _slide(0.0, 0.34),
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 16 * scale),
+                          child: _TopHeader(
+                            uiScale: scale,
+                            onBack: widget.onBack,
+                            onSearchTap: widget.onSearchTap,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    if (allRecipes.isNotEmpty) ...[
+                      FadeTransition(
+                        opacity: _fade(0.08, 0.38),
+                        child: SlideTransition(
+                          position: _slide(0.08, 0.42),
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 14 * scale),
+                            child: _CategoryTabsRow(
+                              uiScale: scale,
+                              categories: categories,
+                              selectedIndex: _selectedCategory,
+                              onSelected: (i) => setState(() => _selectedCategory = i),
+                            ),
+                          ),
+                        ),
+                      ),
+                      FadeTransition(
+                        opacity: _fade(0.14, 0.42),
+                        child: SlideTransition(
+                          position: _slide(0.14, 0.46),
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 4 * scale),
+                            child: _SortFilterRow(
+                              uiScale: scale,
+                              sortLabel: _sortLabel,
+                              onSortSelected: _handleSortSelected,
+                              onFilterTap: widget.onFilterTap,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10 * scale),
+                        child: const Divider(height: 1, color: Color(0xFFE1DAF2)),
+                      ),
+                    ],
+
+                    if (_isLoading && allRecipes.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 60 * scale),
+                          child: const CircularProgressIndicator(color: Color(0xFF6C4EF5)),
+                        ),
+                      )
+                    else if (allRecipes.isEmpty)
+                      FadeTransition(
+                        opacity: _fade(0.1, 0.4),
+                        child: SlideTransition(
+                          position: _slide(0.1, 0.45),
+                          child: _EmptySavedRecipesState(
+                            uiScale: scale,
+                            onExplore: () {
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              } else {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const RecipeGeneratorScreen()),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      )
+                    else if (filteredRecipes.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 40 * scale),
+                          child: Text(
+                            'No recipes match this category.',
+                            style: TextStyle(
+                              fontSize: 13 * scale,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF6B6B7B),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      for (int i = 0; i < filteredRecipes.length; i++)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 14 * scale),
+                          child: _RecipeCard(
+                            uiScale: scale,
+                            index: i,
+                            recipe: filteredRecipes[i],
+                            onTap: () => _onRecipeClicked(filteredRecipes[i]),
+                            onMenuTap: () => widget.onRecipeMenuTap?.call(filteredRecipes[i]),
+                            onBookmarkToggle: (v) => _onBookmarkClicked(filteredRecipes[i], v),
+                          ),
+                        ),
+                  ],
                 );
               },
             ),
@@ -299,80 +431,102 @@ class _GlassBackdropState extends State<_GlassBackdrop>
 
   @override
   Widget build(BuildContext context) {
-    final uiScale = widget.uiScale;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final t = Curves.easeInOut.transform(_ctrl.value);
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Container(color: const Color(0xFFF3F0FB)),
-            Positioned(
-              top: -80 + t * 14,
-              right: -60,
-              child: _blob(210 * uiScale, const Color(0xFF6C4EF5)),
-            ),
-            Positioned(
-              bottom: -60 + t * 12,
-              left: -60,
-              child: _blob(180 * uiScale, const Color(0xFF1E8A4C)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _blob(double size, Color color) => ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.16),
+    final s = widget.uiScale;
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF7F3FF), Color(0xFFF3F0FB), Color(0xFFF0FCF5)],
+              ),
             ),
           ),
-        ),
-      );
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, _) {
+              final t = _ctrl.value;
+              return Stack(
+                children: [
+                  Positioned(
+                    top: -40 * s + (t * 14),
+                    left: -30 * s,
+                    child: _Blob(
+                      size: 230 * s,
+                      color: const Color(0xFF6C4EF5).withValues(alpha: 0.14),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 120 * s - (t * 16),
+                    right: -40 * s,
+                    child: _Blob(
+                      size: 260 * s,
+                      color: const Color(0xFF1E8A4C).withValues(alpha: 0.12),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            child: const SizedBox.expand(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Blob extends StatelessWidget {
+  const _Blob({required this.size, required this.color});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Reusable frosted glass container
+// Reusable glass card
 // ---------------------------------------------------------------------------
 class _Glass extends StatelessWidget {
   const _Glass({
     required this.uiScale,
     required this.child,
+    this.radius = 22,
     this.padding,
-    this.radius = 20,
-    this.color,
-    this.borderColor,
   });
+
   final double uiScale;
   final Widget child;
-  final EdgeInsets? padding;
   final double radius;
-  final Color? color;
-  final Color? borderColor;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(radius * uiScale),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: (color ?? Colors.white).withValues(alpha: color == null ? 0.68 : 0.9),
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: borderColor ?? Colors.white.withValues(alpha: 0.8), width: 1.1),
+            color: Colors.white.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(radius * uiScale),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C4EF5).withValues(alpha: 0.07),
+                color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -386,10 +540,10 @@ class _Glass extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Generic press-scale wrapper
+// Pressable bounce wrapper
 // ---------------------------------------------------------------------------
 class _Pressable extends StatefulWidget {
-  const _Pressable({required this.child, this.onTap, this.minScale = 0.95});
+  const _Pressable({required this.child, this.onTap, this.minScale = 0.94});
   final Widget child;
   final VoidCallback? onTap;
   final double minScale;
@@ -420,7 +574,7 @@ class _PressableState extends State<_Pressable> {
 }
 
 // ---------------------------------------------------------------------------
-// Top header — back, title with bookmark icon + subtitle, search
+// Top header
 // ---------------------------------------------------------------------------
 class _TopHeader extends StatelessWidget {
   const _TopHeader({required this.uiScale, this.onBack, this.onSearchTap});
@@ -496,7 +650,7 @@ class _RoundGlassIcon extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Category tabs — horizontal scroll, animated selection
+// Category tabs
 // ---------------------------------------------------------------------------
 class _CategoryTabsRow extends StatelessWidget {
   const _CategoryTabsRow({
@@ -669,7 +823,7 @@ class _SortFilterRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Recipe card — reveals with a staggered fade/slide as it enters the list
+// Recipe card
 // ---------------------------------------------------------------------------
 class _RecipeCard extends StatefulWidget {
   const _RecipeCard({
@@ -711,6 +865,14 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
   }
 
   @override
+  void didUpdateWidget(_RecipeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.recipe.isBookmarked != widget.recipe.isBookmarked) {
+      _bookmarked = widget.recipe.isBookmarked;
+    }
+  }
+
+  @override
   void dispose() {
     _revealCtrl.dispose();
     super.dispose();
@@ -746,13 +908,7 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                   child: SizedBox(
                     width: 80 * uiScale,
                     height: 80 * uiScale,
-                    child: recipe.imageAsset != null
-                        ? Image.asset(
-                            recipe.imageAsset!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _imageFallback(uiScale),
-                          )
-                        : _imageFallback(uiScale),
+                    child: _buildImage(recipe.imageAsset, uiScale),
                   ),
                 ),
                 SizedBox(width: 12 * uiScale),
@@ -875,6 +1031,24 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
     );
   }
 
+  Widget _buildImage(String? asset, double uiScale) {
+    if (asset == null || asset.isEmpty) {
+      return _imageFallback(uiScale);
+    }
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      return Image.network(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+      );
+    }
+    return Image.asset(
+      asset,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+    );
+  }
+
   Widget _imageFallback(double uiScale) => Container(
         color: const Color(0xFFEDE7FA),
         alignment: Alignment.center,
@@ -916,6 +1090,76 @@ class _MetaPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+class _EmptySavedRecipesState extends StatelessWidget {
+  const _EmptySavedRecipesState({required this.uiScale, required this.onExplore});
+  final double uiScale;
+  final VoidCallback onExplore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: 40 * uiScale),
+      child: _Glass(
+        uiScale: uiScale,
+        radius: 24,
+        padding: EdgeInsets.all(28 * uiScale),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64 * uiScale,
+              height: 64 * uiScale,
+              decoration: BoxDecoration(
+                color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.bookmark_border_rounded,
+                size: 32 * uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
+            ),
+            SizedBox(height: 16 * uiScale),
+            Text(
+              'No saved recipes yet',
+              style: TextStyle(
+                fontSize: 16 * uiScale,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1B1B2E),
+              ),
+            ),
+            SizedBox(height: 8 * uiScale),
+            Text(
+              'Explore recipes and tap Save Recipe to build your personal cookbook.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12 * uiScale,
+                color: const Color(0xFF6B6B7B),
+                height: 1.4,
+              ),
+            ),
+            SizedBox(height: 20 * uiScale),
+            FilledButton.icon(
+              onPressed: onExplore,
+              icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+              label: const Text('Explore Recipes'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF6C4EF5),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 20 * uiScale, vertical: 12 * uiScale),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

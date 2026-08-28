@@ -440,14 +440,53 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     );
   }
 
-  void _toggleSaveRecipe(int index) {
+  void _toggleSaveRecipe(int index) async {
     if (index >= 0 && index < _recipes.length) {
       final recipe = _recipes[index];
+      final isCurrentlySaved = RecipeHistoryService.instance.isRecipeSaved(recipe.id, recipe.title) || _savedRecipes.contains(index);
+      final nextSavedState = !isCurrentlySaved;
+
       setState(() {
-        if (_savedRecipes.contains(index)) {
-          _savedRecipes.remove(index);
-        } else {
+        if (nextSavedState) {
           _savedRecipes.add(index);
+        } else {
+          _savedRecipes.remove(index);
+        }
+      });
+
+      final success = await RecipeHistoryService.instance.saveOrBookmarkRecipeCard(
+        recipe,
+        generationMode: _effectiveProduct != null ? 'product' : 'pantry',
+        sourceProduct: _effectiveProduct?.name,
+        normalizedIngredient: _effectiveProduct != null
+            ? RecipeService.normalizeProductCategory(_effectiveProduct!)
+            : null,
+        pantryIngredients: _effectiveProduct == null
+            ? _pantryItems.map((p) => p.label).toList()
+            : const [],
+        bookmarked: nextSavedState,
+      );
+
+      if (!success) {
+        if (mounted) {
+          setState(() {
+            if (isCurrentlySaved) {
+              _savedRecipes.add(index);
+            } else {
+              _savedRecipes.remove(index);
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save ${recipe.title}. Please check your connection.'),
+              backgroundColor: const Color(0xFFE0525C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      } else {
+        if (mounted && nextSavedState) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -468,7 +507,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
             ),
           );
         }
-      });
+      }
       widget.onSaveRecipe?.call(index);
     }
   }
@@ -823,27 +862,33 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                                 )
                           : SizedBox(
                               height: 220 * scale,
-                              child: PageView.builder(
-                                controller: _recipePageCtrl,
-                                itemCount: _recipes.length,
-                                itemBuilder: (context, index) {
-                                  final recipe = _recipes[index];
-                                  final delta = (_recipePage - index).abs().clamp(0.0, 1.0);
-                                  final cardScale = 1.0 - (delta * 0.06);
+                              child: ListenableBuilder(
+                                listenable: RecipeHistoryService.instance,
+                                builder: (context, _) {
+                                  return PageView.builder(
+                                    controller: _recipePageCtrl,
+                                    itemCount: _recipes.length,
+                                    itemBuilder: (context, index) {
+                                      final recipe = _recipes[index];
+                                      final delta = (_recipePage - index).abs().clamp(0.0, 1.0);
+                                      final cardScale = 1.0 - (delta * 0.06);
+                                      final isSaved = RecipeHistoryService.instance.isRecipeSaved(recipe.id, recipe.title) || _savedRecipes.contains(index);
 
-                                  return Transform.scale(
-                                    scale: cardScale,
-                                    child: Padding(
-                                      key: ValueKey(recipe.id ?? recipe.title),
-                                      padding: EdgeInsets.symmetric(horizontal: 2 * scale),
-                                      child: _RecipeCard(
-                                        uiScale: scale,
-                                        recipe: recipe,
-                                        saved: _savedRecipes.contains(index),
-                                        onView: () => _openRecipeDetail(recipe),
-                                        onSave: () => _toggleSaveRecipe(index),
-                                      ),
-                                    ),
+                                      return Transform.scale(
+                                        scale: cardScale,
+                                        child: Padding(
+                                          key: ValueKey(recipe.id ?? recipe.title),
+                                          padding: EdgeInsets.symmetric(horizontal: 2 * scale),
+                                          child: _RecipeCard(
+                                            uiScale: scale,
+                                            recipe: recipe,
+                                            saved: isSaved,
+                                            onView: () => _openRecipeDetail(recipe),
+                                            onSave: () => _toggleSaveRecipe(index),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   );
                                 },
                               ),

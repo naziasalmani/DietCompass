@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/recipe_history_service.dart';
 import 'recipe_generator_screen.dart';
 /// DietCompass — Recipe Detail Screen
 /// -----------------------------------------------------------------------
@@ -92,6 +93,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
   @override
   void initState() {
     super.initState();
+    final isSaved = RecipeHistoryService.instance.isRecipeSaved(widget.recipe.id, widget.recipe.title);
+    _favorited = isSaved;
+    _savedForLater = isSaved;
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
   }
 
@@ -152,7 +156,24 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                       },
 
                       onFavoriteTap: () {
-                        setState(() => _favorited = !_favorited);
+                        final nextState = !_favorited;
+                        setState(() {
+                          _favorited = nextState;
+                          _savedForLater = nextState;
+                        });
+                        final card = RecipeCardData(
+                          id: widget.recipe.id,
+                          title: widget.recipe.title,
+                          tagline: widget.recipe.tags.join(' • '),
+                          description: widget.recipe.description,
+                          timeMinutes: int.tryParse(widget.recipe.prepTime.replaceAll(RegExp(r'[^0-9]'), '')) ?? 15,
+                          kcal: int.tryParse(widget.recipe.calories.replaceAll(RegExp(r'[^0-9]'), '')) ?? 300,
+                          proteinGrams: int.tryParse(widget.recipe.protein.replaceAll(RegExp(r'[^0-9]'), '')) ?? 10,
+                          imageAsset: widget.recipe.images.isNotEmpty ? widget.recipe.images.first : '',
+                          whatsInside: const [],
+                          fullRecipe: widget.recipe,
+                        );
+                        RecipeHistoryService.instance.saveOrBookmarkRecipeCard(card, bookmarked: nextState);
                         widget.onFavoriteTap?.call();
                       },
                     ),
@@ -269,7 +290,24 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                           uiScale: scale,
                           saved: _savedForLater,
                           onTap: () {
-                            setState(() => _savedForLater = !_savedForLater);
+                            final nextState = !_savedForLater;
+                            setState(() {
+                              _savedForLater = nextState;
+                              _favorited = nextState;
+                            });
+                            final card = RecipeCardData(
+                              id: widget.recipe.id,
+                              title: widget.recipe.title,
+                              tagline: widget.recipe.tags.join(' • '),
+                              description: widget.recipe.description,
+                              timeMinutes: int.tryParse(widget.recipe.prepTime.replaceAll(RegExp(r'[^0-9]'), '')) ?? 15,
+                              kcal: int.tryParse(widget.recipe.calories.replaceAll(RegExp(r'[^0-9]'), '')) ?? 300,
+                              proteinGrams: int.tryParse(widget.recipe.protein.replaceAll(RegExp(r'[^0-9]'), '')) ?? 10,
+                              imageAsset: widget.recipe.images.isNotEmpty ? widget.recipe.images.first : '',
+                              whatsInside: const [],
+                              fullRecipe: widget.recipe,
+                            );
+                            RecipeHistoryService.instance.saveOrBookmarkRecipeCard(card, bookmarked: nextState);
                             widget.onSaveForLater?.call();
                           },
                         ),

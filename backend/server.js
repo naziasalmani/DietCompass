@@ -17,6 +17,7 @@ const personalizationRoutes = require('./src/routes/personalizationRoutes');
 const aiRoutes = require('./src/routes/aiRoutes');
 const recipeRoutes = require('./src/routes/recipeRoutes');
 const scanHistoryRoutes = require('./src/routes/scanHistoryRoutes');
+const mealPlanRoutes = require('./src/routes/mealPlanRoutes');
 const errorHandler = require('./src/middleware/errorHandler');
 const notFound = require('./src/middleware/notFound');
 
@@ -93,6 +94,9 @@ app.use(`${apiPrefix}/recipes`, recipeRoutes);
 
 // User Scan History Routes
 app.use(`${apiPrefix}/scan-history`, scanHistoryRoutes);
+
+// AI-Powered Meal Plan Routes
+app.use(`${apiPrefix}/meal-plans`, mealPlanRoutes);
 
 // =============================================================================
 // Root Welcome Route

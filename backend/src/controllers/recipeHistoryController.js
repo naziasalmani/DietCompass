@@ -92,6 +92,8 @@ const saveRecipeHistory = async (req, res, next) => {
         ],
       });
 
+      const isAlreadySaved = Boolean(existing?.isBookmarked);
+
       let saved;
       if (existing) {
         existing.generatedAt = now;
@@ -104,7 +106,11 @@ const saveRecipeHistory = async (req, res, next) => {
         if (sourceProduct) existing.sourceProduct = sourceProduct;
         if (normalizedIngredient) existing.normalizedIngredient = normalizedIngredient;
         if (pantryIngredients.length > 0) existing.pantryIngredients = pantryIngredients;
-        if (isBookmarked) existing.isBookmarked = true;
+        if (typeof r.isBookmarked === 'boolean') {
+          existing.isBookmarked = r.isBookmarked;
+        } else if (isBookmarked) {
+          existing.isBookmarked = true;
+        }
         saved = await existing.save();
       } else {
         saved = await RecipeHistory.create({
@@ -127,20 +133,22 @@ const saveRecipeHistory = async (req, res, next) => {
           sourceProduct,
           normalizedIngredient,
           pantryIngredients,
-          isBookmarked,
+          isBookmarked: isBookmarked || false,
           isViewed: true,
           generatedAt: now,
         });
       }
 
       console.log('\n==============================================');
-      console.log('[RECIPE HISTORY SAVE]');
-      console.log(`userId = ${userId}`);
+      console.log('[RECIPE SAVE TRACE]');
       console.log(`recipeId = ${saved.recipeId}`);
-      console.log(`title = ${saved.title}`);
+      console.log(`recipeTitle = ${saved.title}`);
+      console.log(`userId = ${userId}`);
       console.log(`source = ${saved.recipeSource}`);
-      console.log(`generationMode = ${saved.generationMode}`);
-      console.log('saved = true');
+      console.log(`isAlreadySaved = ${isAlreadySaved}`);
+      console.log('saveRequestStarted = true');
+      console.log('saveResponseStatus = 200');
+      console.log('saveSuccessful = true');
       console.log('==============================================\n');
 
       savedRecords.push(saved);
@@ -186,9 +194,10 @@ const getRecipeHistory = async (req, res, next) => {
     ]);
 
     console.log('\n==============================================');
-    console.log('[RECIPE HISTORY LOAD]');
+    console.log('[HISTORY LOAD TRACE]');
     console.log(`userId = ${userId}`);
-    console.log(`count = ${recipes.length}`);
+    console.log(`savedRecipeCount = ${recipes.filter(r => r.isBookmarked).length}`);
+    console.log(`totalCount = ${recipes.length}`);
     console.log('==============================================\n');
 
     return res.status(200).json({

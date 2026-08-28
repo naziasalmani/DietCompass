@@ -1,61 +1,19 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import '../../core/model/meal_plan_model.dart';
+import '../../core/services/meal_plan_service.dart';
 import 'pdf_service.dart';
 import 'calendar_service.dart';
+import 'recipe_detail_screen.dart';
 
-/// DietCompass — AI Weekly Meal Planner Screen
+/// DietCompass — AI Personalized Multi-Day Meal Planner Screen
 /// -----------------------------------------------------------------------
-/// Matches the visual language of the rest of the app: lavender background
-/// (0xFFF3F0FB), purple → green brand accents, frosted glassmorphism
-/// cards, staggered entrance choreography and small interactive
-/// micro-animations (segmented duration selector, animated toggle, day
-/// tabs, count-up totals, staggered meal-row reveal).
-class MealEntry {
-  const MealEntry({
-    required this.type,
-    required this.name,
-    required this.kcal,
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.pillBg,
-    required this.pillColor,
-    this.isVegetarian = true,
-  });
-  final String type;
-  final String name;
-  final int kcal;
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final Color pillBg;
-  final Color pillColor;
-  final bool isVegetarian;
-}
-
-class DayPlan {
-  const DayPlan({
-    required this.dayLabel,
-    required this.dayNumber,
-    required this.meals,
-    required this.totalCalories,
-    required this.proteinG,
-    required this.fiberG,
-    required this.waterGlasses,
-  });
-  final String dayLabel;
-  final String dayNumber;
-  final List<MealEntry> meals;
-  final int totalCalories;
-  final int proteinG;
-  final int fiberG;
-  final int waterGlasses;
-}
-
+/// Generates real dynamic meal plans (1, 3, 7, 30 days) adhering to user
+/// preferences, pantry availability, calorie targets, and dietary safety.
 class AiMealPlannerScreen extends StatefulWidget {
-  AiMealPlannerScreen({
+  const AiMealPlannerScreen({
     super.key,
+    this.initialPlan,
     this.goalOptions = const ['Weight Loss', 'Weight Gain', 'Maintain Weight', 'Muscle Gain'],
     this.calorieOptions = const ['1500 kcal', '1800 kcal', '2000 kcal', '2200 kcal', '2500 kcal'],
     this.mealTypeOptions = const [
@@ -66,92 +24,26 @@ class AiMealPlannerScreen extends StatefulWidget {
     this.dietOptions = const ['Vegetarian', 'Vegan', 'Non-Vegetarian', 'Eggetarian', 'Keto'],
     this.allergyOptions = const ['None', 'Peanut', 'Tree Nuts', 'Dairy', 'Gluten', 'Soy'],
     this.budgetOptions = const ['Low', 'Moderate', 'High'],
-    List<DayPlan>? weekPlan,
     this.onBack,
     this.onCalendarTap,
     this.onExportPdf,
     this.onAddToCalendar,
     this.onRegenerate,
-  }) : weekPlan = weekPlan ?? _defaultWeekPlan();
+  });
 
+  final MealPlanResponse? initialPlan;
   final List<String> goalOptions;
   final List<String> calorieOptions;
   final List<String> mealTypeOptions;
   final List<String> dietOptions;
   final List<String> allergyOptions;
   final List<String> budgetOptions;
-  final List<DayPlan> weekPlan;
 
   final VoidCallback? onBack;
   final VoidCallback? onCalendarTap;
   final VoidCallback? onExportPdf;
   final VoidCallback? onAddToCalendar;
   final VoidCallback? onRegenerate;
-
-  static List<DayPlan> _defaultWeekPlan() {
-    const days = [
-      ('Mon', 'Day 1'),
-      ('Tue', 'Day 2'),
-      ('Wed', 'Day 3'),
-      ('Thu', 'Day 4'),
-      ('Fri', 'Day 5'),
-      ('Sat', 'Day 6'),
-      ('Sun', 'Day 7'),
-    ];
-    final meals = [
-      const MealEntry(
-        type: 'Breakfast',
-        name: 'Banana Oats Bowl',
-        kcal: 350,
-        icon: Icons.free_breakfast_rounded,
-        iconBg: Color(0xFFEDE7FA),
-        iconColor: Color(0xFF6C4EF5),
-        pillBg: Color(0xFFEDE7FA),
-        pillColor: Color(0xFF6C4EF5),
-      ),
-      const MealEntry(
-        type: 'Lunch',
-        name: 'Quinoa Veggie Salad',
-        kcal: 450,
-        icon: Icons.ramen_dining_rounded,
-        iconBg: Color(0xFFE3F5EA),
-        iconColor: Color(0xFF1E8A4C),
-        pillBg: Color(0xFFE3F5EA),
-        pillColor: Color(0xFF1E8A4C),
-      ),
-      const MealEntry(
-        type: 'Snack',
-        name: 'Apple & Almonds',
-        kcal: 150,
-        icon: Icons.apple_rounded,
-        iconBg: Color(0xFFFCEEDD),
-        iconColor: Color(0xFFE0862E),
-        pillBg: Color(0xFFFCEEDD),
-        pillColor: Color(0xFFE0862E),
-      ),
-      const MealEntry(
-        type: 'Dinner',
-        name: 'Paneer Stir Fry with Brown Rice',
-        kcal: 550,
-        icon: Icons.dinner_dining_rounded,
-        iconBg: Color(0xFFEDE7FA),
-        iconColor: Color(0xFF6C4EF5),
-        pillBg: Color(0xFFEDE7FA),
-        pillColor: Color(0xFF6C4EF5),
-      ),
-    ];
-    return days
-        .map((d) => DayPlan(
-              dayLabel: d.$1,
-              dayNumber: d.$2,
-              meals: meals,
-              totalCalories: 1500,
-              proteinG: 65,
-              fiberG: 28,
-              waterGlasses: 8,
-            ))
-        .toList();
-  }
 
   @override
   State<AiMealPlannerScreen> createState() => _AiMealPlannerScreenState();
@@ -163,6 +55,7 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
 
   int _durationIndex = 2;
   static const _durations = ['1 Day', '3 Days', '7 Days', '30 Days'];
+  static const _durationDaysMap = [1, 3, 7, 30];
 
   late String _goal;
   late String _calories;
@@ -172,6 +65,10 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
   late String _budget;
   bool _usePantry = true;
   int _selectedDay = 0;
+
+  MealPlanResponse? _plan;
+  bool _isLoading = false;
+  bool _calendarAdded = false;
 
   @override
   void initState() {
@@ -187,6 +84,49 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..forward();
+
+    if (widget.initialPlan != null) {
+      _plan = widget.initialPlan;
+      _syncDurationWithPlan(_plan!);
+    } else {
+      _fetchMealPlan();
+    }
+  }
+
+  void _syncDurationWithPlan(MealPlanResponse p) {
+    if (p.durationDays == 1) _durationIndex = 0;
+    else if (p.durationDays == 3) _durationIndex = 1;
+    else if (p.durationDays == 7) _durationIndex = 2;
+    else if (p.durationDays == 30) _durationIndex = 3;
+  }
+
+  Future<void> _fetchMealPlan() async {
+    setState(() {
+      _isLoading = true;
+      _calendarAdded = false;
+    });
+
+    final targetDays = _durationDaysMap[_durationIndex];
+    final calNum = int.tryParse(_calories.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1800;
+
+    final plan = await MealPlanService.instance.generateMealPlan(
+      durationDays: targetDays,
+      goal: _goal,
+      calories: calNum,
+      mealType: _mealType,
+      diet: _diet,
+      allergy: _allergy,
+      budget: _budget,
+      usePantry: _usePantry,
+    );
+
+    if (mounted) {
+      setState(() {
+        _plan = plan;
+        _isLoading = false;
+        _selectedDay = 0;
+      });
+    }
   }
 
   @override
@@ -210,11 +150,75 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
         ),
       );
 
+  Future<void> _handleExportPdf() async {
+    if (_plan != null) {
+      await PdfService.exportMealPlan(_plan);
+      widget.onExportPdf?.call();
+    }
+  }
+
+  Future<void> _handleAddToCalendar() async {
+    if (_plan == null) return;
+
+    final result = await CalendarService.addMealPlan(_plan);
+    widget.onAddToCalendar?.call();
+
+    if (mounted) {
+      setState(() {
+        if (result.isSuccess) {
+          _calendarAdded = true;
+        }
+      });
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(
+                result.isSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                color: result.isSuccess ? const Color(0xFF1E8A4C) : const Color(0xFFE0525C),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                result.isSuccess ? 'Added to Calendar' : 'Calendar Sync',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          content: Text(result.message),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C4EF5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _openMealDetail(MealPlanMeal meal) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecipeDetailScreen(recipe: meal.toRecipe()),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
-    final day = widget.weekPlan[_selectedDay.clamp(0, widget.weekPlan.length - 1)];
+    final days = _plan?.days ?? [];
+    final currentDay = days.isNotEmpty ? days[_selectedDay.clamp(0, days.length - 1)] : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
@@ -234,7 +238,11 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
                         opacity: _fade(0.0, 0.26),
                         child: SlideTransition(
                           position: _slide(0.0, 0.3),
-                          child: _TopHeader(uiScale: scale, onBack: widget.onBack, onCalendarTap: widget.onCalendarTap),
+                          child: _TopHeader(
+                            uiScale: scale,
+                            onBack: widget.onBack,
+                            onCalendarTap: widget.onCalendarTap ?? _handleAddToCalendar,
+                          ),
                         ),
                       ),
                       SizedBox(height: 16 * scale),
@@ -249,7 +257,12 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
                               uiScale: scale,
                               durations: _durations,
                               selectedIndex: _durationIndex,
-                              onSelected: (i) => setState(() => _durationIndex = i),
+                              onSelected: (i) {
+                                if (_durationIndex != i) {
+                                  setState(() => _durationIndex = i);
+                                  _fetchMealPlan();
+                                }
+                              },
                             ),
                           ),
                         ),
@@ -266,46 +279,99 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
                               uiScale: scale,
                               goal: _goal,
                               goalOptions: widget.goalOptions,
-                              onGoalChanged: (v) => setState(() => _goal = v),
+                              onGoalChanged: (v) {
+                                setState(() => _goal = v);
+                                _fetchMealPlan();
+                              },
                               calories: _calories,
                               calorieOptions: widget.calorieOptions,
-                              onCaloriesChanged: (v) => setState(() => _calories = v),
+                              onCaloriesChanged: (v) {
+                                setState(() => _calories = v);
+                                _fetchMealPlan();
+                              },
                               mealType: _mealType,
                               mealTypeOptions: widget.mealTypeOptions,
-                              onMealTypeChanged: (v) => setState(() => _mealType = v),
+                              onMealTypeChanged: (v) {
+                                setState(() => _mealType = v);
+                                _fetchMealPlan();
+                              },
                               diet: _diet,
                               dietOptions: widget.dietOptions,
-                              onDietChanged: (v) => setState(() => _diet = v),
+                              onDietChanged: (v) {
+                                setState(() => _diet = v);
+                                _fetchMealPlan();
+                              },
                               allergy: _allergy,
                               allergyOptions: widget.allergyOptions,
-                              onAllergyChanged: (v) => setState(() => _allergy = v),
+                              onAllergyChanged: (v) {
+                                setState(() => _allergy = v);
+                                _fetchMealPlan();
+                              },
                               budget: _budget,
                               budgetOptions: widget.budgetOptions,
-                              onBudgetChanged: (v) => setState(() => _budget = v),
+                              onBudgetChanged: (v) {
+                                setState(() => _budget = v);
+                                _fetchMealPlan();
+                              },
                               usePantry: _usePantry,
-                              onUsePantryChanged: (v) => setState(() => _usePantry = v),
+                              onUsePantryChanged: (v) {
+                                setState(() => _usePantry = v);
+                                _fetchMealPlan();
+                              },
                             ),
                           ),
                         ),
                       ),
                       SizedBox(height: 16 * scale),
 
-                      FadeTransition(
-                        opacity: _fade(0.2, 0.5),
-                        child: SlideTransition(
-                          position: _slide(0.2, 0.54),
-                          child: _Glass(
-                            uiScale: scale,
-                            child: _WeeklyPlanPreviewSection(
+                      if (_isLoading)
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40 * scale),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                const CircularProgressIndicator(color: Color(0xFF6C4EF5)),
+                                SizedBox(height: 14 * scale),
+                                Text(
+                                  'AI is crafting your ${_durations[_durationIndex]} meal plan...',
+                                  style: TextStyle(
+                                    fontSize: 13 * scale,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF6C4EF5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else if (currentDay != null)
+                        FadeTransition(
+                          opacity: _fade(0.2, 0.5),
+                          child: SlideTransition(
+                            position: _slide(0.2, 0.54),
+                            child: _Glass(
                               uiScale: scale,
-                              weekPlan: widget.weekPlan,
-                              selectedDay: _selectedDay,
-                              onDaySelected: (i) => setState(() => _selectedDay = i),
-                              day: day,
+                              child: _WeeklyPlanPreviewSection(
+                                uiScale: scale,
+                                plan: _plan!,
+                                selectedDay: _selectedDay,
+                                onDaySelected: (i) => setState(() => _selectedDay = i),
+                                day: currentDay,
+                                onMealTap: _openMealDetail,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 30 * scale),
+                            child: Text(
+                              'No meal plan available. Tap Regenerate to create one.',
+                              style: TextStyle(fontSize: 12.5 * scale, color: const Color(0xFF6B6B7B)),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -313,11 +379,16 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
                 FadeTransition(
                   opacity: _fade(0.5, 0.85),
                   child: _BottomActionBar(
-  uiScale: scale,
-  onExportPdf: widget.onExportPdf,
-  onAddToCalendar: widget.onAddToCalendar,
-  onRegenerate: widget.onRegenerate,
-),
+                    uiScale: scale,
+                    calendarAdded: _calendarAdded,
+                    isLoading: _isLoading,
+                    onExportPdf: _handleExportPdf,
+                    onAddToCalendar: _handleAddToCalendar,
+                    onRegenerate: () {
+                      _fetchMealPlan();
+                      widget.onRegenerate?.call();
+                    },
+                  ),
                 ),
               ],
             ),
@@ -487,7 +558,7 @@ class _TopHeader extends StatelessWidget {
                   SizedBox(width: 6 * uiScale),
                   Flexible(
                     child: Text(
-                      'AI Weekly Meal Planner',
+                      'AI Meal Planner',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 16.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
                     ),
@@ -496,7 +567,7 @@ class _TopHeader extends StatelessWidget {
               ),
               SizedBox(height: 4 * uiScale),
               Text(
-                'Let AI create a personalized meal plan\nthat fits your goals and lifestyle',
+                'Personalized nutrition plan crafted for your goals',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: const Color(0xFF6B6B7B)),
               ),
@@ -556,7 +627,7 @@ class _PlanDurationSection extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
+                  padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 11 * uiScale),
                   decoration: BoxDecoration(
                     color: selected ? const Color(0xFFEDE7FA) : Colors.white.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(14),
@@ -837,24 +908,28 @@ class _AnimatedToggle extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Your Weekly Plan (Preview)
+// 3. Your Plan (Preview)
 // ---------------------------------------------------------------------------
 class _WeeklyPlanPreviewSection extends StatelessWidget {
   const _WeeklyPlanPreviewSection({
     required this.uiScale,
-    required this.weekPlan,
+    required this.plan,
     required this.selectedDay,
     required this.onDaySelected,
     required this.day,
+    required this.onMealTap,
   });
   final double uiScale;
-  final List<DayPlan> weekPlan;
+  final MealPlanResponse plan;
   final int selectedDay;
   final ValueChanged<int> onDaySelected;
-  final DayPlan day;
+  final MealPlanDay day;
+  final ValueChanged<MealPlanMeal> onMealTap;
 
   @override
   Widget build(BuildContext context) {
+    final weekPlan = plan.days;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -862,19 +937,21 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '3. Your Weekly Plan (Preview)',
+                '3. Your ${plan.durationDays}-Day Plan',
                 style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
               ),
             ),
             Icon(Icons.auto_awesome, size: 12 * uiScale, color: const Color(0xFF6C4EF5)),
             SizedBox(width: 4 * uiScale),
             Text(
-              'AI Generated',
+              plan.geminiPowered ? 'Gemini AI Orchestrated' : 'Personalized AI Plan',
               style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5)),
             ),
           ],
         ),
         SizedBox(height: 14 * uiScale),
+
+        // Dynamic Day Tabs (Scrollable for 1, 3, 7, 30 days)
         SizedBox(
           height: 58 * uiScale,
           child: ListView.separated(
@@ -890,7 +967,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  width: 62 * uiScale,
+                  width: 66 * uiScale,
                   padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
                   decoration: BoxDecoration(
                     gradient: selected ? const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8467F8)]) : null,
@@ -928,11 +1005,13 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
           ),
         ),
         SizedBox(height: 14 * uiScale),
+
+        // Meals List
         Column(
           children: List.generate(day.meals.length, (i) {
             final meal = day.meals[i];
             return TweenAnimationBuilder<double>(
-              key: ValueKey('${day.dayLabel}-${meal.type}'),
+              key: ValueKey('${day.dayNumber}-${meal.type}-${meal.title}'),
               tween: Tween(begin: 0, end: 1),
               duration: Duration(milliseconds: 350 + i * 90),
               curve: Curves.easeOutCubic,
@@ -942,15 +1021,22 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
               ),
               child: Padding(
                 padding: EdgeInsets.only(bottom: i == day.meals.length - 1 ? 0 : 12 * uiScale),
-                child: _MealRow(uiScale: uiScale, meal: meal),
+                child: _MealRow(
+                  uiScale: uiScale,
+                  meal: meal,
+                  onTap: () => onMealTap(meal),
+                ),
               ),
             );
           }),
         ),
+
         Padding(
           padding: EdgeInsets.symmetric(vertical: 14 * uiScale),
-          child: Divider(height: 1, color: const Color(0xFFE1DAF2)),
+          child: const Divider(height: 1, color: Color(0xFFE1DAF2)),
         ),
+
+        // Daily Totals Row
         Row(
           children: [
             Expanded(
@@ -958,8 +1044,8 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                 uiScale: uiScale,
                 icon: Icons.local_fire_department_rounded,
                 iconColor: const Color(0xFF6C4EF5),
-                label: 'Total Calories',
-                value: '${day.totalCalories} kcal',
+                label: 'Daily Calories',
+                value: '${day.dailyCalories} kcal',
                 valueColor: const Color(0xFF6C4EF5),
               ),
             ),
@@ -969,7 +1055,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                 icon: Icons.eco_rounded,
                 iconColor: const Color(0xFF1E8A4C),
                 label: 'Protein',
-                value: '${day.proteinG}g',
+                value: '${day.dailyProtein}g',
                 valueColor: const Color(0xFF1E8A4C),
               ),
             ),
@@ -979,7 +1065,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                 icon: Icons.grain_rounded,
                 iconColor: const Color(0xFFE0862E),
                 label: 'Fiber',
-                value: '${day.fiberG}g',
+                value: '${day.dailyFiber}g',
                 valueColor: const Color(0xFFE0862E),
               ),
             ),
@@ -996,6 +1082,8 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
           ],
         ),
         SizedBox(height: 14 * uiScale),
+
+        // Dynamic AI Summary Card
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(14 * uiScale),
@@ -1010,7 +1098,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                 width: 30 * uiScale,
                 height: 30 * uiScale,
                 decoration: const BoxDecoration(color: Color(0xFFDCD0F5), shape: BoxShape.circle),
-                child: Icon(Icons.lightbulb_rounded, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                child: Icon(Icons.auto_awesome, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
               ),
               SizedBox(width: 10 * uiScale),
               Expanded(
@@ -1018,13 +1106,13 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'This plan is tailored for your goal: Weight Loss',
+                      'AI Meal Plan Summary',
                       style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
                     ),
-                    SizedBox(height: 2 * uiScale),
+                    SizedBox(height: 3 * uiScale),
                     Text(
-                      'You can edit or regenerate anytime.',
-                      style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                      plan.summary,
+                      style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: const Color(0xFF4A4A5A)),
                     ),
                   ],
                 ),
@@ -1038,60 +1126,133 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
 }
 
 class _MealRow extends StatelessWidget {
-  const _MealRow({required this.uiScale, required this.meal});
+  const _MealRow({required this.uiScale, required this.meal, this.onTap});
   final double uiScale;
-  final MealEntry meal;
+  final MealPlanMeal meal;
+  final VoidCallback? onTap;
+
+  IconData _getTypeIcon(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('breakfast')) return Icons.free_breakfast_rounded;
+    if (t.contains('lunch')) return Icons.ramen_dining_rounded;
+    if (t.contains('snack')) return Icons.apple_rounded;
+    return Icons.dinner_dining_rounded;
+  }
+
+  Color _getTypeColor(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('breakfast')) return const Color(0xFF6C4EF5);
+    if (t.contains('lunch')) return const Color(0xFF1E8A4C);
+    if (t.contains('snack')) return const Color(0xFFE0862E);
+    return const Color(0xFF7C5CFC);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 40 * uiScale,
-          height: 40 * uiScale,
-          decoration: BoxDecoration(color: meal.iconBg, shape: BoxShape.circle),
-          child: Icon(meal.icon, size: 18 * uiScale, color: meal.iconColor),
+    final typeColor = _getTypeColor(meal.type);
+
+    return _Pressable(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(8 * uiScale),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEDEAF7)),
         ),
-        SizedBox(width: 12 * uiScale),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                meal.type,
-                style: TextStyle(fontSize: 13 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 48 * uiScale,
+                height: 48 * uiScale,
+                child: _buildMealImage(meal.image, uiScale),
               ),
-              SizedBox(height: 2 * uiScale),
-              Row(
+            ),
+            SizedBox(width: 10 * uiScale),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(
-                      meal.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B)),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
+                        decoration: BoxDecoration(
+                          color: typeColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          meal.type,
+                          style: TextStyle(
+                            fontSize: 9 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            color: typeColor,
+                          ),
+                        ),
+                      ),
+                      if (meal.isVegetarian) ...[
+                        SizedBox(width: 4 * uiScale),
+                        Icon(Icons.eco_rounded, size: 11 * uiScale, color: const Color(0xFF1E8A4C)),
+                      ],
+                    ],
                   ),
-                  if (meal.isVegetarian) ...[
-                    SizedBox(width: 4 * uiScale),
-                    Icon(Icons.eco_rounded, size: 11 * uiScale, color: const Color(0xFF1E8A4C)),
-                  ],
+                  SizedBox(height: 3 * uiScale),
+                  Text(
+                    meal.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                  ),
+                  SizedBox(height: 2 * uiScale),
+                  Text(
+                    '${meal.proteinGrams}g Protein • ${meal.fiberGrams}g Fiber',
+                    style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 5 * uiScale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE7FA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${meal.calories} kcal',
+                style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
+              ),
+            ),
+          ],
         ),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 6 * uiScale),
-          decoration: BoxDecoration(color: meal.pillBg, borderRadius: BorderRadius.circular(12)),
-          child: Text(
-            '${meal.kcal} kcal',
-            style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w800, color: meal.pillColor),
-          ),
-        ),
-      ],
+      ),
     );
   }
+
+  Widget _buildMealImage(String asset, double uiScale) {
+    if (asset.isEmpty) {
+      return _imageFallback(uiScale);
+    }
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      return Image.network(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+      );
+    }
+    return Image.asset(
+      asset,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _imageFallback(uiScale),
+    );
+  }
+
+  Widget _imageFallback(double uiScale) => Container(
+        color: const Color(0xFFEDE7FA),
+        alignment: Alignment.center,
+        child: Icon(_getTypeIcon(meal.type), size: 20 * uiScale, color: const Color(0xFF6C4EF5)),
+      );
 }
 
 class _TotalStat extends StatelessWidget {
@@ -1147,11 +1308,15 @@ class _TotalStat extends StatelessWidget {
 class _BottomActionBar extends StatelessWidget {
   const _BottomActionBar({
     required this.uiScale,
+    this.calendarAdded = false,
+    this.isLoading = false,
     this.onExportPdf,
     this.onAddToCalendar,
     this.onRegenerate,
   });
   final double uiScale;
+  final bool calendarAdded;
+  final bool isLoading;
   final VoidCallback? onExportPdf;
   final VoidCallback? onAddToCalendar;
   final VoidCallback? onRegenerate;
@@ -1177,15 +1342,18 @@ class _BottomActionBar extends StatelessWidget {
             );
             final calendarBtn = _OutlinedActionButton(
               uiScale: uiScale,
-              icon: Icons.calendar_today_rounded,
-              label: 'Add to Calendar',
+              icon: calendarAdded ? Icons.check_circle_rounded : Icons.calendar_today_rounded,
+              iconColor: calendarAdded ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+              textColor: calendarAdded ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+              borderColor: calendarAdded ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+              label: calendarAdded ? 'Added' : 'Calendar',
               onTap: onAddToCalendar,
             );
             final regenerateBtn = _FilledActionButton(
               uiScale: uiScale,
-              icon: Icons.refresh_rounded,
-              label: 'Regenerate',
-              onTap: onRegenerate,
+              icon: isLoading ? Icons.hourglass_top_rounded : Icons.refresh_rounded,
+              label: isLoading ? 'Generating...' : 'Regenerate',
+              onTap: isLoading ? null : onRegenerate,
             );
             if (narrow) {
               return Column(
@@ -1205,10 +1373,10 @@ class _BottomActionBar extends StatelessWidget {
             return Row(
               children: [
                 Expanded(child: exportBtn),
-                SizedBox(width: 10 * uiScale),
+                SizedBox(width: 8 * uiScale),
                 Expanded(child: calendarBtn),
-                SizedBox(width: 10 * uiScale),
-                Expanded(child: regenerateBtn),
+                SizedBox(width: 8 * uiScale),
+                Expanded(flex: 1, child: regenerateBtn),
               ],
             );
           },
@@ -1219,10 +1387,21 @@ class _BottomActionBar extends StatelessWidget {
 }
 
 class _OutlinedActionButton extends StatelessWidget {
-  const _OutlinedActionButton({required this.uiScale, required this.icon, required this.label, this.onTap});
+  const _OutlinedActionButton({
+    required this.uiScale,
+    required this.icon,
+    required this.label,
+    this.iconColor = const Color(0xFF6C4EF5),
+    this.textColor = const Color(0xFF6C4EF5),
+    this.borderColor = const Color(0xFF6C4EF5),
+    this.onTap,
+  });
   final double uiScale;
   final IconData icon;
   final String label;
+  final Color iconColor;
+  final Color textColor;
+  final Color borderColor;
   final VoidCallback? onTap;
 
   @override
@@ -1234,19 +1413,19 @@ class _OutlinedActionButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF6C4EF5)),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
-            SizedBox(width: 6 * uiScale),
+            Icon(icon, size: 15 * uiScale, color: iconColor),
+            SizedBox(width: 4 * uiScale),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
+                style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w800, color: textColor),
               ),
             ),
           ],

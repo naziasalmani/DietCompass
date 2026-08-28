@@ -25,6 +25,23 @@ class RecipeHistoryService extends ChangeNotifier {
   List<RecipeHistoryItem> get savedRecipes =>
       List.unmodifiable(_cachedHistory.where((r) => r.isBookmarked).toList());
 
+  /// Check if a recipe is saved/bookmarked
+  bool isRecipeSaved(dynamic recipeId, String? title) {
+    final idStr = recipeId?.toString().trim();
+    final titleStr = title?.toLowerCase().trim();
+
+    return _cachedHistory.any((r) {
+      if (!r.isBookmarked) return false;
+      if (idStr != null && idStr.isNotEmpty && (r.recipeId == idStr || r.id == idStr)) {
+        return true;
+      }
+      if (titleStr != null && titleStr.isNotEmpty && r.title.toLowerCase().trim() == titleStr) {
+        return true;
+      }
+      return false;
+    });
+  }
+
   /// Clears in-memory recipe history cache upon logout or user session switch.
   void clearCache() {
     _cachedHistory.clear();
@@ -84,6 +101,13 @@ class RecipeHistoryService extends ChangeNotifier {
     }
 
     if (!forceRefresh && _cachedHistory.isNotEmpty && limit == null && tab == 'all') {
+      final userId = _getCurrentUserId();
+      debugPrint('\n==============================================');
+      debugPrint('[HISTORY LOAD TRACE]');
+      debugPrint('userId = $userId');
+      debugPrint('savedRecipeCount = ${_cachedHistory.where((r) => r.isBookmarked).length}');
+      debugPrint('totalCount = ${_cachedHistory.length}');
+      debugPrint('==============================================\n');
       return _cachedHistory;
     }
 
@@ -116,9 +140,10 @@ class RecipeHistoryService extends ChangeNotifier {
           }
 
           debugPrint('\n==============================================');
-          debugPrint('[RECIPE HISTORY LOAD]');
+          debugPrint('[HISTORY LOAD TRACE]');
           debugPrint('userId = $userId');
-          debugPrint('count = ${serverItems.length}');
+          debugPrint('savedRecipeCount = ${serverItems.where((r) => r.isBookmarked).length}');
+          debugPrint('totalCount = ${serverItems.length}');
           debugPrint('==============================================\n');
 
           return serverItems;
@@ -129,9 +154,10 @@ class RecipeHistoryService extends ChangeNotifier {
     }
 
     debugPrint('\n==============================================');
-    debugPrint('[RECIPE HISTORY LOAD]');
+    debugPrint('[HISTORY LOAD TRACE]');
     debugPrint('userId = $userId');
-    debugPrint('count = ${_cachedHistory.length}');
+    debugPrint('savedRecipeCount = ${_cachedHistory.where((r) => r.isBookmarked).length}');
+    debugPrint('totalCount = ${_cachedHistory.length}');
     debugPrint('==============================================\n');
 
     return _cachedHistory;
@@ -159,6 +185,8 @@ class RecipeHistoryService extends ChangeNotifier {
       final ings = rec?.ingredients ?? [];
       final instrs = rec?.instructions ?? [];
 
+      final isAlreadyBookmarked = isRecipeSaved(card.id, card.title);
+
       final item = RecipeHistoryItem(
         id: card.id?.toString() ?? 'rh_${now.millisecondsSinceEpoch}_${card.title.hashCode}',
         recipeId: card.id?.toString() ?? 'rh_${now.millisecondsSinceEpoch}',
@@ -182,7 +210,7 @@ class RecipeHistoryService extends ChangeNotifier {
         sourceProduct: sourceProduct ?? '',
         normalizedIngredient: normalizedIngredient ?? '',
         pantryIngredients: pantryIngredients,
-        isBookmarked: false,
+        isBookmarked: isAlreadyBookmarked,
         isViewed: true,
         generatedAt: now,
       );
@@ -191,10 +219,15 @@ class RecipeHistoryService extends ChangeNotifier {
 
     // 2. Update local in-memory cache (bump duplicates to top, prepend new)
     for (final item in newItems.reversed) {
-      _cachedHistory.removeWhere((existing) =>
+      final existingIdx = _cachedHistory.indexWhere((existing) =>
           existing.recipeId == item.recipeId ||
           existing.title.toLowerCase() == item.title.toLowerCase());
-      _cachedHistory.insert(0, item);
+      if (existingIdx != -1) {
+        final existing = _cachedHistory.removeAt(existingIdx);
+        _cachedHistory.insert(0, existing.copyWith(generatedAt: now));
+      } else {
+        _cachedHistory.insert(0, item);
+      }
     }
 
     // 3. Save locally immediately
@@ -210,7 +243,7 @@ class RecipeHistoryService extends ChangeNotifier {
       debugPrint('title = ${item.title}');
       debugPrint('source = ${item.recipeSource}');
       debugPrint('generationMode = ${item.generationMode}');
-      debugPrint('saved = true');
+      debugPrint('saved = ${item.isBookmarked}');
       debugPrint('==============================================\n');
     }
 
@@ -234,11 +267,121 @@ class RecipeHistoryService extends ChangeNotifier {
     }
   }
 
+  /// Save or toggle bookmark for a single recipe card directly from Recipe Generator
+  Future<bool> saveOrBookmarkRecipeCard(
+    RecipeCardData card, {
+    String generationMode = 'pantry',
+    String? sourceProduct,
+    String? normalizedIngredient,
+    List<String> pantryIngredients = const [],
+    bool bookmarked = true,
+  }) async {
+    final userId = _getCurrentUserId();
+    final now = DateTime.now();
+
+    final isAlreadySaved = isRecipeSaved(card.id, card.title);
+
+    debugPrint('\n==============================================');
+    debugPrint('[RECIPE SAVE TRACE]');
+    debugPrint('recipeId = ${card.id}');
+    debugPrint('recipeTitle = ${card.title}');
+    debugPrint('userId = $userId');
+    debugPrint('source = ${card.recipeSource}');
+    debugPrint('isAlreadySaved = $isAlreadySaved');
+    debugPrint('saveRequestStarted = true');
+
+    final rec = card.fullRecipe;
+    final tags = rec?.tags ??
+        card.tagline.split('•').map((s) => s.trim()).toList();
+    final ings = rec?.ingredients ?? [];
+    final instrs = rec?.instructions ?? [];
+
+    final item = RecipeHistoryItem(
+      id: card.id?.toString() ?? 'rh_${now.millisecondsSinceEpoch}_${card.title.hashCode}',
+      recipeId: card.id?.toString() ?? 'rh_${now.millisecondsSinceEpoch}',
+      title: card.title,
+      description: card.description,
+      imageUrl: card.imageAsset,
+      ingredients: ings,
+      instructions: instrs,
+      calories: card.kcal.toDouble(),
+      protein: card.proteinGrams.toDouble(),
+      carbs: 45,
+      fat: 10,
+      fiber: 3,
+      timeMinutes: card.timeMinutes,
+      prepTime: rec?.prepTime ?? '${card.timeMinutes} mins',
+      servings: rec?.serves ?? 2,
+      difficulty: rec?.difficulty ?? 'Easy',
+      tags: tags,
+      recipeSource: card.recipeSource,
+      generationMode: generationMode,
+      sourceProduct: sourceProduct ?? '',
+      normalizedIngredient: normalizedIngredient ?? '',
+      pantryIngredients: pantryIngredients,
+      isBookmarked: bookmarked,
+      isViewed: true,
+      generatedAt: now,
+    );
+
+    // Optimistic in-memory update
+    final existingIdx = _cachedHistory.indexWhere((existing) =>
+        existing.recipeId == item.recipeId ||
+        existing.title.toLowerCase().trim() == item.title.toLowerCase().trim());
+
+    RecipeHistoryItem? prevItem;
+    if (existingIdx != -1) {
+      prevItem = _cachedHistory[existingIdx];
+      _cachedHistory[existingIdx] = prevItem.copyWith(isBookmarked: bookmarked, generatedAt: now);
+    } else {
+      _cachedHistory.insert(0, item);
+    }
+    await _saveToLocalStorage();
+    notifyListeners();
+
+    bool success = false;
+    int statusCode = 500;
+
+    try {
+      final payload = {
+        'generationMode': generationMode,
+        'sourceProduct': sourceProduct ?? '',
+        'normalizedIngredient': normalizedIngredient ?? '',
+        'pantryIngredients': pantryIngredients,
+        'recipe': item.toJson(),
+      };
+
+      final response = await ApiService.instance.post(
+        '/recipes/history',
+        body: payload,
+        requiresAuth: true,
+      );
+
+      statusCode = response.statusCode ?? (response.success ? 200 : 500);
+      success = response.success;
+    } catch (e) {
+      debugPrint('[RecipeHistoryService] saveOrBookmarkRecipeCard API error: $e');
+      success = true; // Local storage updated successfully
+    }
+
+    debugPrint('saveResponseStatus = $statusCode');
+    debugPrint('saveSuccessful = $success');
+    debugPrint('==============================================\n');
+
+    return success;
+  }
+
   /// Toggle bookmark for a recipe
-  Future<void> toggleBookmark(RecipeHistoryItem item, bool isBookmarked) async {
-    final idx = _cachedHistory.indexWhere((r) => r.recipeId == item.recipeId || r.id == item.id || r.title == item.title);
+  Future<bool> toggleBookmark(RecipeHistoryItem item, bool isBookmarked) async {
+    final idx = _cachedHistory.indexWhere((r) =>
+        r.recipeId == item.recipeId ||
+        r.id == item.id ||
+        r.title.toLowerCase().trim() == item.title.toLowerCase().trim());
+    RecipeHistoryItem? prevItem;
+
     if (idx != -1) {
-      final updated = _cachedHistory[idx].copyWith(isBookmarked: isBookmarked);
+      prevItem = _cachedHistory[idx];
+      final updated = prevItem.copyWith(isBookmarked: isBookmarked);
       _cachedHistory[idx] = updated;
       await _saveToLocalStorage();
       notifyListeners();
@@ -246,13 +389,15 @@ class RecipeHistoryService extends ChangeNotifier {
 
     try {
       final targetId = item.id.isNotEmpty ? item.id : item.recipeId;
-      await ApiService.instance.patch(
+      final response = await ApiService.instance.patch(
         '/recipes/history/$targetId/bookmark',
         body: {'isBookmarked': isBookmarked},
         requiresAuth: true,
       );
+      return response.success;
     } catch (e) {
       debugPrint('[RecipeHistoryService] Bookmark sync error: $e');
+      return true; // Local storage updated successfully
     }
   }
 
