@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/model/food_product.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dietary_safety_validator.dart';
+import '../../core/services/api_service.dart';
+import '../../core/services/pantry_storage_service.dart';
 import '../../core/services/personalization_service.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/recipe_service.dart';
@@ -17,27 +19,20 @@ import 'pdf_service.dart';
 import 'calendar_service.dart';
 import 'ai_meal_planner_screen.dart';
 
-
 class RecipeGeneratorScreen extends StatefulWidget {
   const RecipeGeneratorScreen({
     super.key,
     this.sourceProduct,
     this.initialProduct,
     this.userName = 'Nazia',
-    this.pantryItems = const [
-      PantryChipData(label: 'Oats', asset: 'assets/images/pantry_oats.jpeg', icon: Icons.rice_bowl_rounded),
-      PantryChipData(label: 'Banana', asset: 'assets/images/pantry_banana.jpeg', icon: Icons.emoji_food_beverage_rounded),
-      PantryChipData(label: 'Milk', asset: 'assets/images/pantry_milk.jpeg', icon: Icons.local_drink_rounded),
-      PantryChipData(label: 'Honey', asset: 'assets/images/pantry_honey.jpeg', icon: Icons.water_drop_rounded),
-      PantryChipData(label: 'Chia Seeds', asset: 'assets/images/pantry_chia_seeds.jpeg', icon: Icons.grain_rounded),
-    ],
+    this.pantryItems = const [],
     this.customizeOptions = const [
       CustomizeChipData(icon: Icons.flag_rounded, label: 'Goal', value: 'Weight Loss', color: Color(0xFF1E8A4C)),
       CustomizeChipData(icon: Icons.restaurant_menu_rounded, label: 'Meal Type', value: 'Breakfast', color: Color(0xFF6C4EF5)),
       CustomizeChipData(icon: Icons.eco_rounded, label: 'Diet Preference', value: 'Vegetarian', color: Color(0xFF1E8A4C)),
       CustomizeChipData(icon: Icons.access_time_rounded, label: 'Cooking Time', value: 'Under 20 min', color: Color(0xFFE0862E)),
     ],
-    this.recipes = const [],
+    this.recipes,
     this.moreIdeas = const [
       MoreIdeaData(title: 'Protein Pancakes', imageAsset: 'assets/images/recipe_protein_pancakes.jpeg', timeMinutes: 20, kcal: 375),
       MoreIdeaData(title: 'Berry Chia Pudding', imageAsset: 'assets/images/recipe_berry_chia_pudding.jpeg', timeMinutes: 10, kcal: 280),
@@ -63,7 +58,7 @@ class RecipeGeneratorScreen extends StatefulWidget {
   final String userName;
   final List<PantryChipData> pantryItems;
   final List<CustomizeChipData> customizeOptions;
-  final List<RecipeCardData> recipes;
+  final List<RecipeCardData>? recipes;
   final List<MoreIdeaData> moreIdeas;
 
   final VoidCallback? onBack;
@@ -196,6 +191,8 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
   late int _navIndex;
   double _recipePage = 0;
   bool _isLoading = false;
+  String? _errorMessage;
+  bool _isTimeout = false;
 
   FoodProduct? get _effectiveProduct => widget.sourceProduct ?? widget.initialProduct;
 
@@ -204,7 +201,7 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     super.initState();
     _navIndex = widget.initialNavIndex;
     _pantryItems = [...widget.pantryItems];
-    _recipes = [...widget.recipes];
+    _recipes = widget.recipes != null ? [...widget.recipes!] : [];
     _savedRecipes = {};
     _bookmarkedIdeas = {};
     _cravingCtrl = TextEditingController();
@@ -225,19 +222,43 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           _recipePage = _recipePageCtrl.page ?? 0;
         });
       });
-    if (widget.recipes.isEmpty) {
-      _fetchRecipes();
+
+    if (widget.recipes == null) {
+      if (widget.pantryItems.isEmpty && _effectiveProduct == null) {
+        _loadUserPantry().then((_) {
+          _fetchRecipes();
+        });
+      } else {
+        _fetchRecipes();
+      }
+    }
+  }
+
+  Future<void> _loadUserPantry() async {
+    final products = await PantryStorageService.instance.getProducts();
+    if (!mounted) return;
+    if (products.isNotEmpty) {
+      setState(() {
+        _pantryItems = products.map((p) {
+          return PantryChipData(
+            label: p.name.trim(),
+            asset: '',
+            icon: Icons.kitchen_rounded,
+          );
+        }).toList();
+      });
     }
   }
 
   void _initProductState() {
-    _pantryItems = [...widget.pantryItems];
+    if (widget.pantryItems.isNotEmpty) {
+      _pantryItems = [...widget.pantryItems];
+    }
     final p = _effectiveProduct;
     if (p != null) {
       _cravingCtrl.text = '';
     }
   }
-
 
   @override
   void didUpdateWidget(covariant RecipeGeneratorScreen oldWidget) {
@@ -256,12 +277,23 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     }
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
+      _isTimeout = false;
       _recipes = [];
       _recipePage = 0;
     });
 
     try {
       final isProductMode = _effectiveProduct != null;
+      final customize = _effectiveCustomizeOptions;
+      final mealType = customize.length > 1 ? customize[1].value : 'Breakfast';
+      final timeStr = customize.length > 3 ? customize[3].value : 'Under 20 min';
+      int? maxTime;
+      final match = RegExp(r'(\d+)').firstMatch(timeStr);
+      if (match != null) {
+        maxTime = int.tryParse(match.group(1)!);
+      }
+
       List<RecipeCardData> list;
 
       if (isProductMode) {
@@ -269,13 +301,26 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           mode: 'product',
           sourceProduct: _effectiveProduct,
           craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
+          mealType: mealType,
+          maxTime: maxTime,
         );
       } else {
         final ingredients = _pantryItems.map((p) => p.label).toList();
+        if (ingredients.isEmpty && craving.isEmpty && _cravingCtrl.text.trim().isEmpty) {
+          setState(() {
+            _recipes = [];
+            _isLoading = false;
+            _errorMessage = null;
+            _isTimeout = false;
+          });
+          return;
+        }
         list = await RecipeService.instance.generateRecipes(
           mode: 'pantry',
           ingredients: ingredients,
           craving: craving.isNotEmpty ? craving : _cravingCtrl.text,
+          mealType: mealType,
+          maxTime: maxTime,
         );
       }
 
@@ -283,6 +328,8 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
         setState(() {
           _recipes = list;
           _isLoading = false;
+          _errorMessage = null;
+          _isTimeout = false;
         });
 
         if (list.isNotEmpty) {
@@ -297,10 +344,30 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
           );
         }
       }
-    } catch (_) {
+    } on ApiException catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _recipes = [];
+          if (e.statusCode == 408 || e.message.toLowerCase().contains('time')) {
+            _isTimeout = true;
+            _errorMessage = 'Recipe request timed out. Please tap below to retry.';
+          } else {
+            _isTimeout = false;
+            _errorMessage = e.message.isNotEmpty ? e.message : 'Unable to load recipes right now.';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        final isTimeout = e.toString().toLowerCase().contains('timeout') || e.toString().contains('408');
+        setState(() {
+          _isLoading = false;
+          _recipes = [];
+          _isTimeout = isTimeout;
+          _errorMessage = isTimeout
+              ? 'Recipe request timed out. Please tap below to retry.'
+              : 'Network issue occurred. Please check your connection and retry.';
         });
       }
     }
@@ -659,7 +726,10 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                               const CircularProgressIndicator(color: _kPurple),
                               SizedBox(height: 12 * scale),
                               Text(
-                                'Chef AI is finding recipes with your pantry...',
+                                _effectiveProduct != null
+                                    ? 'Chef AI is finding recipes for ${_effectiveProduct!.name}...'
+                                    : 'Chef AI is finding recipes with your pantry...',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12.5 * scale,
                                   fontWeight: FontWeight.w600,
@@ -669,32 +739,88 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
                             ],
                           ),
                         )
-                      : _recipes.isEmpty
+                      : _errorMessage != null
                           ? Container(
                               height: 200 * scale,
                               padding: EdgeInsets.all(16 * scale),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.kitchen_outlined, size: 42 * scale, color: _kMutedInk),
+                                  Icon(
+                                    _isTimeout ? Icons.timer_off_outlined : Icons.cloud_off_outlined,
+                                    size: 38 * scale,
+                                    color: const Color(0xFFE0862E),
+                                  ),
                                   SizedBox(height: 8 * scale),
                                   Text(
-                                    'No suitable recipes found with your current pantry and preferences.',
+                                    _errorMessage!,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 12 * scale,
-                                      color: _kMutedInk,
+                                      color: _kInk,
                                       fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(height: 12 * scale),
+                                  FilledButton.icon(
+                                    onPressed: () => _fetchRecipes(craving: _cravingCtrl.text),
+                                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                                    label: const Text('Retry'),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: _kPurple,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                   ),
                                 ],
                               ),
                             )
+                          : _recipes.isEmpty
+                              ? Container(
+                                  height: 200 * scale,
+                                  padding: EdgeInsets.all(16 * scale),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.restaurant_menu_rounded, size: 42 * scale, color: _kMutedInk),
+                                      SizedBox(height: 8 * scale),
+                                      Text(
+                                        _effectiveProduct != null
+                                            ? 'No suitable recipes found for this product with your selected preferences.'
+                                            : _pantryItems.isEmpty
+                                                ? 'Your pantry is empty. Add ingredients to discover personalized recipes.'
+                                                : 'No suitable recipes found with your current pantry and preferences.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12 * scale,
+                                          color: _kMutedInk,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (_effectiveProduct == null && _pantryItems.isEmpty) ...[
+                                        SizedBox(height: 10 * scale),
+                                        FilledButton.icon(
+                                          onPressed: _openPantry,
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: const Text('Open Pantry'),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: _kPurple,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                )
                           : SizedBox(
                               height: 220 * scale,
                               child: PageView.builder(

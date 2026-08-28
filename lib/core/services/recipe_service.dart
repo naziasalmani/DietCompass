@@ -12,11 +12,46 @@ import 'dietary_safety_validator.dart';
 import '../../features/recipe_generator/recipe_generator_screen.dart';
 import '../../features/recipe_generator/recipe_detail_screen.dart';
 
+import '../data/hardcoded_recipes.dart';
+
 /// DietCompass — Recipe Generation Service (Phase 6D)
 /// Communicates with backend `/api/recipes/generate` and `/api/recipes/:id`
 class RecipeService {
   RecipeService._();
   static final RecipeService instance = RecipeService._();
+
+  static String fallbackRecipeImage(
+    String title, [
+    Iterable<String> ingredients = const [],
+  ]) {
+    final text = ([title, ...ingredients]).join(' ').toLowerCase();
+    if (text.contains('chocolate') &&
+        (text.contains('banana') || text.contains('oat') || text.contains('overnight'))) {
+      return 'assets/images/recipe_chocolate_banana_oats.jpeg';
+    }
+    if (text.contains('banana') && text.contains('oat')) {
+      return 'assets/images/recipe_banana_oats_power_bowl.jpeg';
+    }
+    if (text.contains('apple') &&
+        text.contains('cinnamon')) {
+      return 'assets/images/recipe_apple_cinnamon_oatmeal.jpeg';
+    }
+    if ((text.contains('spinach') || text.contains('mushroom') || text.contains('savory')) && text.contains('oat')) {
+      return 'assets/images/recipe_savory_veggie_oats.jpeg';
+    }
+    if (text.contains('savory') &&
+        (text.contains('veggie') || text.contains('vegetable')) &&
+        text.contains('oat')) {
+      return 'assets/images/recipe_savory_veggie_oats.jpeg';
+    }
+    if (text.contains('egg') && (text.contains('scramble') || text.contains('green') || text.contains('protein'))) {
+      return 'assets/images/recipe_veggie_omelette.jpeg';
+    }
+    if (text.contains('pasta primavera') || (text.contains('pasta') && text.contains('primavera'))) {
+      return 'assets/images/recipe_protein_pancakes.jpeg';
+    }
+    return '';
+  }
 
   /// Generates personalized recipes using user's pantry ingredients and Spoonacular API
   /// Normalizes a FoodProduct into its generic culinary category
@@ -27,58 +62,173 @@ class RecipeService {
     final lower = '$combined ${product.ingredients}'.toLowerCase();
 
     // 1. Chocolates & Confectionery
-    if (combined.contains('chocolate') || combined.contains('dairy milk') || combined.contains('silk') ||
-        combined.contains('bournville') || combined.contains('kitkat') || combined.contains('snickers') ||
-        combined.contains('cocoa') || combined.contains('cacao') || combined.contains('fudge')) {
+    if (combined.contains('chocolate') ||
+        combined.contains('dairy milk') ||
+        combined.contains('silk') ||
+        combined.contains('bournville') ||
+        combined.contains('kitkat') ||
+        combined.contains('snickers') ||
+        combined.contains('cocoa') ||
+        combined.contains('cacao') ||
+        combined.contains('fudge')) {
       return 'chocolate';
     }
 
     // 2. Noodles & Pasta
-    if (combined.contains('maggi') || combined.contains('noodle') || combined.contains('ramen') ||
-        combined.contains('pasta') || combined.contains('spaghetti') || combined.contains('macaroni') ||
-        combined.contains('penne') || combined.contains('fusilli') || combined.contains('chowmein')) {
+    if (combined.contains('maggi') ||
+        combined.contains('noodle') ||
+        combined.contains('ramen') ||
+        combined.contains('pasta') ||
+        combined.contains('spaghetti') ||
+        combined.contains('macaroni') ||
+        combined.contains('penne') ||
+        combined.contains('fusilli') ||
+        combined.contains('chowmein')) {
       return 'noodles';
     }
-    if (lower.contains('lays') || lower.contains("lay's") || lower.contains('potato chips') || lower.contains('chips') || lower.contains('crisps') || lower.contains('doritos') || lower.contains('pringles')) {
+    if (lower.contains('lays') ||
+        lower.contains("lay's") ||
+        lower.contains('potato chips') ||
+        lower.contains('chips') ||
+        lower.contains('crisps') ||
+        lower.contains('doritos') ||
+        lower.contains('pringles')) {
       return 'potato chips';
     }
-    if (lower.contains('oreo') || lower.contains('cookie') || lower.contains('cookies') || lower.contains('biscuit') || lower.contains('biscuits')) {
+    if (lower.contains('oreo') ||
+        lower.contains('cookie') ||
+        lower.contains('cookies') ||
+        lower.contains('biscuit') ||
+        lower.contains('biscuits') ||
+        lower.contains('parle-g')) {
       return 'cookies';
     }
-    if (lower.contains('nutella') || lower.contains('hazelnut spread')) {
+    if (lower.contains('nutella') ||
+        lower.contains('hazelnut spread') ||
+        lower.contains('chocolate spread')) {
       return 'hazelnut spread';
     }
-    if (lower.contains('peanut butter') || lower.contains('pb')) {
+    if (lower.contains('peanut butter') ||
+        lower.contains('pb') ||
+        lower.contains('nut butter')) {
       return 'peanut butter';
     }
-    if (lower.contains('amul butter') || lower.contains('butter')) {
+    if (lower.contains('amul butter') ||
+        lower.contains('butter') ||
+        lower.contains('ghee')) {
       return 'butter';
     }
     if (lower.contains('paneer') || lower.contains('cottage cheese')) {
       return 'paneer';
     }
-    if (lower.contains('cheese') || lower.contains('cheddar') || lower.contains('mozzarella')) {
+    if (lower.contains('cheese') ||
+        lower.contains('cheddar') ||
+        lower.contains('mozzarella')) {
       return 'cheese';
     }
-    if (lower.contains('yogurt') || lower.contains('curd') || lower.contains('dahi')) {
+    if (lower.contains('yogurt') ||
+        lower.contains('curd') ||
+        lower.contains('dahi') ||
+        lower.contains('greek yogurt')) {
       return 'yogurt';
     }
-    if (lower.contains('oats') || lower.contains('oatmeal') || lower.contains('rolled oats')) {
+    if (lower.contains('oats') ||
+        lower.contains('oatmeal') ||
+        lower.contains('rolled oats') ||
+        lower.contains('quaker')) {
       return 'oats';
     }
-    if (lower.contains('bread') || lower.contains('toast')) {
+    if (lower.contains('bread') ||
+        lower.contains('toast') ||
+        lower.contains('loaf')) {
       return 'bread';
     }
     if (lower.contains('egg') || lower.contains('eggs')) {
-      return 'eggs';
+      return 'egg';
     }
-    if (lower.contains('milk')) {
+    if (lower.contains('milk') ||
+        lower.contains('dairy') ||
+        lower.contains('amul milk')) {
       return 'milk';
     }
-    return product.name.trim();
+    if (lower.contains('rice') || lower.contains('basmati')) {
+      return 'rice';
+    }
+    if (lower.contains('honey') || lower.contains('maple syrup')) {
+      return 'honey';
+    }
+
+    return 'food';
   }
 
-  /// Generates personalized recipes using user's pantry ingredients and Spoonacular API
+  /// Builds query list for prioritized searches
+  static List<String> buildPrioritizedQueries({
+    required String primaryCategory,
+    required List<String> cleanPantry,
+    String mealType = '',
+  }) {
+    final queries = <String>[];
+    final seen = <String>{};
+
+    void addQuery(String q) {
+      final trimmed = q.trim();
+      if (trimmed.isNotEmpty && seen.add(trimmed.toLowerCase())) {
+        queries.add(trimmed);
+      }
+    }
+
+    final meal = mealType.toLowerCase().trim();
+
+    if (cleanPantry.length >= 2) {
+      addQuery('$primaryCategory ${cleanPantry[0]} ${cleanPantry[1]}');
+    }
+    if (cleanPantry.isNotEmpty) {
+      addQuery('$primaryCategory ${cleanPantry[0]}');
+    }
+    if (cleanPantry.length >= 2) {
+      addQuery('$primaryCategory ${cleanPantry[1]}');
+    }
+    if (meal.isNotEmpty) {
+      addQuery('$primaryCategory $meal');
+    }
+    addQuery(primaryCategory);
+
+    return queries;
+  }
+
+  /// Extracts recipe title query terms for Spoonacular / Edamam
+  static String extractRecipeQuery(FoodProduct? product, String craving) {
+    if (craving.trim().isNotEmpty) {
+      return craving.trim();
+    }
+    if (product == null) {
+      return 'healthy';
+    }
+    return normalizeProductCategory(product);
+  }
+
+  /// Filters out ingredients that are identical/synonymous with the source product
+  static List<String> cleanPantryIngredients(
+    List<String> pantry,
+    FoodProduct? sourceProduct,
+  ) {
+    if (sourceProduct == null) return pantry;
+    final cat = normalizeProductCategory(sourceProduct).toLowerCase();
+    final name = (sourceProduct.name).toLowerCase();
+
+    return pantry.where((item) {
+      final lower = item.toLowerCase().trim();
+      if (lower == cat || cat.contains(lower) || lower.contains(cat)) {
+        return false;
+      }
+      if (lower == name || name.contains(lower) || lower.contains(name)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  /// Main Generation Pipeline
   Future<List<RecipeCardData>> generateRecipes({
     String mode = '',
     List<String> ingredients = const [],
@@ -97,30 +247,76 @@ class RecipeService {
       profile: profile,
     );
 
-    final activePers = personalization ?? PersonalizationService.instance.currentPersonalization;
+    final activePers =
+        personalization ??
+        PersonalizationService.instance.currentPersonalization;
     final activeProf = profile ?? ProfileService.instance.currentProfile;
-    final userId = activeProf?.id ?? AuthService.instance.currentUser?.id ?? 'authenticated_user';
+    final userId =
+        activeProf?.id ??
+        AuthService.instance.currentUser?.id ??
+        'authenticated_user';
 
     debugPrint('\n==============================================');
     debugPrint('[RECIPE PROFILE]');
     debugPrint('userId = $userId');
     debugPrint('diet = ${active.dietType}');
-    debugPrint('goal = ${activePers?.goals.isNotEmpty == true ? activePers!.goals.join(', ') : 'None'}');
+    debugPrint(
+      'goal = ${activePers?.goals.isNotEmpty == true ? activePers!.goals.join(', ') : 'None'}',
+    );
     debugPrint('allergies = [${active.allergies.join(', ')}]');
     debugPrint('==============================================\n');
 
-    final isProductMode = mode == 'product' || (mode.isEmpty && sourceProduct != null);
+    final isProductMode =
+        mode == 'product' || (mode.isEmpty && sourceProduct != null);
     final effectiveMode = isProductMode ? 'product' : 'pantry';
     final normalizedCategory = (isProductMode && sourceProduct != null)
         ? normalizeProductCategory(sourceProduct)
         : '';
     final effectiveCraving = craving.isNotEmpty ? craving : normalizedCategory;
 
+    final userGoal = (activePers?.goals.isNotEmpty == true)
+        ? activePers!.goals.join(', ')
+        : 'Weight Loss';
+    final userNutrition = (activePers?.nutritionFocus.isNotEmpty == true)
+        ? activePers!.nutritionFocus.join(', ')
+        : 'Balanced';
+    final userTime = maxTime != null
+        ? 'Under $maxTime minutes'
+        : 'Under 20 minutes';
+    final effectiveMeal = mealType.isNotEmpty ? mealType : 'Breakfast';
+
+    debugPrint('\n==============================================');
+    debugPrint('[RECIPE MODE]');
+    debugPrint('mode = $effectiveMode\n');
+
+    if (isProductMode && sourceProduct != null) {
+      debugPrint('[PRODUCT]');
+      debugPrint('sourceProduct = ${sourceProduct.name}');
+      debugPrint('normalizedIngredient = $normalizedCategory');
+      debugPrint(
+        'searchQuery = ${effectiveCraving.isNotEmpty ? effectiveCraving : normalizedCategory}\n',
+      );
+      debugPrint('[PANTRY]');
+      debugPrint('status = IGNORED\n');
+    } else {
+      debugPrint('[PANTRY]');
+      debugPrint('status = ACTIVE');
+      debugPrint('pantryIngredients = ${ingredients.join(', ')}\n');
+    }
+
+    debugPrint('[PREFERENCES]');
+    debugPrint('goal = $userGoal');
+    debugPrint('mealType = $effectiveMeal');
+    debugPrint('diet = ${active.dietType}');
+    debugPrint('nutrition = $userNutrition');
+    debugPrint('time = $userTime');
+    debugPrint('==============================================\n');
+
     final payload = <String, dynamic>{
       'mode': effectiveMode,
       'craving': effectiveCraving,
       'primaryIngredient': normalizedCategory,
-      'mealType': mealType,
+      'mealType': effectiveMeal,
       'dietType': active.dietType,
       'allergies': active.allergies.toList(),
       'maxTime': maxTime,
@@ -143,40 +339,10 @@ class RecipeService {
         'sugar': sourceProduct.sugar,
         'sodium': sourceProduct.sodium,
       };
-
-      debugPrint('\n==============================================');
-      debugPrint('[RECIPE MODE]');
-      debugPrint('mode = product\n');
-      debugPrint('[PRODUCT NORMALIZATION]');
-      debugPrint('originalProduct = ${sourceProduct.name}');
-      debugPrint('normalizedIngredient = $normalizedCategory\n');
-      debugPrint('[RECIPE SEARCH]');
-      debugPrint('searchQuery = ${effectiveCraving.isNotEmpty ? effectiveCraving : normalizedCategory}');
-      debugPrint('pantryIngredients = IGNORED');
-      debugPrint('==============================================\n');
     } else {
       payload['ingredients'] = ingredients;
       payload['pantryItems'] = pantryItems;
-
-      debugPrint('\n==============================================');
-      debugPrint('[RECIPE MODE]');
-      debugPrint('mode = pantry\n');
-      debugPrint('[PANTRY RECIPE SEARCH]');
-      debugPrint('pantryIngredients = ${ingredients.join(', ')}');
-      debugPrint('==============================================\n');
     }
-
-    final effectiveQuery = effectiveCraving.isNotEmpty ? effectiveCraving : normalizedCategory;
-
-    debugPrint('\n[RECIPE REQUEST DEBUG]');
-    debugPrint('endpoint = /recipes/generate');
-    debugPrint('mode = $effectiveMode');
-    debugPrint('sourceProduct = ${sourceProduct?.name ?? 'none'}');
-    debugPrint('searchQuery = ${effectiveQuery.isNotEmpty ? effectiveQuery : 'none'}');
-    debugPrint('pantryIngredients = ${isProductMode ? '[]' : ingredients.toString()}');
-    debugPrint('diet = ${active.dietType}');
-    debugPrint('mealType = ${mealType.isNotEmpty ? mealType : 'none'}');
-    debugPrint('goal = ${personalization?.goals.join(', ') ?? 'none'}');
 
     List<RecipeCardData> candidates = [];
     String receivedSource = 'unknown';
@@ -191,7 +357,9 @@ class RecipeService {
 
       final bodyStr = response.rawBody ?? jsonEncode(response.data ?? {});
       final bodyLen = bodyStr.length;
-      final previewBody = bodyLen > 10000 ? '${bodyStr.substring(0, 10000)}... (truncated)' : bodyStr;
+      final previewBody = bodyLen > 10000
+          ? '${bodyStr.substring(0, 10000)}... (truncated)'
+          : bodyStr;
 
       debugPrint('\n[RECIPE RAW RESPONSE DEBUG]');
       debugPrint('statusCode = ${response.statusCode}');
@@ -200,31 +368,69 @@ class RecipeService {
       debugPrint('responseBody = $previewBody');
 
       final rootMap = response.data;
-      final rootType = rootMap != null ? rootMap.runtimeType.toString() : 'null';
-      final rootKeys = rootMap != null ? rootMap.keys.toList().toString() : '[]';
+      final rootType = rootMap != null
+          ? rootMap.runtimeType.toString()
+          : 'null';
+      final rootKeys = rootMap != null
+          ? rootMap.keys.toList().toString()
+          : '[]';
 
       debugPrint('\n[RECIPE JSON STRUCTURE]');
       debugPrint('rootType = $rootType');
       debugPrint('rootKeys = $rootKeys');
 
+      final statusCode = response.statusCode ?? 500;
+      final msg = (response.message != null && response.message!.isNotEmpty)
+          ? response.message!
+          : 'Recipe request failed.';
+
+      if (statusCode == 408) {
+        throw ApiException(
+          (response.message != null && response.message!.isNotEmpty)
+              ? response.message!
+              : 'Recipe request timed out. Please try again.',
+          statusCode: 408,
+        );
+      }
+      if (statusCode == 0) {
+        throw ApiException(
+          (response.message != null && response.message!.isNotEmpty)
+              ? response.message!
+              : 'No internet connection or server unreachable.',
+          statusCode: 0,
+        );
+      }
+      if (!response.success &&
+          (response.data == null || response.data!.isEmpty)) {
+        if (statusCode >= 400) {
+          throw ApiException(msg, statusCode: statusCode);
+        }
+      }
+
       if (response.success && response.data != null) {
         final dynamic nestedData = response.data!['data'];
-        final Map<String, dynamic> dataMap = (nestedData is Map<String, dynamic>)
-            ? nestedData
-            : response.data!;
+        final Map<String, dynamic> dataMap =
+            (nestedData is Map<String, dynamic>) ? nestedData : response.data!;
 
-        debugPrint('[RECIPE PARSER TRACE] Reading recipes from dataMap keys: ${dataMap.keys.toList()}');
+        debugPrint(
+          '[RECIPE PARSER TRACE] Reading recipes from dataMap keys: ${dataMap.keys.toList()}',
+        );
 
         receivedSource = dataMap['recipeSource']?.toString() ?? 'api';
         final list = dataMap['recipes'] as List?;
         if (list != null) {
           rawCount = list.length;
-          debugPrint('[RECIPE PARSER TRACE] dataMap["recipes"] found with length $rawCount');
+          debugPrint(
+            '[RECIPE PARSER TRACE] dataMap["recipes"] found with length $rawCount',
+          );
           for (var i = 0; i < list.length; i++) {
             final item = list[i];
             if (item is Map<String, dynamic>) {
               try {
-                final card = _parseRecipeCard(item, defaultSource: receivedSource);
+                final card = _parseRecipeCard(
+                  item,
+                  defaultSource: receivedSource,
+                );
                 candidates.add(card);
               } catch (e, st) {
                 debugPrint('\n[RECIPE PARSER ERROR]');
@@ -235,7 +441,9 @@ class RecipeService {
             } else {
               debugPrint('\n[RECIPE PARSER ERROR]');
               debugPrint('recipeIndex = $i');
-              debugPrint('error = Item is not a Map<String, dynamic>, got: ${item.runtimeType}');
+              debugPrint(
+                'error = Item is not a Map<String, dynamic>, got: ${item.runtimeType}',
+              );
             }
           }
         } else {
@@ -248,6 +456,8 @@ class RecipeService {
       debugPrint('\n[RECIPE RAW RESPONSE]');
       debugPrint('statusCode = ${response.statusCode}');
       debugPrint('rawRecipeCount = $rawCount');
+    } on ApiException {
+      rethrow;
     } catch (e, st) {
       debugPrint('\n[RECIPE PARSER ERROR]');
       debugPrint('error = API request failed: $e');
@@ -255,6 +465,7 @@ class RecipeService {
       debugPrint('\n[RECIPE RAW RESPONSE]');
       debugPrint('statusCode = 500');
       debugPrint('rawRecipeCount = 0');
+      throw ApiException('Recipe request failed: $e', statusCode: 500);
     }
 
     debugPrint('\n[RECIPE PARSING]');
@@ -273,13 +484,14 @@ class RecipeService {
     debugPrint('\n[RECIPE FILTERING]');
     debugPrint('finalRecipeCount = ${validCandidates.length}');
 
-
-
     if (validCandidates.isNotEmpty) {
       final first = validCandidates.first;
-      final ingsStr = first.fullRecipe?.ingredients.map((i) => i.name).join(', ') ?? '';
+      final ingsStr =
+          first.fullRecipe?.ingredients.map((i) => i.name).join(', ') ?? '';
       debugPrint('\n[FLUTTER RECIPE RESULT]');
-      debugPrint('source = ${first.recipeSource.isNotEmpty ? first.recipeSource : receivedSource}');
+      debugPrint(
+        'source = ${first.recipeSource.isNotEmpty ? first.recipeSource : receivedSource}',
+      );
       debugPrint('recipeCount = ${validCandidates.length}');
       debugPrint('recipe[0].id = ${first.id}');
       debugPrint('recipe[0].title = ${first.title}');
@@ -302,7 +514,6 @@ class RecipeService {
     return [];
   }
 
-
   /// Fetches full recipe details by ID
   Future<Recipe> getRecipeDetails(dynamic recipeId) async {
     try {
@@ -312,10 +523,16 @@ class RecipeService {
       );
 
       if (response.success && response.data != null) {
-        final data = response.data!['data'] as Map<String, dynamic>? ?? response.data!;
+        final data =
+            response.data!['data'] as Map<String, dynamic>? ?? response.data!;
         return _parseRecipeDetail(data);
       }
     } catch (_) {}
+
+    final hardcoded = HardcodedRecipeCatalog.findByIdOrTitle(recipeId.toString());
+    if (hardcoded?.fullRecipe != null) {
+      return hardcoded!.fullRecipe!;
+    }
 
     throw ApiException(
       'Failed to load recipe details.',
@@ -324,35 +541,89 @@ class RecipeService {
     );
   }
 
-  RecipeCardData _parseRecipeCard(Map<String, dynamic> json, {String defaultSource = 'api'}) {
+  RecipeCardData _parseRecipeCard(
+    Map<String, dynamic> json, {
+    String defaultSource = 'api',
+  }) {
     final recipeId = json['id'];
     final title = json['title']?.toString() ?? 'Delicious Recipe';
-    final rawImage = json['image']?.toString() ?? json['imageAsset']?.toString() ?? '';
+    final rawImage =
+        (json['image']?.toString() ?? json['imageAsset']?.toString() ?? '').trim();
+    final ingredients =
+        (json['ingredients'] as List?)
+            ?.map(
+              (item) => item is Map<String, dynamic>
+                  ? item['name']?.toString() ?? ''
+                  : item.toString(),
+            )
+            .toList() ??
+        const <String>[];
     final recipeSource = json['recipeSource']?.toString() ?? defaultSource;
 
-    // Strict Image ID validation: If image URL is from Spoonacular, ensure the ID in URL matches recipe.id
-    String validImage = rawImage;
-    if (recipeId != null && rawImage.contains('img.spoonacular.com/recipes/')) {
-      final match = RegExp(r'recipes/(\d+)-').firstMatch(rawImage);
-      if (match != null && match.group(1) != null) {
-        final imgId = int.tryParse(match.group(1)!);
-        final recId = (recipeId is int) ? recipeId : int.tryParse(recipeId.toString());
-        if (imgId != null && recId != null && imgId != recId) {
-          debugPrint('[RECIPE IMAGE DEBUG] Warning: Image ID $imgId does not match recipe ID $recId for "$title". Using neutral placeholder.');
-          validImage = '';
+    // IMAGE RESOLUTION PRIORITY:
+    // 1. Valid recipe-specific API image URL returned for that exact recipe (http:// or https://)
+    // 2. Exact recipe-specific local hardcoded image ONLY when the recipe itself is a known hardcoded recipe
+    // 3. Fallback image ONLY when there is genuinely no valid recipe-specific image available
+    String recipeImage = '';
+    String imageSource = 'fallback';
+
+    if (rawImage.startsWith('http://') || rawImage.startsWith('https://')) {
+      // Validate Spoonacular ID if applicable to prevent cross-recipe image bleed
+      bool isMismatch = false;
+      if (recipeId != null && rawImage.contains('img.spoonacular.com/recipes/')) {
+        final match = RegExp(r'recipes/(\d+)-').firstMatch(rawImage);
+        if (match != null && match.group(1) != null) {
+          final imgId = int.tryParse(match.group(1)!);
+          final recId = (recipeId is int)
+              ? recipeId
+              : int.tryParse(recipeId.toString());
+          if (imgId != null && recId != null && imgId != recId) {
+            isMismatch = true;
+            debugPrint(
+              '[RECIPE IMAGE DEBUG] Warning: Image ID $imgId does not match recipe ID $recId for "$title".',
+            );
+          }
         }
+      }
+      if (!isMismatch) {
+        recipeImage = rawImage;
+        imageSource = 'api';
       }
     }
 
-    final recipeImage = validImage.isNotEmpty ? validImage : '';
-    debugPrint('[RECIPE IMAGE DEBUG] recipeId: $recipeId | recipeTitle: $title | recipeImage: $recipeImage');
+    if (recipeImage.isEmpty) {
+      final hardcodedMatch = HardcodedRecipeCatalog.findByIdOrTitle(recipeId?.toString() ?? title);
+      if (hardcodedMatch != null && hardcodedMatch.imageAsset.isNotEmpty) {
+        recipeImage = hardcodedMatch.imageAsset;
+        imageSource = 'local_hardcoded';
+      }
+    }
+
+    if (recipeImage.isEmpty) {
+      final fallback = fallbackRecipeImage(title, ingredients);
+      if (fallback.isNotEmpty) {
+        recipeImage = fallback;
+        imageSource = 'fallback';
+      }
+    }
+
+    debugPrint('\n[RECIPE IMAGE TRACE]');
+    debugPrint('recipeId = $recipeId');
+    debugPrint('recipeTitle = $title');
+    debugPrint('backendImage = ${json['image']}');
+    debugPrint('backendImageAsset = ${json['imageAsset']}');
+    debugPrint('parsedImage = $rawImage');
+    debugPrint('finalDisplayedImage = $recipeImage');
+    debugPrint('imageSource = $imageSource\n');
 
     final whatsInRaw = json['whatsInside'] as List?;
     final whatsInside = (whatsInRaw != null)
         ? whatsInRaw.whereType<Map<String, dynamic>>().map((t) {
             Color color;
             try {
-              final hex = t['color']?.toString().replaceFirst('#', '0xFF') ?? '0xFF1E8A4C';
+              final hex =
+                  t['color']?.toString().replaceFirst('#', '0xFF') ??
+                  '0xFF1E8A4C';
               color = Color(int.parse(hex));
             } catch (_) {
               color = const Color(0xFF1E8A4C);
@@ -364,9 +635,11 @@ class RecipeService {
               icon = Icons.fitness_center_rounded;
             } else if (iconStr.contains('bolt') || iconStr.contains('energy')) {
               icon = Icons.bolt_rounded;
-            } else if (iconStr.contains('heart') || iconStr.contains('favorite')) {
+            } else if (iconStr.contains('heart') ||
+                iconStr.contains('favorite')) {
               icon = Icons.favorite_rounded;
-            } else if (iconStr.contains('shopping') || iconStr.contains('weight')) {
+            } else if (iconStr.contains('shopping') ||
+                iconStr.contains('weight')) {
               icon = Icons.shopping_bag_rounded;
             }
 
@@ -383,7 +656,7 @@ class RecipeService {
               title: 'Nutrient Rich',
               subtitle: 'Whole food ingredients',
               color: Color(0xFF1E8A4C),
-            )
+            ),
           ];
 
     final fullRecipe = _parseRecipeDetail(json, fallbackImage: recipeImage);
@@ -401,27 +674,39 @@ class RecipeService {
       whatsInside: whatsInside,
       recommended: json['recommended'] == true,
       usedIngredientCount: (json['usedIngredientCount'] as num?)?.toInt() ?? 0,
-      missedIngredientCount: (json['missedIngredientCount'] as num?)?.toInt() ?? 0,
+      missedIngredientCount:
+          (json['missedIngredientCount'] as num?)?.toInt() ?? 0,
       pantryMatchSummary: json['pantryMatchSummary']?.toString() ?? '',
       fullRecipe: fullRecipe,
     );
   }
 
-
-  Recipe _parseRecipeDetail(Map<String, dynamic> json, {String? fallbackImage}) {
+  Recipe _parseRecipeDetail(
+    Map<String, dynamic> json, {
+    String? fallbackImage,
+  }) {
     final title = json['title']?.toString() ?? 'Personalized Recipe';
-    final rawImage = json['image']?.toString() ?? json['imageAsset']?.toString() ?? fallbackImage ?? '';
+    final rawImage = fallbackImage?.isNotEmpty == true
+        ? fallbackImage!
+        : json['image']?.toString() ?? json['imageAsset']?.toString() ?? '';
     final defaultImg = rawImage.isNotEmpty ? rawImage : '';
 
     final imagesRaw = json['images'] as List?;
-    final images = (imagesRaw != null && imagesRaw.isNotEmpty)
+    final images = fallbackImage?.isNotEmpty == true
+        ? [fallbackImage!]
+        : (imagesRaw != null && imagesRaw.isNotEmpty)
         ? imagesRaw.map((e) => e.toString()).toList()
         : [defaultImg];
 
     final tagsRaw = json['tags'] as List?;
     final tags = (tagsRaw != null && tagsRaw.isNotEmpty)
         ? tagsRaw.map((e) => e.toString()).toList()
-        : (json['tagline']?.toString().split('•').map((s) => s.trim()).toList() ?? ['Healthy', 'Quick']);
+        : (json['tagline']
+                  ?.toString()
+                  .split('•')
+                  .map((s) => s.trim())
+                  .toList() ??
+              ['Healthy', 'Quick']);
 
     final ingsRaw = json['ingredients'] as List?;
     final ingredients = (ingsRaw != null)
@@ -432,18 +717,11 @@ class RecipeService {
                 name: i['name']?.toString() ?? i['original']?.toString() ?? '',
               );
             } else if (i is String) {
-              return IngredientItem(
-                amount: '',
-                name: i,
-              );
+              return IngredientItem(amount: '', name: i);
             }
-            return IngredientItem(
-              amount: '',
-              name: i?.toString() ?? '',
-            );
+            return IngredientItem(amount: '', name: i?.toString() ?? '');
           }).toList()
         : <IngredientItem>[];
-
 
     final instructionsRaw = json['instructions'] as List?;
     final instructions = (instructionsRaw != null && instructionsRaw.isNotEmpty)
@@ -516,4 +794,3 @@ class RecipeService {
     );
   }
 }
-

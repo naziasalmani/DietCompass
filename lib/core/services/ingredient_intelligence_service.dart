@@ -270,6 +270,7 @@ class IngredientIntelligenceService {
     final claims = product.claims;
     final results = <ClaimVerificationItem>[];
 
+    final unitLabel = product.isLiquid ? '100ml' : '100g';
     final sugarGrams = product.sugar;
     final proteinGrams = product.protein;
     final sodiumVal = product.sodium;
@@ -304,7 +305,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Review Recommended',
-              explanation: 'Contains ${sugarGrams.toStringAsFixed(1)}g sugar per 100g. Standard low-sugar guidelines recommend 5g or less per 100g.',
+              explanation: 'Contains ${sugarGrams.toStringAsFixed(1)}g sugar per $unitLabel. Standard low-sugar guidelines recommend 5g or less per $unitLabel.',
             ),
           );
         } else if (detectedSugars.length > 1) {
@@ -320,7 +321,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Verified',
-              explanation: 'Meets standard criteria for lower sugar content per 100g.',
+              explanation: 'Meets standard criteria for lower sugar content per $unitLabel.',
             ),
           );
         }
@@ -330,7 +331,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Review Recommended',
-              explanation: 'Contains ${proteinGrams.toStringAsFixed(1)}g protein per 100g. Standard high-protein benchmark is at least 10–15g per 100g.',
+              explanation: 'Contains ${proteinGrams.toStringAsFixed(1)}g protein per $unitLabel. Standard high-protein benchmark is at least 10–15g per $unitLabel.',
             ),
           );
         } else if (proteinGrams != null && proteinGrams >= 10.0) {
@@ -338,7 +339,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Verified',
-              explanation: 'Provides ${proteinGrams.toStringAsFixed(1)}g protein per 100g, supporting high-protein dietary targets.',
+              explanation: 'Provides ${proteinGrams.toStringAsFixed(1)}g protein per $unitLabel, supporting high-protein dietary targets.',
             ),
           );
         }
@@ -348,7 +349,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Review Recommended',
-              explanation: 'Contains ${sodiumMg.toStringAsFixed(0)}mg sodium per 100g, exceeding the low-sodium threshold of 140mg.',
+              explanation: 'Contains ${sodiumMg.toStringAsFixed(0)}mg sodium per $unitLabel, exceeding the low-sodium threshold of 140mg.',
             ),
           );
         } else if (sodiumMg != null) {
@@ -356,7 +357,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Verified',
-              explanation: 'Meets low-sodium criteria with ${sodiumMg.toStringAsFixed(0)}mg sodium per 100g.',
+              explanation: 'Meets low-sodium criteria with ${sodiumMg.toStringAsFixed(0)}mg sodium per $unitLabel.',
             ),
           );
         }
@@ -366,7 +367,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Review Recommended',
-              explanation: 'Contains ${fiberGrams.toStringAsFixed(1)}g fiber per 100g. High-fiber threshold is typically at least 5–6g per 100g.',
+              explanation: 'Contains ${fiberGrams.toStringAsFixed(1)}g fiber per $unitLabel. High-fiber threshold is typically at least 5–6g per $unitLabel.',
             ),
           );
         } else if (fiberGrams != null && fiberGrams >= 5.0) {
@@ -374,7 +375,7 @@ class IngredientIntelligenceService {
             ClaimVerificationItem(
               claim: claim,
               status: 'Verified',
-              explanation: 'Provides rich dietary fiber (${fiberGrams.toStringAsFixed(1)}g/100g).',
+              explanation: 'Provides rich dietary fiber (${fiberGrams.toStringAsFixed(1)}g/$unitLabel).',
             ),
           );
         }

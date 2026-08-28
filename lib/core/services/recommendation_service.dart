@@ -233,6 +233,8 @@ class RecommendationService {
       }
     }
 
+    final unitLabel = product.isLiquid ? '100ml' : '100g';
+
     // 3. HEALTH CONDITIONS (High Priority)
     for (final condition in userConditions) {
       final lowerCond = condition.toLowerCase();
@@ -244,7 +246,7 @@ class RecommendationService {
             ProductCompatibilityItem(
               label: 'Blood Sugar Impact',
               rating: 'Consider',
-              detail: '${sugarGrams.toStringAsFixed(1)}g sugar per 100g.',
+              detail: '${sugarGrams.toStringAsFixed(1)}g sugar per $unitLabel.',
             ),
           );
         } else if (sugarGrams <= 3 && fiberGrams >= 3) {
@@ -261,13 +263,13 @@ class RecommendationService {
       }
       if (lowerCond.contains('hypertension') || lowerCond.contains('blood pressure') || lowerCond.contains('heart')) {
         if (sodiumMg > 350) {
-          concerns.add('Elevated sodium (${sodiumMg.toStringAsFixed(0)}mg/100g) exceeds heart-healthy targets.');
+          concerns.add('Elevated sodium (${sodiumMg.toStringAsFixed(0)}mg/$unitLabel) exceeds heart-healthy targets.');
           score -= 18;
           compatibilityItems.add(
             ProductCompatibilityItem(
               label: 'Heart Health',
               rating: 'Consider',
-              detail: '${sodiumMg.toStringAsFixed(0)}mg sodium per 100g.',
+              detail: '${sodiumMg.toStringAsFixed(0)}mg sodium per $unitLabel.',
             ),
           );
         } else if (sodiumMg > 0 && sodiumMg <= 140) {

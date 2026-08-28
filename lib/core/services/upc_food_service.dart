@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../model/food_product.dart';
+import '../services/nutrition_normalization_service.dart';
 
 class UPCFoodService {
   static const String _baseUrl = 'https://upc.dev';
@@ -154,6 +155,25 @@ class UPCFoodService {
         data['image_url']?.toString().trim() ??
         '';
 
+    final servingSize = data['serving_size']?.toString() ?? data['servingSize']?.toString();
+    final packageSize = data['size']?.toString() ?? data['package_size']?.toString();
+
+    final normalized = NutritionNormalizationService.instance.normalize(
+      calories: _toDouble(data['calories']),
+      protein: _toDouble(data['protein']),
+      carbohydrates: _toDouble(data['carbohydrates']),
+      fat: _toDouble(data['fat']),
+      saturatedFat: _toDouble(data['saturated_fat'] ?? data['saturatedFat']),
+      fiber: _toDouble(data['fiber']),
+      sugar: _toDouble(data['sugar'] ?? data['sugars']),
+      sodium: _toDouble(data['sodium']),
+      servingSize: servingSize,
+      packageSize: packageSize,
+      productName: name,
+      brand: brand,
+      ingredients: data['ingredients']?.toString(),
+    );
+
     return FoodProduct(
       barcode:
           data['barcode']?.toString() ??
@@ -176,40 +196,17 @@ class UPCFoodService {
         data['allergens'],
       ),
 
-      /*
-       * UPC.dev basic product lookup is mainly
-       * product/catalog information.
-       *
-       * If nutrition fields aren't available,
-       * keep them as 0 rather than inventing values.
-       */
-      calories: _toDouble(
-        data['calories'],
-      ),
-
-      protein: _toDouble(
-        data['protein'],
-      ),
-
-      carbohydrates: _toDouble(
-        data['carbohydrates'],
-      ),
-
-      fat: _toDouble(
-        data['fat'],
-      ),
-
-      fiber: _toDouble(
-        data['fiber'],
-      ),
-
-      sugar: _toDouble(
-        data['sugar'],
-      ),
-
-      sodium: _toDouble(
-        data['sodium'],
-      ),
+      calories: normalized.calories,
+      protein: normalized.protein,
+      carbohydrates: normalized.carbohydrates,
+      fat: normalized.fat,
+      saturatedFat: normalized.saturatedFat,
+      fiber: normalized.fiber,
+      sugar: normalized.sugar,
+      sodium: normalized.sodium,
+      servingSize: servingSize,
+      packageSize: packageSize,
+      nutritionBasis: normalized.nutritionBasis,
 
       nutriScore:
           data['nutriScore']?.toString(),

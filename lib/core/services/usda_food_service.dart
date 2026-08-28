@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../model/food_product.dart';
+import '../services/nutrition_normalization_service.dart';
 
 class USDAFoodService {
   static const String _apiKey = 'gMhZc1ZStMR8uppaAqHxuLXGAjTb6zLlgrQnsael';
@@ -155,6 +156,28 @@ class USDAFoodService {
     final brandOwner =
         item['brandOwner']?.toString() ?? 'Unknown Brand';
 
+    final servingSizeText = item['householdServingFullText']?.toString() ??
+        (item['servingSize'] != null
+            ? '${item['servingSize']} ${item['servingSizeUnit'] ?? ''}'.trim()
+            : null);
+
+    final rawPackageSize = item['packageWeight']?.toString();
+
+    final normalized = NutritionNormalizationService.instance.normalize(
+      calories: nutrientValue('Energy'),
+      protein: nutrientValue('Protein'),
+      carbohydrates: nutrientValue('Carbohydrate, by difference'),
+      fat: nutrientValue('Total lipid (fat)'),
+      fiber: nutrientValue('Fiber, total dietary'),
+      sugar: nutrientValue('Sugars, total including NLEA'),
+      sodium: nutrientValue('Sodium'),
+      servingSize: servingSizeText,
+      packageSize: rawPackageSize,
+      productName: description,
+      brand: brandOwner,
+      ingredients: item['ingredients']?.toString(),
+    );
+
     return FoodProduct(
       barcode: item['gtinUpc']?.toString() ?? '',
       name: description,
@@ -163,20 +186,16 @@ class USDAFoodService {
       ingredients:
           item['ingredients']?.toString() ?? '',
       allergens: [],
-
-      // USDA branded nutrition values are generally
-      // provided per 100g / 100ml depending on the record.
-      calories: nutrientValue('Energy'),
-      protein: nutrientValue('Protein'),
-      carbohydrates:
-          nutrientValue('Carbohydrate, by difference'),
-      fat: nutrientValue('Total lipid (fat)'),
-      fiber:
-          nutrientValue('Fiber, total dietary'),
-      sugar:
-          nutrientValue('Sugars, total including NLEA'),
-      sodium: nutrientValue('Sodium'),
-
+      calories: normalized.calories,
+      protein: normalized.protein,
+      carbohydrates: normalized.carbohydrates,
+      fat: normalized.fat,
+      fiber: normalized.fiber,
+      sugar: normalized.sugar,
+      sodium: normalized.sodium,
+      servingSize: servingSizeText,
+      packageSize: rawPackageSize,
+      nutritionBasis: normalized.nutritionBasis,
       nutriScore: null,
       novaGroup: null,
     );

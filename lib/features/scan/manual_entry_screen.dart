@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:diet_compass/core/model/food_product.dart';
 import 'package:diet_compass/core/services/food_service.dart';
+import 'package:diet_compass/core/services/nutrition_normalization_service.dart';
 import 'package:diet_compass/core/services/scan_history_service.dart';
 import 'package:diet_compass/features/scan/ai_analysis_screen.dart';
 import 'package:diet_compass/features/scan/camera_scan_screen.dart';
@@ -197,7 +198,25 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
     final resultFound = matchedProduct != null;
     debugPrint('resultFound = $resultFound');
 
-    // Create ONE canonical product preserving all user-entered nutrition data
+    // Normalize user-entered nutrition data to 100g / 100ml basis
+    final normalized = NutritionNormalizationService.instance.normalize(
+      calories: calories ?? matchedProduct?.calories,
+      protein: protein ?? matchedProduct?.protein,
+      carbohydrates: carbs ?? matchedProduct?.carbohydrates,
+      fat: fat ?? matchedProduct?.fat,
+      saturatedFat: satFat ?? matchedProduct?.saturatedFat,
+      fiber: fiber ?? matchedProduct?.fiber,
+      sugar: sugar ?? matchedProduct?.sugar,
+      sodium: sodium ?? matchedProduct?.sodium,
+      salt: null,
+      servingSize: servingSize,
+      sourceBasis: _perServing ? 'serving' : '100g',
+      productName: name,
+      brand: brand,
+      ingredients: ingredients,
+    );
+
+    // Create ONE canonical product preserving normalized nutrition data
     final canonicalProduct = FoodProduct(
       barcode: matchedProduct?.barcode ?? '',
       name: name,
@@ -209,15 +228,17 @@ class _ManualEntryScreenState extends State<ManualEntryScreen>
       allergens: allergens.isNotEmpty
           ? allergens
           : (matchedProduct?.allergens ?? const []),
-      calories: calories ?? matchedProduct?.calories,
-      protein: protein ?? matchedProduct?.protein,
-      carbohydrates: carbs ?? matchedProduct?.carbohydrates,
-      fat: fat ?? matchedProduct?.fat,
-      saturatedFat: satFat ?? matchedProduct?.saturatedFat,
-      fiber: fiber ?? matchedProduct?.fiber,
-      sugar: sugar ?? matchedProduct?.sugar,
-      sodium: sodium ?? matchedProduct?.sodium,
+      calories: normalized.calories,
+      protein: normalized.protein,
+      carbohydrates: normalized.carbohydrates,
+      fat: normalized.fat,
+      saturatedFat: normalized.saturatedFat,
+      fiber: normalized.fiber,
+      sugar: normalized.sugar,
+      sodium: normalized.sodium,
       servingSize: servingSize,
+      packageSize: matchedProduct?.packageSize,
+      nutritionBasis: normalized.nutritionBasis,
       nutriScore: matchedProduct?.nutriScore,
       novaGroup: matchedProduct?.novaGroup,
       source: 'manual',

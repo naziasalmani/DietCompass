@@ -1615,7 +1615,7 @@ class _DynamicRecommendedCard extends StatelessWidget {
     if (p.sugar != null) parts.add('Sugar: ${p.sugar!.toStringAsFixed(1)}g');
     if (p.fiber != null && p.fiber! > 0) parts.add('Fiber: ${p.fiber!.toStringAsFixed(1)}g');
     if (parts.isEmpty) return '';
-    return 'Per 100g: ${parts.join('  |  ')}';
+    return '${p.normalizedBasisLabel}: ${parts.join('  |  ')}';
   }
 }
 

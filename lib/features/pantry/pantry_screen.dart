@@ -4,7 +4,12 @@ import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../dashboard/DashboardScreen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
+import '../../core/model/food_product.dart';
+import '../../core/model/pantry_category.dart';
+import '../../core/services/pantry_category_service.dart';
 import '../../core/services/pantry_storage_service.dart';
+
+export '../../core/model/pantry_category.dart';
 
 /// DietCompass — My Pantry Screen
 /// -----------------------------------------------------------------------/// Reuses your existing product photos where available
@@ -25,59 +30,11 @@ import '../../core/services/pantry_storage_service.dart';
 /// ```
 enum ItemStatus { fresh, expiringSoon, expired, lowStock }
 
-enum PantryCategory { dairy, grains, snacks, beverages, condiments }
-
-extension on PantryCategory {
-  String get label {
-    switch (this) {
-      case PantryCategory.dairy:
-        return 'Dairy';
-      case PantryCategory.grains:
-        return 'Grains';
-      case PantryCategory.snacks:
-        return 'Snacks';
-      case PantryCategory.beverages:
-        return 'Beverages';
-      case PantryCategory.condiments:
-        return 'Condiments';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case PantryCategory.dairy:
-        return Icons.icecream_outlined;
-      case PantryCategory.grains:
-        return Icons.grain;
-      case PantryCategory.snacks:
-        return Icons.cookie_outlined;
-      case PantryCategory.beverages:
-        return Icons.local_cafe_outlined;
-      case PantryCategory.condiments:
-        return Icons.liquor_outlined;
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case PantryCategory.dairy:
-        return const Color(0xFF3B82F6);
-      case PantryCategory.grains:
-        return const Color(0xFF6C4EF5);
-      case PantryCategory.snacks:
-        return const Color(0xFFE0862E);
-      case PantryCategory.beverages:
-        return const Color(0xFF1E8A4C);
-      case PantryCategory.condiments:
-        return const Color(0xFFE0525C);
-    }
-  }
-}
-
 class PantryItem {
   const PantryItem({
     required this.imageAsset,
     this.imageUrl = '',
+    this.barcode = '',
     required this.name,
     required this.category,
     required this.addedOn,
@@ -88,6 +45,7 @@ class PantryItem {
 
   final String imageAsset;
   final String imageUrl;
+  final String barcode;
   final String name;
   final PantryCategory category;
   final DateTime addedOn;
@@ -99,9 +57,9 @@ class PantryItem {
 }
 
 class PantryScreen extends StatefulWidget {
-  PantryScreen({
+  const PantryScreen({
     super.key,
-    List<PantryItem>? items,
+    this.items,
     this.onSearchTap,
     this.onFilterTap,
     this.onAddItemTap,
@@ -110,65 +68,9 @@ class PantryScreen extends StatefulWidget {
     this.onExploreRecipesTap,
     this.onNavTap,
     this.initialNavIndex = 3,
-  }) : items = items ??
-            [
-              PantryItem(
-                imageAsset: 'assets/images/product_amul.jpeg',
-                name: 'Amul Toned Milk',
-                category: PantryCategory.dairy,
-                addedOn: DateTime(2024, 5, 20),
-                quantity: '1 L',
-                status: ItemStatus.fresh,
-                statusDetail: 'Exp. in 5 days',
-              ),
-              PantryItem(
-                imageAsset: 'assets/images/product_quaker.jpeg',
-                name: 'Quaker Oats',
-                category: PantryCategory.grains,
-                addedOn: DateTime(2024, 5, 18),
-                quantity: '1 kg',
-                status: ItemStatus.expiringSoon,
-                statusDetail: 'Exp. in 2 days',
-              ),
-              PantryItem(
-                imageAsset: 'assets/images/pantry_peanut_butter.jpeg',
-                name: 'Peanut Butter',
-                category: PantryCategory.snacks,
-                addedOn: DateTime(2024, 5, 15),
-                quantity: '500 g',
-                status: ItemStatus.fresh,
-                statusDetail: 'Exp. in 25 days',
-              ),
-              PantryItem(
-                imageAsset: 'assets/images/pantry_honey.jpeg',
-                name: 'Honey',
-                category: PantryCategory.snacks,
-                addedOn: DateTime(2024, 5, 10),
-                quantity: '250 g',
-                status: ItemStatus.expired,
-                statusDetail: 'Expired 2 days ago',
-              ),
-              PantryItem(
-                imageAsset: 'assets/images/pantry_green_tea.jpeg',
-                name: 'Green Tea',
-                category: PantryCategory.beverages,
-                addedOn: DateTime(2024, 5, 8),
-                quantity: '25 Bags',
-                status: ItemStatus.fresh,
-                statusDetail: 'Exp. in 60 days',
-              ),
-              PantryItem(
-                imageAsset: 'assets/images/pantry_almonds.jpeg',
-                name: 'Almonds',
-                category: PantryCategory.snacks,
-                addedOn: DateTime(2024, 5, 5),
-                quantity: '200 g',
-                status: ItemStatus.lowStock,
-                statusDetail: 'Only 1 left',
-              ),
-            ];
+  });
 
-  final List<PantryItem> items;
+  final List<PantryItem>? items;
   final VoidCallback? onSearchTap;
   final VoidCallback? onFilterTap;
   final VoidCallback? onAddItemTap;
@@ -184,9 +86,10 @@ class PantryScreen extends StatefulWidget {
 
 enum _TabFilter { all, expiringSoon, expired, lowStock }
 
-class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMixin {
+class _PantryScreenState extends State<PantryScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
-  late List<PantryItem> _items;
+  List<PantryItem> _items = [];
   _TabFilter _tab = _TabFilter.all;
   PantryCategory? _category;
   bool _sortNewest = true;
@@ -195,40 +98,38 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _items = [...widget.items];
+    _items = widget.items != null ? [...widget.items!] : [];
     _navIndex = widget.initialNavIndex;
-    _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..forward();
-    _loadStoredProducts();
+    _entranceCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..forward();
+    if (widget.items == null) {
+      _loadStoredProducts();
+    }
   }
 
   Future<void> _loadStoredProducts() async {
     final products = await PantryStorageService.instance.getProducts();
-    if (!mounted || products.isEmpty) return;
+    if (!mounted) return;
 
     final storedItems = products.map((product) {
-      final text = '${product.name} ${product.brand}'.toLowerCase();
-      final category = text.contains('milk') || text.contains('cheese') || text.contains('yogurt')
-          ? PantryCategory.dairy
-          : text.contains('tea') || text.contains('juice') || text.contains('drink')
-              ? PantryCategory.beverages
-              : text.contains('biscuit') || text.contains('chips') || text.contains('noodle')
-                  ? PantryCategory.snacks
-                  : PantryCategory.grains;
+      final category = PantryCategoryService.instance.classifyProduct(product);
       return PantryItem(
         imageAsset: '',
         imageUrl: product.imageUrl,
+        barcode: product.barcode,
         name: product.name,
         category: category,
         addedOn: DateTime.now(),
         quantity: '1',
         status: ItemStatus.fresh,
-        statusDetail: 'Added to pantry',
+        statusDetail: 'In your pantry',
       );
-    });
+    }).toList();
 
     setState(() {
-      final existingNames = _items.map((item) => item.name.toLowerCase()).toSet();
-      _items.addAll(storedItems.where((item) => !existingNames.contains(item.name.toLowerCase())));
+      _items = storedItems;
     });
   }
 
@@ -238,73 +139,110 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
     super.dispose();
   }
 
-  Animation<double> _fade(double s, double e) =>
-      CurvedAnimation(parent: _entranceCtrl, curve: Interval(s, e, curve: Curves.easeOut));
+  Animation<double> _fade(double s, double e) => CurvedAnimation(
+    parent: _entranceCtrl,
+    curve: Interval(s, e, curve: Curves.easeOut),
+  );
 
   Future<void> _showAddItemDialog() async {
-    final nameController = TextEditingController();
-    final quantityController = TextEditingController(text: '1');
-    var category = PantryCategory.grains;
-
     final item = await showDialog<PantryItem>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add pantry item'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Ingredient or product'),
-              ),
-              TextField(
-                controller: quantityController,
-                decoration: const InputDecoration(labelText: 'Quantity'),
-              ),
-              DropdownButtonFormField<PantryCategory>(
-                initialValue: category,
-                decoration: const InputDecoration(labelText: 'Category'),
-                items: PantryCategory.values
-                    .map((value) => DropdownMenuItem(value: value, child: Text(value.label)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) setDialogState(() => category = value);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.pop(
-                  context,
-                  PantryItem(
-                    imageAsset: '',
-                    name: name,
-                    category: category,
-                    addedOn: DateTime.now(),
-                    quantity: quantityController.text.trim().isEmpty ? '1' : quantityController.text.trim(),
-                    status: ItemStatus.fresh,
-                    statusDetail: 'Freshly added',
-                  ),
-                );
-              },
-              child: const Text('Add item'),
-            ),
-          ],
-        ),
-      ),
+      builder: (context) => const _AddItemDialog(),
     );
 
-    nameController.dispose();
-    quantityController.dispose();
     if (item != null && mounted) {
-      setState(() => _items.add(item));
+      setState(() {
+        _items.removeWhere(
+          (existing) =>
+              existing.name.trim().toLowerCase() ==
+              item.name.trim().toLowerCase(),
+        );
+        _items.add(item);
+      });
+
+      // Persist to user-scoped pantry storage
+      final foodProduct = FoodProduct(
+        barcode: '',
+        name: item.name,
+        brand: '',
+        imageUrl: item.imageUrl,
+        ingredients: item.name,
+        allergens: const [],
+        calories: null,
+        protein: null,
+        carbohydrates: null,
+        fat: null,
+        fiber: null,
+        sugar: null,
+        sodium: null,
+      );
+      await PantryStorageService.instance.addProduct(foodProduct);
+    }
+  }
+
+  Future<bool> _confirmRemoveItem(PantryItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Remove Pantry Item?',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1B1B2E),
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to remove ${item.name} from your pantry?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B6B7B)),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE0525C),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _removeItem(PantryItem item) async {
+    setState(() {
+      _items.removeWhere((i) {
+        if (item.barcode.trim().isNotEmpty) {
+          return i.barcode.trim() == item.barcode.trim();
+        }
+        return i.name.trim().toLowerCase() == item.name.trim().toLowerCase();
+      });
+    });
+    await PantryStorageService.instance.removeProductByName(
+      item.name,
+      barcode: item.barcode,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${item.name} removed from your pantry'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -319,7 +257,11 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
       final catOk = _category == null || item.category == _category;
       return tabOk && catOk;
     }).toList();
-    list.sort((a, b) => _sortNewest ? b.addedOn.compareTo(a.addedOn) : a.addedOn.compareTo(b.addedOn));
+    list.sort(
+      (a, b) => _sortNewest
+          ? b.addedOn.compareTo(a.addedOn)
+          : a.addedOn.compareTo(b.addedOn),
+    );
     return list;
   }
 
@@ -329,9 +271,13 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
     final total = _items.length;
-    final expiringSoon = _items.where((i) => i.status == ItemStatus.expiringSoon).length;
+    final expiringSoon = _items
+        .where((i) => i.status == ItemStatus.expiringSoon)
+        .length;
     final expired = _items.where((i) => i.status == ItemStatus.expired).length;
-    final lowStock = _items.where((i) => i.status == ItemStatus.lowStock).length;
+    final lowStock = _items
+        .where((i) => i.status == ItemStatus.lowStock)
+        .length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FB),
@@ -339,22 +285,29 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
       body: Stack(
         fit: StackFit.expand,
         children: [
-  Positioned.fill(
-    child: Image.asset(
-      'assets/images/home_bg.jpeg',
-      fit: BoxFit.cover,
-    ),
-  ),
+          Positioned.fill(
+            child: Image.asset('assets/images/home_bg.jpeg', fit: BoxFit.cover),
+          ),
 
-  SafeArea(
+          SafeArea(
             bottom: false,
             child: ListView(
-              padding: EdgeInsets.fromLTRB(16 * scale, 8 * scale, 16 * scale, 110 * scale),
+              padding: EdgeInsets.fromLTRB(
+                16 * scale,
+                8 * scale,
+                16 * scale,
+                110 * scale,
+              ),
               physics: const BouncingScrollPhysics(),
               children: [
                 FadeTransition(
                   opacity: _fade(0.0, 0.3),
-                  child: _Header(uiScale: scale, onSearchTap: widget.onSearchTap, onFilterTap: widget.onFilterTap, onAddItemTap: widget.onAddItemTap ?? _showAddItemDialog),
+                  child: _Header(
+                    uiScale: scale,
+                    onSearchTap: widget.onSearchTap,
+                    onFilterTap: widget.onFilterTap,
+                    onAddItemTap: widget.onAddItemTap ?? _showAddItemDialog,
+                  ),
                 ),
                 SizedBox(height: 16 * scale),
 
@@ -375,7 +328,11 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
                 if (expiringSoon > 0)
                   FadeTransition(
                     opacity: _fade(0.1, 0.44),
-                    child: _ExpiringBanner(uiScale: scale, count: expiringSoon, onViewAll: widget.onViewAllExpiring),
+                    child: _ExpiringBanner(
+                      uiScale: scale,
+                      count: expiringSoon,
+                      onViewAll: widget.onViewAllExpiring,
+                    ),
                   ),
                 SizedBox(height: 14 * scale),
 
@@ -407,15 +364,39 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
                   opacity: _fade(0.22, 0.56),
                   child: Row(
                     children: [
-                      Text('All Items', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                      Text(
+                        'All Items',
+                        style: TextStyle(
+                          fontSize: 15.5 * scale,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1B1B2E),
+                        ),
+                      ),
                       const Spacer(),
                       GestureDetector(
                         onTap: () => setState(() => _sortNewest = !_sortNewest),
                         child: Row(
                           children: [
-                            Text('Sort by: ', style: TextStyle(fontSize: 11.5 * scale, color: const Color(0xFF6B6B7B))),
-                            Text(_sortNewest ? 'Newest' : 'Oldest', style: TextStyle(fontSize: 11.5 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-                            Icon(Icons.keyboard_arrow_down, size: 16 * scale, color: const Color(0xFF6C4EF5)),
+                            Text(
+                              'Sort by: ',
+                              style: TextStyle(
+                                fontSize: 11.5 * scale,
+                                color: const Color(0xFF6B6B7B),
+                              ),
+                            ),
+                            Text(
+                              _sortNewest ? 'Newest' : 'Oldest',
+                              style: TextStyle(
+                                fontSize: 11.5 * scale,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF6C4EF5),
+                              ),
+                            ),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 16 * scale,
+                              color: const Color(0xFF6C4EF5),
+                            ),
                           ],
                         ),
                       ),
@@ -431,14 +412,16 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
                   opacity: _fade(0.5, 0.85),
                   child: _SmartTipBanner(
                     uiScale: scale,
-                    onExploreRecipesTap: widget.onExploreRecipesTap ?? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RecipeGeneratorScreen(),
-                        ),
-                      );
-                    },
+                    onExploreRecipesTap:
+                        widget.onExploreRecipesTap ??
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RecipeGeneratorScreen(),
+                            ),
+                          );
+                        },
                   ),
                 ),
               ],
@@ -450,52 +433,43 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
         uiScale: scale,
         selectedIndex: _navIndex,
         onTap: (i) {
-  setState(() => _navIndex = i);
+          setState(() => _navIndex = i);
 
-  switch (i) {
-    case 0:
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
-      );
-      break;
+          switch (i) {
+            case 0:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+              );
+              break;
 
-    case 1:
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const ScanScreen(),
-        ),
-      );
-      break;
+            case 1:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const ScanScreen()),
+              );
+              break;
 
-    case 2:
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AiShoppingScreen(),
-        ),
-      );
-      break;
+            case 2:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const AiShoppingScreen()),
+              );
+              break;
 
-    case 3:
-      break;
+            case 3:
+              break;
 
-    case 4:
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(
-      builder: (_) => DashboardScreen(),
-    ),
-  );
-  break;
+            case 4:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => DashboardScreen()),
+              );
+              break;
+          }
 
-  }
-
-  widget.onNavTap?.call(i);
-},
+          widget.onNavTap?.call(i);
+        },
       ),
     );
   }
@@ -503,14 +477,70 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
   List<Widget> _buildItemRows(double scale) {
     final items = _filtered;
     if (items.isEmpty) {
+      final isOverallEmpty = _items.isEmpty;
       return [
         Padding(
-          padding: EdgeInsets.symmetric(vertical: 30 * scale),
+          padding: EdgeInsets.symmetric(vertical: 36 * scale),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inventory_2_outlined, size: 36 * scale, color: const Color(0xFFCFC9E5)),
-              SizedBox(height: 8 * scale),
-              Text('No items match this filter', style: TextStyle(fontSize: 12.5 * scale, color: const Color(0xFF9A96A8))),
+              Container(
+                width: 64 * scale,
+                height: 64 * scale,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEDE7FA),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 32 * scale,
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ),
+              SizedBox(height: 12 * scale),
+              Text(
+                isOverallEmpty
+                    ? 'Your Pantry is Empty'
+                    : 'No items match this filter',
+                style: TextStyle(
+                  fontSize: 15 * scale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              SizedBox(height: 6 * scale),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+                child: Text(
+                  isOverallEmpty
+                      ? 'Add ingredients manually using the + button above or save scanned food products to your pantry.'
+                      : 'Try switching filters or adding more items to your pantry.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5 * scale,
+                    color: const Color(0xFF6B6B7B),
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              if (isOverallEmpty) ...[
+                SizedBox(height: 16 * scale),
+                FilledButton.icon(
+                  onPressed: widget.onAddItemTap ?? _showAddItemDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Item'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF6C4EF5),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 18 * scale,
+                      vertical: 10 * scale,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -518,11 +548,43 @@ class _PantryScreenState extends State<PantryScreen> with TickerProviderStateMix
     }
     return List.generate(items.length, (i) {
       final start = (0.24 + i * 0.05).clamp(0.0, 0.9);
+      final item = items[i];
       return FadeTransition(
         opacity: _fade(start, (start + 0.3).clamp(0.0, 1.0)),
         child: Padding(
           padding: EdgeInsets.only(bottom: 10 * scale),
-          child: _PantryItemRow(uiScale: scale, item: items[i], onTap: () => widget.onItemTap?.call(items[i])),
+          child: Dismissible(
+            key: ValueKey(
+              '${item.name}_${item.addedOn.millisecondsSinceEpoch}_$i',
+            ),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: EdgeInsets.only(right: 20 * scale),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0525C),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            confirmDismiss: (_) => _confirmRemoveItem(item),
+            onDismissed: (_) => _removeItem(item),
+            child: _PantryItemRow(
+              uiScale: scale,
+              item: item,
+              onTap: widget.onItemTap != null
+                  ? () => widget.onItemTap!.call(item)
+                  : () async {
+                      if (await _confirmRemoveItem(item) && mounted) {
+                        await _removeItem(item);
+                      }
+                    },
+            ),
+          ),
         ),
       );
     });
@@ -553,7 +615,12 @@ class _BackgroundGradient extends StatelessWidget {
 // Header
 // ---------------------------------------------------------------------------
 class _Header extends StatelessWidget {
-  const _Header({required this.uiScale, this.onSearchTap, this.onFilterTap, this.onAddItemTap});
+  const _Header({
+    required this.uiScale,
+    this.onSearchTap,
+    this.onFilterTap,
+    this.onAddItemTap,
+  });
   final double uiScale;
   final VoidCallback? onSearchTap;
   final VoidCallback? onFilterTap;
@@ -570,21 +637,41 @@ class _Header extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text('My Pantry', style: TextStyle(fontSize: 23 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                  Text(
+                    'My Pantry',
+                    style: TextStyle(
+                      fontSize: 23 * uiScale,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1B1B2E),
+                    ),
+                  ),
                   SizedBox(width: 6 * uiScale),
-                  Icon(Icons.eco, size: 18 * uiScale, color: const Color(0xFF1E8A4C)),
+                  Icon(
+                    Icons.eco,
+                    size: 18 * uiScale,
+                    color: const Color(0xFF1E8A4C),
+                  ),
                 ],
               ),
               SizedBox(height: 3 * uiScale),
-              Text('Manage your items and never run out of healthy choices.',
-                  style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B))),
+              Text(
+                'Manage your items and never run out of healthy choices.',
+                style: TextStyle(
+                  fontSize: 11 * uiScale,
+                  color: const Color(0xFF6B6B7B),
+                ),
+              ),
             ],
           ),
         ),
         IconButton(
           onPressed: onAddItemTap,
           tooltip: 'Add pantry item',
-          icon: Icon(Icons.add_circle_rounded, size: 30 * uiScale, color: const Color(0xFF6C4EF5)),
+          icon: Icon(
+            Icons.add_circle_rounded,
+            size: 30 * uiScale,
+            color: const Color(0xFF6C4EF5),
+          ),
         ),
       ],
     );
@@ -620,7 +707,13 @@ class _StatsRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 14, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -714,15 +807,34 @@ class _StatTileState extends State<_StatTile> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 12 * widget.uiScale, horizontal: 6 * widget.uiScale),
-          decoration: BoxDecoration(color: widget.bg, borderRadius: BorderRadius.circular(16)),
+          padding: EdgeInsets.symmetric(
+            vertical: 12 * widget.uiScale,
+            horizontal: 6 * widget.uiScale,
+          ),
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(widget.icon, size: 16 * widget.uiScale, color: widget.fg),
               SizedBox(height: 8 * widget.uiScale),
-              Text(widget.value, style: TextStyle(fontSize: 19 * widget.uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-              Text(widget.label, style: TextStyle(fontSize: 9 * widget.uiScale, color: const Color(0xFF3B3B4F))),
+              Text(
+                widget.value,
+                style: TextStyle(
+                  fontSize: 19 * widget.uiScale,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1B1B2E),
+                ),
+              ),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 9 * widget.uiScale,
+                  color: const Color(0xFF3B3B4F),
+                ),
+              ),
             ],
           ),
         ),
@@ -735,7 +847,11 @@ class _StatTileState extends State<_StatTile> {
 // Expiring soon banner
 // ---------------------------------------------------------------------------
 class _ExpiringBanner extends StatelessWidget {
-  const _ExpiringBanner({required this.uiScale, required this.count, this.onViewAll});
+  const _ExpiringBanner({
+    required this.uiScale,
+    required this.count,
+    this.onViewAll,
+  });
   final double uiScale;
   final int count;
   final VoidCallback? onViewAll;
@@ -744,23 +860,45 @@ class _ExpiringBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFFCF2E0), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCF2E0),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           Container(
             width: 40 * uiScale,
             height: 40 * uiScale,
-            decoration: const BoxDecoration(color: Color(0xFFE0862E), shape: BoxShape.circle),
-            child: Icon(Icons.hourglass_bottom_rounded, color: Colors.white, size: 18 * uiScale),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE0862E),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.hourglass_bottom_rounded,
+              color: Colors.white,
+              size: 18 * uiScale,
+            ),
           ),
           SizedBox(width: 12 * uiScale),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Items Expiring Soon', style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                Text('You have $count items that will expire in the next 7 days.',
-                    style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF3B3B4F))),
+                Text(
+                  'Items Expiring Soon',
+                  style: TextStyle(
+                    fontSize: 12.5 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B2E),
+                  ),
+                ),
+                Text(
+                  'You have $count items that will expire in the next 7 days.',
+                  style: TextStyle(
+                    fontSize: 10.5 * uiScale,
+                    color: const Color(0xFF3B3B4F),
+                  ),
+                ),
               ],
             ),
           ),
@@ -768,8 +906,19 @@ class _ExpiringBanner extends StatelessWidget {
             onTap: onViewAll,
             child: Row(
               children: [
-                Text('View All', style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-                Icon(Icons.chevron_right, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                Text(
+                  'View All',
+                  style: TextStyle(
+                    fontSize: 11.5 * uiScale,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF6C4EF5),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 15 * uiScale,
+                  color: const Color(0xFF6C4EF5),
+                ),
               ],
             ),
           ),
@@ -815,7 +964,13 @@ class _FilterTabs extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -828,9 +983,14 @@ class _FilterTabs extends StatelessWidget {
                 onTap: () => onSelected(t.filter),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 10 * uiScale),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14 * uiScale,
+                    vertical: 10 * uiScale,
+                  ),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFF6C4EF5) : Colors.transparent,
+                    color: selected
+                        ? const Color(0xFF6C4EF5)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -853,9 +1013,13 @@ class _FilterTabs extends StatelessWidget {
 
 // ---------------------------------------------------------------------------
 // Category chips
-// ---------------------------------------------------------------------------
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({required this.uiScale, required this.selected, required this.onSelected});
+  const _CategoryChips({
+    super.key,
+    required this.uiScale,
+    required this.selected,
+    required this.onSelected,
+  });
   final double uiScale;
   final PantryCategory? selected;
   final ValueChanged<PantryCategory?> onSelected;
@@ -864,17 +1028,35 @@ class _CategoryChips extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 40 * uiScale,
-      child: ListView(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        children: [
-          _CategoryChip(uiScale: uiScale, icon: Icons.grid_view_rounded, label: 'All', color: const Color(0xFF6C4EF5), selected: selected == null, onTap: () => onSelected(null)),
-          SizedBox(width: 8 * uiScale),
-          for (final c in PantryCategory.values) ...[
-            _CategoryChip(uiScale: uiScale, icon: c.icon, label: c.label, color: c.color, selected: selected == c, onTap: () => onSelected(c)),
+        child: Row(
+          children: [
+            _CategoryChip(
+              key: const ValueKey('category_chip_all'),
+              uiScale: uiScale,
+              icon: Icons.grid_view_rounded,
+              label: 'All',
+              color: const Color(0xFF6C4EF5),
+              selected: selected == null,
+              onTap: () => onSelected(null),
+            ),
             SizedBox(width: 8 * uiScale),
+            for (final c in PantryCategory.values) ...[
+              _CategoryChip(
+                key: ValueKey('category_chip_${c.name}'),
+                uiScale: uiScale,
+                icon: c.icon,
+                label: c.label,
+                color: c.color,
+                selected: selected == c,
+                onTap: () => onSelected(c),
+              ),
+              SizedBox(width: 8 * uiScale),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -882,6 +1064,7 @@ class _CategoryChips extends StatelessWidget {
 
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({
+    super.key,
     required this.uiScale,
     required this.icon,
     required this.label,
@@ -903,18 +1086,31 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 8 * uiScale),
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * uiScale,
+          vertical: 8 * uiScale,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2), width: selected ? 1.6 : 1.2),
+          border: Border.all(
+            color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2),
+            width: selected ? 1.6 : 1.2,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14 * uiScale, color: color),
             SizedBox(width: 5 * uiScale),
-            Text(label, style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E))),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11 * uiScale,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1B1B2E),
+              ),
+            ),
           ],
         ),
       ),
@@ -943,7 +1139,11 @@ class _PantryItemRowState extends State<_PantryItemRow> {
       case ItemStatus.fresh:
         return (const Color(0xFFE4F5E9), const Color(0xFF1E8A4C), 'Fresh');
       case ItemStatus.expiringSoon:
-        return (const Color(0xFFFCF2E0), const Color(0xFFE0862E), 'Expiring Soon');
+        return (
+          const Color(0xFFFCF2E0),
+          const Color(0xFFE0862E),
+          'Expiring Soon',
+        );
       case ItemStatus.expired:
         return (const Color(0xFFFCEBEB), const Color(0xFFE0525C), 'Expired');
       case ItemStatus.lowStock:
@@ -952,7 +1152,20 @@ class _PantryItemRowState extends State<_PantryItemRow> {
   }
 
   String get _formattedDate {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     final d = widget.item.addedOn;
     return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
   }
@@ -973,7 +1186,13 @@ class _PantryItemRowState extends State<_PantryItemRow> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -1010,21 +1229,51 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.item.name, style: TextStyle(fontSize: 13.5 * widget.uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                    Text(
+                      widget.item.name,
+                      style: TextStyle(
+                        fontSize: 13.5 * widget.uiScale,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1B1B2E),
+                      ),
+                    ),
                     SizedBox(height: 3 * widget.uiScale),
                     Row(
                       children: [
-                        Container(width: 5 * widget.uiScale, height: 5 * widget.uiScale, decoration: BoxDecoration(shape: BoxShape.circle, color: widget.item.category.color)),
+                        Container(
+                          width: 5 * widget.uiScale,
+                          height: 5 * widget.uiScale,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: widget.item.category.color,
+                          ),
+                        ),
                         SizedBox(width: 4 * widget.uiScale),
-                        Text(widget.item.category.label, style: TextStyle(fontSize: 10.5 * widget.uiScale, color: const Color(0xFF6B6B7B))),
+                        Text(
+                          widget.item.category.label,
+                          style: TextStyle(
+                            fontSize: 10.5 * widget.uiScale,
+                            color: const Color(0xFF6B6B7B),
+                          ),
+                        ),
                       ],
                     ),
                     SizedBox(height: 3 * widget.uiScale),
                     Row(
                       children: [
-                        Icon(Icons.calendar_today_outlined, size: 10 * widget.uiScale, color: const Color(0xFF9A96A8)),
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 10 * widget.uiScale,
+                          color: const Color(0xFF9A96A8),
+                        ),
                         SizedBox(width: 4 * widget.uiScale),
-                        Text('Added on $_formattedDate', style: TextStyle(fontSize: 9.5 * widget.uiScale, color: const Color(0xFF9A96A8))),
+                        Text(
+                          'Added on $_formattedDate',
+                          style: TextStyle(
+                            fontSize: 9.5 * widget.uiScale,
+                            color: const Color(0xFF9A96A8),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -1034,17 +1283,44 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8 * widget.uiScale, vertical: 3 * widget.uiScale),
-                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
-                    child: Text(label, style: TextStyle(fontSize: 9.5 * widget.uiScale, fontWeight: FontWeight.w700, color: fg)),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8 * widget.uiScale,
+                      vertical: 3 * widget.uiScale,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 9.5 * widget.uiScale,
+                        fontWeight: FontWeight.w700,
+                        color: fg,
+                      ),
+                    ),
                   ),
                   SizedBox(height: 6 * widget.uiScale),
-                  Text(widget.item.quantity, style: TextStyle(fontSize: 11 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E))),
-                  Text(widget.item.statusDetail, style: TextStyle(fontSize: 9.5 * widget.uiScale, color: fg)),
+                  Text(
+                    widget.item.quantity,
+                    style: TextStyle(
+                      fontSize: 11 * widget.uiScale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1B1B2E),
+                    ),
+                  ),
+                  Text(
+                    widget.item.statusDetail,
+                    style: TextStyle(fontSize: 9.5 * widget.uiScale, color: fg),
+                  ),
                 ],
               ),
               SizedBox(width: 4 * widget.uiScale),
-              Icon(Icons.chevron_right, size: 18 * widget.uiScale, color: const Color(0xFFB0ACC2)),
+              Icon(
+                Icons.chevron_right,
+                size: 18 * widget.uiScale,
+                color: const Color(0xFFB0ACC2),
+              ),
             ],
           ),
         ),
@@ -1065,18 +1341,38 @@ class _SmartTipBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFEDE7FA), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE7FA),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
-          Icon(Icons.auto_awesome, size: 20 * uiScale, color: const Color(0xFF6C4EF5)),
+          Icon(
+            Icons.auto_awesome,
+            size: 20 * uiScale,
+            color: const Color(0xFF6C4EF5),
+          ),
           SizedBox(width: 10 * uiScale),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Smart Tip', style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5))),
-                Text('Items expiring soon are highlighted. Use them in recipes to avoid waste!',
-                    style: TextStyle(fontSize: 10.5 * uiScale, height: 1.3, color: const Color(0xFF3B3B4F))),
+                Text(
+                  'Smart Tip',
+                  style: TextStyle(
+                    fontSize: 12.5 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF6C4EF5),
+                  ),
+                ),
+                Text(
+                  'Items expiring soon are highlighted. Use them in recipes to avoid waste!',
+                  style: TextStyle(
+                    fontSize: 10.5 * uiScale,
+                    height: 1.3,
+                    color: const Color(0xFF3B3B4F),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1111,14 +1407,31 @@ class _ExploreRecipesButtonState extends State<_ExploreRecipesButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 * widget.uiScale,
+            vertical: 9 * widget.uiScale,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Explore Recipes', style: TextStyle(fontSize: 10.5 * widget.uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
+              Text(
+                'Explore Recipes',
+                style: TextStyle(
+                  fontSize: 10.5 * widget.uiScale,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF6C4EF5),
+                ),
+              ),
               SizedBox(width: 4 * widget.uiScale),
-              Icon(Icons.arrow_forward, size: 12 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(
+                Icons.arrow_forward,
+                size: 12 * widget.uiScale,
+                color: const Color(0xFF6C4EF5),
+              ),
             ],
           ),
         ),
@@ -1131,7 +1444,11 @@ class _ExploreRecipesButtonState extends State<_ExploreRecipesButton> {
 // Bottom nav bar
 // ---------------------------------------------------------------------------
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({required this.uiScale, required this.selectedIndex, required this.onTap});
+  const _BottomNavBar({
+    required this.uiScale,
+    required this.selectedIndex,
+    required this.onTap,
+  });
   final double uiScale;
   final int selectedIndex;
   final ValueChanged<int> onTap;
@@ -1149,12 +1466,23 @@ class _BottomNavBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: EdgeInsets.fromLTRB(14 * uiScale, 0, 14 * uiScale, 10 * uiScale),
+        margin: EdgeInsets.fromLTRB(
+          14 * uiScale,
+          0,
+          14 * uiScale,
+          10 * uiScale,
+        ),
         padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1167,21 +1495,39 @@ class _BottomNavBar extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
-                padding: EdgeInsets.symmetric(horizontal: selected ? 12 * uiScale : 8 * uiScale, vertical: 6 * uiScale),
+                padding: EdgeInsets.symmetric(
+                  horizontal: selected ? 12 * uiScale : 8 * uiScale,
+                  vertical: 6 * uiScale,
+                ),
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xFFEDE7FA) : Colors.transparent,
+                  color: selected
+                      ? const Color(0xFFEDE7FA)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(item.icon, size: 20 * uiScale, color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFB0ACC2)),
+                    Icon(
+                      item.icon,
+                      size: 20 * uiScale,
+                      color: selected
+                          ? const Color(0xFF6C4EF5)
+                          : const Color(0xFFB0ACC2),
+                    ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 200),
                       child: selected
                           ? Padding(
                               padding: EdgeInsets.only(top: 3 * uiScale),
-                              child: Text(item.label, style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
+                              child: Text(
+                                item.label,
+                                style: TextStyle(
+                                  fontSize: 9.5 * uiScale,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF6C4EF5),
+                                ),
+                              ),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -1192,6 +1538,171 @@ class _BottomNavBar extends StatelessWidget {
           }),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Add Item Dialog
+// ---------------------------------------------------------------------------
+class _AddItemDialog extends StatefulWidget {
+  const _AddItemDialog();
+
+  @override
+  State<_AddItemDialog> createState() => _AddItemDialogState();
+}
+
+class _AddItemDialogState extends State<_AddItemDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _quantityController;
+  PantryCategory _category = PantryCategory.other;
+  bool _userChangedCategory = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _quantityController = TextEditingController(text: '1');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  void _onNameChanged(String text) {
+    if (!_userChangedCategory) {
+      final detected = PantryCategoryService.instance.classifyRaw(name: text);
+      if (detected != _category) {
+        setState(() => _category = detected);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text(
+        'Add Pantry Item',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+          color: Color(0xFF1B1B2E),
+        ),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              onChanged: _onNameChanged,
+              decoration: InputDecoration(
+                labelText: 'Ingredient or Product Name',
+                hintText: 'e.g. Oats, Milk, Lay\'s Chips',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _quantityController,
+              decoration: InputDecoration(
+                labelText: 'Quantity',
+                hintText: 'e.g. 500 g, 1 L, 2 packs',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<PantryCategory>(
+              value: _category,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: PantryCategory.values
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Row(
+                        children: [
+                          Icon(value.icon, color: value.color, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              value.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _category = value;
+                    _userChangedCategory = true;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Color(0xFF6B6B7B)),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF6C4EF5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onPressed: () {
+            final name = _nameController.text.trim();
+            if (name.isEmpty) return;
+            final finalCategory =
+                (!_userChangedCategory && _category == PantryCategory.other)
+                ? PantryCategoryService.instance.classifyRaw(name: name)
+                : _category;
+
+            Navigator.of(context).pop(
+              PantryItem(
+                imageAsset: '',
+                name: name,
+                category: finalCategory,
+                addedOn: DateTime.now(),
+                quantity: _quantityController.text.trim().isEmpty
+                    ? '1'
+                    : _quantityController.text.trim(),
+                status: ItemStatus.fresh,
+                statusDetail: 'Freshly added',
+              ),
+            );
+          },
+          child: const Text('Add Item'),
+        ),
+      ],
     );
   }
 }

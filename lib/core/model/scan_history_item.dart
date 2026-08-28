@@ -1,4 +1,5 @@
 import 'food_product.dart';
+import '../services/nutrition_normalization_service.dart';
 
 /// Represents a single product scan recorded for the authenticated user.
 class ScanHistoryItem {
@@ -94,6 +95,21 @@ class ScanHistoryItem {
       return double.tryParse(v.toString());
     }
 
+    final norm = NutritionNormalizationService.instance.normalize(
+      calories: doubleOrNull(nutrients['calories']),
+      protein: doubleOrNull(nutrients['protein']),
+      carbohydrates: doubleOrNull(nutrients['carbohydrates']),
+      fat: doubleOrNull(nutrients['fat']),
+      saturatedFat: doubleOrNull(nutrients['saturatedFat']),
+      fiber: doubleOrNull(nutrients['fiber']),
+      sugar: doubleOrNull(nutrients['sugar']),
+      sodium: doubleOrNull(nutrients['sodium']),
+      salt: doubleOrNull(nutrients['salt']),
+      productName: productName,
+      brand: brand,
+      ingredients: ingredients,
+    );
+
     return FoodProduct(
       barcode: barcode,
       name: productName,
@@ -101,13 +117,16 @@ class ScanHistoryItem {
       imageUrl: imageUrl,
       ingredients: ingredients,
       allergens: allergens,
-      calories: doubleOrNull(nutrients['calories']),
-      protein: doubleOrNull(nutrients['protein']),
-      carbohydrates: doubleOrNull(nutrients['carbohydrates']),
-      fat: doubleOrNull(nutrients['fat']),
-      fiber: doubleOrNull(nutrients['fiber']),
-      sugar: doubleOrNull(nutrients['sugar']),
-      sodium: doubleOrNull(nutrients['sodium']),
+      calories: norm.calories,
+      protein: norm.protein,
+      carbohydrates: norm.carbohydrates,
+      fat: norm.fat,
+      saturatedFat: norm.saturatedFat,
+      fiber: norm.fiber,
+      sugar: norm.sugar,
+      sodium: norm.sodium,
+      salt: norm.salt,
+      nutritionBasis: norm.nutritionBasis,
     );
   }
 

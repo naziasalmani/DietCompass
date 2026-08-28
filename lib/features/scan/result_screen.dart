@@ -965,7 +965,11 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                   opacity: _fade(0.16, 0.52),
                   child: SlideTransition(
                     position: _slide(0.16, 0.54),
-                    child: _NutritionSnapshot(uiScale: scale, nutrients: _buildNutrients(widget.product),),
+                    child: _NutritionSnapshot(
+                      uiScale: scale,
+                      nutrients: _buildNutrients(widget.product),
+                      basisLabel: widget.product.normalizedBasisLabel,
+                    ),
                   ),
                 ),
                 SizedBox(height: 20 * scale),
@@ -1772,9 +1776,14 @@ class _AskAiButtonState extends State<_AskAiButton> {
 // Nutrition snapshot (horizontal scroll + dots)
 // ---------------------------------------------------------------------------
 class _NutritionSnapshot extends StatefulWidget {
-  const _NutritionSnapshot({required this.uiScale, required this.nutrients});
+  const _NutritionSnapshot({
+    required this.uiScale,
+    required this.nutrients,
+    this.basisLabel = 'Per 100 g',
+  });
   final double uiScale;
   final List<NutrientStat> nutrients;
+  final String basisLabel;
 
   @override
   State<_NutritionSnapshot> createState() => _NutritionSnapshotState();
@@ -1814,7 +1823,7 @@ class _NutritionSnapshotState extends State<_NutritionSnapshot> {
             SizedBox(width: 4 * widget.uiScale),
             Icon(Icons.info_outline, size: 13 * widget.uiScale, color: const Color(0xFFB0ACC2)),
             const Spacer(),
-            Text('Per 100 g', style: TextStyle(fontSize: 10.5 * widget.uiScale, color: const Color(0xFF9A96A8))),
+            Text(widget.basisLabel, style: TextStyle(fontSize: 10.5 * widget.uiScale, color: const Color(0xFF9A96A8))),
           ],
         ),
         SizedBox(height: 10 * widget.uiScale),

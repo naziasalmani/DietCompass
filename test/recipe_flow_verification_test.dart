@@ -188,6 +188,9 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: RecipeGeneratorScreen(
+            pantryItems: [
+              PantryChipData(label: 'Oats', asset: '', icon: Icons.kitchen_rounded),
+            ],
             recipes: [],
             moreIdeas: [],
           ),
