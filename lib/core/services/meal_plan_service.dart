@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../model/meal_plan_model.dart';
-import 'api_service.dart';
 import 'auth_service.dart';
 import 'pantry_storage_service.dart';
+import 'storage_service.dart';
 
 /// DietCompass — AI Meal Plan Service
 ///
@@ -13,6 +18,7 @@ class MealPlanService extends ChangeNotifier {
   MealPlanService._();
   static final MealPlanService instance = MealPlanService._();
 
+  final http.Client _httpClient = http.Client();
   MealPlanResponse? _currentPlan;
 
   MealPlanResponse? get currentPlan => _currentPlan;
@@ -28,6 +34,8 @@ class MealPlanService extends ChangeNotifier {
     String budget = 'Moderate',
     bool usePantry = true,
   }) async {
+    debugPrint('[MEAL PLAN BUILD CHECK] Dynamic meal planner version = 2');
+
     final userId = AuthService.instance.currentUser?.id ?? 'guest_user';
 
     List<String> pantryIngredients = [];
@@ -61,45 +69,91 @@ class MealPlanService extends ChangeNotifier {
     debugPrint('pantryIngredients = $pantryIngredients');
     debugPrint('==============================================\n');
 
+    final fullUrl = '${AppConfig.apiBaseUrl}/meal-plans/generate';
+    debugPrint('[MEAL PLAN HTTP]');
+    debugPrint('url = $fullUrl');
+
+    final payload = {
+      'durationDays': durationDays,
+      'goal': goal,
+      'calories': calories,
+      'mealTypes': mealTypeList,
+      'diet': diet,
+      'allergies': allergyList,
+      'budget': budget,
+      'usePantry': usePantry,
+      'pantryIngredients': pantryIngredients,
+    };
+
+    final jsonPayload = jsonEncode(payload);
+
+    debugPrint('[MEAL PLAN HTTP START]');
+    debugPrint('[MEAL PLAN HTTP URL] $fullUrl');
+    debugPrint('[MEAL PLAN HTTP BODY] $jsonPayload');
+
     try {
-      final payload = {
-        'durationDays': durationDays,
-        'goal': goal,
-        'calories': calories,
-        'mealTypes': mealTypeList,
-        'diet': diet,
-        'allergies': allergyList,
-        'budget': budget,
-        'usePantry': usePantry,
-        'pantryIngredients': pantryIngredients,
+      final token = await StorageService.instance.getAccessToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-      final response = await ApiService.instance.post(
-        '/meal-plans/generate',
-        body: payload,
-        requiresAuth: true,
-      );
+      debugPrint('[PROFILE AUTH DEBUG]');
+      debugPrint('tokenExists = ${token != null && token.isNotEmpty}');
+      debugPrint('authorizationHeaderPresent = ${headers.containsKey('Authorization')}');
+      debugPrint('endpoint = /meal-plans/generate');
+      debugPrint('method = POST');
 
-      if (response.success && response.data != null) {
-        final rawData = response.data!['data'] ?? response.data!;
-        if (rawData is Map<String, dynamic>) {
-          final plan = MealPlanResponse.fromJson(rawData);
-          _currentPlan = plan;
-          notifyListeners();
+      final response = await _httpClient
+          .post(
+            Uri.parse(fullUrl),
+            headers: headers,
+            body: jsonPayload,
+          )
+          .timeout(const Duration(seconds: 60));
 
-          debugPrint('\n==============================================');
-          debugPrint('[MEAL PLAN RECEIVED]');
-          debugPrint('durationDays = ${plan.durationDays}');
-          debugPrint('daysCount = ${plan.days.length}');
-          debugPrint('geminiPowered = ${plan.geminiPowered}');
-          debugPrint('summary = ${plan.summary}');
-          debugPrint('==============================================\n');
+      debugPrint('[MEAL PLAN HTTP RESPONSE] status = ${response.statusCode}');
+      debugPrint('[MEAL PLAN HTTP RESPONSE] body = ${response.body}');
 
-          return plan;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          final rawData = decoded['data'] ?? decoded;
+          if (rawData is Map<String, dynamic>) {
+            final plan = MealPlanResponse.fromJson(rawData);
+            _currentPlan = plan;
+            notifyListeners();
+
+            debugPrint('\n==============================================');
+            debugPrint('[MEAL PLAN RECEIVED]');
+            debugPrint('durationDays = ${plan.durationDays}');
+            debugPrint('daysCount = ${plan.days.length}');
+            debugPrint('geminiPowered = ${plan.geminiPowered}');
+            debugPrint('summary = ${plan.summary}');
+            debugPrint('==============================================\n');
+
+            return plan;
+          }
         }
+      } else {
+        debugPrint('[MealPlanService] Server returned non-200 status: ${response.statusCode}');
       }
-    } catch (e) {
-      debugPrint('[MealPlanService] Generate error: $e');
+    } on SocketException catch (e, stack) {
+      debugPrint('[MEAL PLAN HTTP ERROR]');
+      debugPrint('type = SocketException');
+      debugPrint('message = $e');
+      debugPrint('stack = $stack');
+    } on TimeoutException catch (e, stack) {
+      debugPrint('[MEAL PLAN HTTP ERROR]');
+      debugPrint('type = TimeoutException');
+      debugPrint('message = Request timed out after 60s: $e');
+      debugPrint('stack = $stack');
+    } catch (e, stack) {
+      debugPrint('[MEAL PLAN HTTP ERROR]');
+      debugPrint('type = ${e.runtimeType}');
+      debugPrint('message = $e');
+      debugPrint('stack = $stack');
     }
 
     return _currentPlan;

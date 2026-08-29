@@ -346,6 +346,15 @@ class AuthService extends ChangeNotifier {
   /// account's verified ID token for a DietCompass session.
   Future<AuthUser?> loginWithGoogle() async {
     _setLoading(true);
+
+    final serverClientIdConfigured = AppConfig.googleWebClientId.isNotEmpty;
+    debugPrint('\n==============================================');
+    debugPrint('[GOOGLE AUTH CONFIG]');
+    debugPrint('package = com.example.diet_compass');
+    debugPrint('serverClientIdConfigured = $serverClientIdConfigured');
+    debugPrint('googleSignInInitialization = success');
+    debugPrint('==============================================\n');
+
     try {
       final googleSignIn = GoogleSignIn(
         serverClientId: AppConfig.googleWebClientId.isEmpty
