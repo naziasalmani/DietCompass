@@ -15,6 +15,10 @@ import 'recipe_history_service.dart';
 /// DietCompass — Centralized Authentication Service
 /// Manages user authentication lifecycle, token persistence, and reactive auth state.
 class AuthService extends ChangeNotifier {
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  serverClientId: AppConfig.googleWebClientId,
+  scopes: ['email', 'profile'],
+);
   AuthService._internal() {
     // Wire ApiService auto-refresh interceptor
     ApiService.instance.onTokenRefreshRequired = refreshSession;
@@ -356,14 +360,14 @@ class AuthService extends ChangeNotifier {
     debugPrint('==============================================\n');
 
     try {
-      final googleSignIn = GoogleSignIn(
-        serverClientId: AppConfig.googleWebClientId.isEmpty
-            ? null
-            : AppConfig.googleWebClientId,
-        scopes: ['email', 'profile'],
-      );
-      await googleSignIn.signOut();
-      final account = await googleSignIn.signIn();
+      await _googleSignIn.signOut();
+      debugPrint('========== GOOGLE SIGN-IN DEBUG ==========');
+debugPrint('package = com.example.diet_compass');
+debugPrint('webClientId = ${AppConfig.googleWebClientId}');
+debugPrint('googleSignIn = $_googleSignIn');
+debugPrint('==========================================');
+
+      final account = await _googleSignIn.signIn();
       if (account == null) return null;
 
       final idToken = (await account.authentication).idToken;

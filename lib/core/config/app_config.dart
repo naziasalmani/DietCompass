@@ -11,17 +11,20 @@ abstract final class AppConfig {
 
   /// Web OAuth client ID used by Google Sign-In to mint verifiable ID tokens.
   ///
-  /// Can be overridden at build/run time with:
-  /// --dart-define=GOOGLE_WEB_CLIENT_ID=...
+  /// This MUST be the Web application OAuth Client ID,
+  /// not the Android OAuth Client ID.
   static const googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
     defaultValue:
-        '524989513168-6ifogqg44rmlkilb7sp5irrofsj9bflo.apps.googleusercontent.com',
+    '524989513168-1n4a7ofhk707jnq7s8bctctlsc1quifj.apps.googleusercontent.com',
   );
 
   /// Base API URL.
   ///
-  /// This can be dynamically updated if required.
+  /// Priority:
+  /// 1. --dart-define API_BASE_URL
+  /// 2. Runtime custom URL
+  /// 3. Production Render backend
   static String _customBaseUrl = '';
 
   /// Set a custom base URL.
@@ -33,23 +36,15 @@ abstract final class AppConfig {
   }
 
   /// Get the active API Base URL.
-  ///
-  /// Priority:
-  /// 1. --dart-define API_BASE_URL
-  /// 2. Runtime custom URL
-  /// 3. Production Render backend
   static String get apiBaseUrl {
-    // Build-time override
     if (apiBaseUrlOverride.isNotEmpty) {
       return apiBaseUrlOverride.replaceAll(RegExp(r'/+$'), '');
     }
 
-    // Runtime override
     if (_customBaseUrl.isNotEmpty) {
       return _customBaseUrl;
     }
 
-    // Production backend
     return 'https://dietcompass.onrender.com/api';
   }
 
