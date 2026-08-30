@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../model/user_model.dart';
 
@@ -134,6 +134,55 @@ class StorageService {
       return await _storage.read(key: key);
     } catch (e) {
       debugPrint('[StorageService] Error reading local recipe history: $e');
+      return null;
+    }
+  }
+
+  /// Save local profile image path
+  Future<void> saveProfileImagePath(String? path) async {
+    try {
+      if (path == null || path.isEmpty) {
+        await _storage.delete(key: 'dc_profile_image_path');
+      } else {
+        await _storage.write(key: 'dc_profile_image_path', value: path);
+      }
+    } catch (e) {
+      debugPrint('[StorageService] Error saving profile image path: $e');
+    }
+  }
+
+  /// Retrieve local profile image path
+  Future<String?> getProfileImagePath() async {
+    try {
+      return await _storage.read(key: 'dc_profile_image_path');
+    } catch (e) {
+      debugPrint('[StorageService] Error reading profile image path: $e');
+      return null;
+    }
+  }
+
+  /// Save selected ThemeMode
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    try {
+      final val = mode == ThemeMode.system
+          ? 'system'
+          : (mode == ThemeMode.dark ? 'dark' : 'light');
+      await _storage.write(key: 'dc_theme_mode', value: val);
+    } catch (e) {
+      debugPrint('[StorageService] Error saving theme mode: $e');
+    }
+  }
+
+  /// Retrieve selected ThemeMode
+  Future<ThemeMode?> getThemeMode() async {
+    try {
+      final val = await _storage.read(key: 'dc_theme_mode');
+      if (val == 'dark') return ThemeMode.dark;
+      if (val == 'system') return ThemeMode.system;
+      if (val == 'light') return ThemeMode.light;
+      return null;
+    } catch (e) {
+      debugPrint('[StorageService] Error reading theme mode: $e');
       return null;
     }
   }

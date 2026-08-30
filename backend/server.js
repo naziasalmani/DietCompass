@@ -98,6 +98,11 @@ app.use(`${apiPrefix}/scan-history`, scanHistoryRoutes);
 // AI-Powered Meal Plan Routes
 app.use(`${apiPrefix}/meal-plans`, mealPlanRoutes);
 
+// Data Export Route
+const { exportUserData } = require('./src/controllers/profileController');
+const { protect } = require('./src/middleware/auth');
+app.get(`${apiPrefix}/data-export`, protect, exportUserData);
+
 // =============================================================================
 // Root Welcome Route
 // =============================================================================

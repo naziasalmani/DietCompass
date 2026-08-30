@@ -579,6 +579,89 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Change password for authenticated user
+ * @route   POST /api/auth/change-password
+ * @access  Private (Protected by JWT)
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long.',
+      });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    // If user registered with a password, verify current password
+    if (user.authProvider === 'password' && user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is required.',
+        });
+      }
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is incorrect.',
+        });
+      }
+    }
+
+    user.password = newPassword;
+    user.authProvider = 'password';
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get active sessions for authenticated user
+ * @route   GET /api/auth/sessions
+ * @access  Private (Protected by JWT)
+ */
+const getSessions = async (req, res, next) => {
+  try {
+    const sessions = await RefreshToken.find({
+      userId: req.user._id,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 }).lean();
+
+    res.status(200).json({
+      success: true,
+      data: sessions.map((s) => ({
+        id: s._id.toString(),
+        deviceInfo: s.deviceInfo || 'Mobile Device',
+        ipAddress: s.ipAddress || '',
+        createdAt: s.createdAt,
+        expiresAt: s.expiresAt,
+        isCurrent: true,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -589,4 +672,6 @@ module.exports = {
   logoutAll,
   forgotPassword,
   resetPassword,
+  changePassword,
+  getSessions,
 };

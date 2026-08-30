@@ -17,15 +17,20 @@ import 'package:diet_compass/features/personalization/lib/onboarding/onboarding_
 import 'features/signup/sign_up_screen.dart';
 import 'features/splash/splash_screen.dart';
 
+import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
+
 /// Deep-link scheme used for password-reset links.
 /// Backend CLIENT_URL must be set to "dietcompass://"
 /// Reset URLs will be: `dietcompass://reset-password/<token>`
 const _kDeepLinkScheme = 'dietcompass';
 const _kResetPasswordPath = 'reset-password';
+
 final _rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ThemeController.instance.initialize();
   runApp(const DietCompassApp());
 }
 
@@ -34,16 +39,19 @@ class DietCompassApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'DietCompass',
-      debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: _rootScaffoldMessengerKey,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF6C4EF5),
-        fontFamily: 'Roboto',
-      ),
-      home: const AppFlow(),
+    return AnimatedBuilder(
+      animation: ThemeController.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'DietCompass',
+          debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: _rootScaffoldMessengerKey,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: ThemeController.instance.themeMode,
+          home: const AppFlow(),
+        );
+      },
     );
   }
 }
@@ -74,7 +82,10 @@ class _AppFlowState extends State<AppFlow> {
   bool _hasSeenIntroOnboarding = false;
   String? _splashError;
 
-  final _navigatorKey = GlobalKey<NavigatorState>();
+  // Separate navigator keys for authenticated and unauthenticated flows.
+  final _authenticatedNavigatorKey = GlobalKey<NavigatorState>();
+  final _unauthenticatedNavigatorKey = GlobalKey<NavigatorState>();
+
   late final AppLinks _appLinks;
 
   @override
@@ -95,6 +106,7 @@ class _AppFlowState extends State<AppFlow> {
     if (!mounted) return;
 
     final user = AuthService.instance.currentUser;
+
     if (user != null && _state == _AppState.auth) {
       setState(() {
         _user = AuthUser(
@@ -139,13 +151,17 @@ class _AppFlowState extends State<AppFlow> {
   void _handleDeepLink(Uri uri) {
     if (uri.scheme != _kDeepLinkScheme &&
         uri.scheme != 'http' &&
-        uri.scheme != 'https')
+        uri.scheme != 'https') {
       return;
+    }
 
-    // Support dietcompass://reset-password?token=XYZ and dietcompass://reset-password/<token>
+    // Support dietcompass://reset-password?token=XYZ
+    // and dietcompass://reset-password/<token>
     String token = uri.queryParameters['token'] ?? '';
+
     if (token.isEmpty) {
       final segments = uri.pathSegments;
+
       if (segments.length >= 2 && segments[0] == _kResetPasswordPath) {
         token = segments[1];
       } else if (segments.isNotEmpty &&
@@ -156,8 +172,15 @@ class _AppFlowState extends State<AppFlow> {
     }
 
     if (token.isNotEmpty) {
-      _navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => ResetPasswordScreen(token: token)),
+      final navigator =
+          _state == _AppState.home
+              ? _authenticatedNavigatorKey.currentState
+              : _unauthenticatedNavigatorKey.currentState;
+
+      navigator?.push(
+        MaterialPageRoute(
+          builder: (_) => ResetPasswordScreen(token: token),
+        ),
       );
     }
   }
@@ -178,7 +201,8 @@ class _AppFlowState extends State<AppFlow> {
       );
 
       // 1. Check intro onboarding state
-      final introSeenFuture = StorageService.instance.hasSeenIntroOnboarding();
+      final introSeenFuture =
+          StorageService.instance.hasSeenIntroOnboarding();
 
       // 2. Restore session
       final userFuture = AuthService.instance.tryRestoreSession();
@@ -202,29 +226,36 @@ class _AppFlowState extends State<AppFlow> {
         final profile = await ProfileService.instance.getProfile(
           forceRefresh: true,
         );
+
         if (profile.isPersonalizationComplete) {
           await PersonalizationService.instance.getPersonalization(
             forceRefresh: true,
           );
+
           await minSplashDuration;
           if (!mounted) return;
           setState(() => _state = _AppState.home);
           return;
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(
-            forceRefresh: true,
-          );
+          final pers =
+              await PersonalizationService.instance.getPersonalization(
+                forceRefresh: true,
+              );
+
           _initialPersonalizationData =
               pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
+
           await minSplashDuration;
           if (!mounted) return;
           setState(() => _state = _AppState.personalization);
           return;
         }
       } catch (e) {
-        // Fallback: If offline or cloud profile fetch fails, default to home for returning user
+        // Fallback: If offline or cloud profile fetch fails, default to home
+        // for returning user.
         debugPrint('Cloud profile check warning (fallback to home): $e');
+
         await minSplashDuration;
         if (!mounted) return;
         setState(() => _state = _AppState.home);
@@ -232,9 +263,12 @@ class _AppFlowState extends State<AppFlow> {
       }
     } catch (e) {
       debugPrint('Startup initialization error: $e');
+
       if (!mounted) return;
+
       setState(() {
-        _splashError = 'Please check your internet connection and try again.';
+        _splashError =
+            'Please check your internet connection and try again.';
       });
     }
   }
@@ -248,7 +282,9 @@ class _AppFlowState extends State<AppFlow> {
         identifier: identifier,
         password: password,
       );
+
       if (!mounted) return;
+
       _user = user;
 
       // Fetch cloud profile to check if personalization is complete
@@ -256,20 +292,25 @@ class _AppFlowState extends State<AppFlow> {
         final profile = await ProfileService.instance.getProfile(
           forceRefresh: true,
         );
+
         if (!mounted) return;
 
         if (profile.isPersonalizationComplete) {
           await PersonalizationService.instance.getPersonalization(
             forceRefresh: true,
           );
+
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(
-            forceRefresh: true,
-          );
+          final pers =
+              await PersonalizationService.instance.getPersonalization(
+                forceRefresh: true,
+              );
+
           _initialPersonalizationData =
               pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
+
           setState(() => _state = _AppState.personalization);
         }
       } catch (_) {
@@ -284,33 +325,51 @@ class _AppFlowState extends State<AppFlow> {
   Future<void> _handleGoogleLogin() async {
     try {
       final user = await AuthService.instance.loginWithGoogle();
+
       if (!mounted || user == null) return;
+
       _user = user;
+
       try {
         final profile = await ProfileService.instance.getProfile(
           forceRefresh: true,
         );
+
         if (!mounted) return;
+
+        debugPrint(
+          '[GOOGLE LOGIN] personalizationComplete = '
+          '${profile.isPersonalizationComplete}',
+        );
+
         if (profile.isPersonalizationComplete) {
           await PersonalizationService.instance.getPersonalization(
             forceRefresh: true,
           );
+
           setState(() => _state = _AppState.home);
         } else {
-          final pers = await PersonalizationService.instance.getPersonalization(
-            forceRefresh: true,
-          );
+          final pers =
+              await PersonalizationService.instance.getPersonalization(
+                forceRefresh: true,
+              );
+
           _initialPersonalizationData =
               pers?.toOnboardingData() ??
               (OnboardingData()..fullName = profile.fullName);
+
           setState(() => _state = _AppState.personalization);
         }
       } catch (_) {
-        if (mounted) setState(() => _state = _AppState.home);
+        if (mounted) {
+          setState(() => _state = _AppState.home);
+        }
       }
     } on ApiException catch (e) {
       debugPrint('Google sign-in failed: ${e.message}');
+
       if (!mounted) return;
+
       _rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(e.message),
@@ -319,7 +378,9 @@ class _AppFlowState extends State<AppFlow> {
       );
     } catch (e) {
       debugPrint('Google sign-in failed: $e');
+
       if (!mounted) return;
+
       _rootScaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(
           content: Text('Google sign-in failed. Please try again.'),
@@ -344,10 +405,13 @@ class _AppFlowState extends State<AppFlow> {
             ? 'individual'
             : 'family',
       );
+
       if (!mounted) return;
 
       _user = user;
-      _initialPersonalizationData = OnboardingData()..fullName = data.fullName;
+      _initialPersonalizationData =
+          OnboardingData()..fullName = data.fullName;
+
       setState(() => _state = _AppState.personalization);
     } on ApiException catch (e) {
       throw Exception(e.message);
@@ -355,34 +419,44 @@ class _AppFlowState extends State<AppFlow> {
   }
 
   /// Called when 7-step personalization is completed.
-  Future<void> _handlePersonalizationComplete(OnboardingData data) async {
+  Future<void> _handlePersonalizationComplete(
+    OnboardingData data,
+  ) async {
     try {
       await PersonalizationService.instance.savePersonalization(
         data,
         isCompleted: true,
       );
+
       // Refresh user profile in memory
       await ProfileService.instance.getProfile(forceRefresh: true);
     } catch (e) {
       debugPrint('Personalization sync error (handled safely): $e');
     }
+
     if (!mounted) return;
+
     setState(() => _state = _AppState.home);
   }
 
   /// Called when user chooses to skip personalization.
   Future<void> _handlePersonalizationSkip() async {
     try {
-      final fallbackData = _initialPersonalizationData ?? OnboardingData();
+      final fallbackData =
+          _initialPersonalizationData ?? OnboardingData();
+
       await PersonalizationService.instance.savePersonalization(
         fallbackData,
         isCompleted: true,
       );
+
       await ProfileService.instance.getProfile(forceRefresh: true);
     } catch (e) {
       debugPrint('Personalization skip sync error: $e');
     }
+
     if (!mounted) return;
+
     setState(() => _state = _AppState.home);
   }
 
@@ -398,7 +472,9 @@ class _AppFlowState extends State<AppFlow> {
   /// Logs out the current device session and returns to the auth flow.
   Future<void> _handleLogout() async {
     await AuthService.instance.logout();
+
     if (!mounted) return;
+
     setState(() {
       _user = null;
       _initialPersonalizationData = null;
@@ -419,7 +495,8 @@ class _AppFlowState extends State<AppFlow> {
       );
     }
 
-    // Personalization flow state (New user or incomplete personalization)
+    // Personalization flow state
+    // (New user or incomplete personalization)
     if (_state == _AppState.personalization) {
       return OnboardingFlow(
         initialData: _initialPersonalizationData,
@@ -430,27 +507,35 @@ class _AppFlowState extends State<AppFlow> {
 
     // Authenticated & Personalized: HomeScreen wrapped in Navigator.
     if (_state == _AppState.home) {
-      return _AuthenticatedApp(
-        user: _user!,
-        onLogout: _handleLogout,
-        navigatorKey: _navigatorKey,
+      return KeyedSubtree(
+        key: const ValueKey('authenticated'),
+        child: _AuthenticatedApp(
+          user: _user!,
+          onLogout: _handleLogout,
+          navigatorKey: _authenticatedNavigatorKey,
+        ),
       );
     }
 
-    // Unauthenticated flow: Onboarding (if first install) → Login / Signup / ForgotPassword.
-    return _UnauthenticatedApp(
-      hasSeenIntroOnboarding: _hasSeenIntroOnboarding,
-      onIntroOnboardingComplete: () async {
-        await StorageService.instance.setIntroOnboardingSeen(true);
-        if (mounted) {
-          setState(() => _hasSeenIntroOnboarding = true);
-        }
-      },
-      onLogin: _handleLogin,
-      onGoogleLogin: _handleGoogleLogin,
-      onSignUp: _handleSignUp,
-      onForgotPassword: _handleForgotPassword,
-      navigatorKey: _navigatorKey,
+    // Unauthenticated flow: Onboarding (if first install) →
+    // Login / Signup / ForgotPassword.
+    return KeyedSubtree(
+      key: const ValueKey('unauthenticated'),
+      child: _UnauthenticatedApp(
+        hasSeenIntroOnboarding: _hasSeenIntroOnboarding,
+        onIntroOnboardingComplete: () async {
+          await StorageService.instance.setIntroOnboardingSeen(true);
+
+          if (mounted) {
+            setState(() => _hasSeenIntroOnboarding = true);
+          }
+        },
+        onLogin: _handleLogin,
+        onGoogleLogin: _handleGoogleLogin,
+        onSignUp: _handleSignUp,
+        onForgotPassword: _handleForgotPassword,
+        navigatorKey: _unauthenticatedNavigatorKey,
+      ),
     );
   }
 }
@@ -473,8 +558,10 @@ class _AuthenticatedApp extends StatelessWidget {
     return Navigator(
       key: navigatorKey,
       onGenerateRoute: (_) => MaterialPageRoute(
-        builder: (_) =>
-            HomeScreen(userName: user.displayName, onLogout: onLogout),
+        builder: (_) => HomeScreen(
+          userName: user.displayName,
+          onLogout: onLogout,
+        ),
       ),
     );
   }
@@ -511,18 +598,25 @@ class _UnauthenticatedApp extends StatelessWidget {
             return OnboardingScreen(
               onComplete: () {
                 onIntroOnboardingComplete();
+
                 navigatorKey.currentState?.pushReplacement(
-                  MaterialPageRoute(builder: (_) => _buildLoginScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => _buildLoginScreen(),
+                  ),
                 );
               },
               onSkip: () {
                 onIntroOnboardingComplete();
+
                 navigatorKey.currentState?.pushReplacement(
-                  MaterialPageRoute(builder: (_) => _buildLoginScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => _buildLoginScreen(),
+                  ),
                 );
               },
             );
           }
+
           return _buildLoginScreen();
         },
       ),
@@ -535,12 +629,16 @@ class _UnauthenticatedApp extends StatelessWidget {
       onGoogleTap: onGoogleLogin,
       onSignUpTap: () {
         navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => _buildSignUpScreen()),
+          MaterialPageRoute(
+            builder: (_) => _buildSignUpScreen(),
+          ),
         );
       },
       onForgotPassword: () {
         navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => _buildForgotPasswordScreen()),
+          MaterialPageRoute(
+            builder: (_) => _buildForgotPasswordScreen(),
+          ),
         );
       },
     );

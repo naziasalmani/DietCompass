@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Personalization = require('../models/Personalization');
+const ScanHistory = require('../models/ScanHistory');
+const RecipeHistory = require('../models/RecipeHistory');
 
 /**
  * @desc    Get current user profile & personalization status
@@ -111,7 +113,110 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Export all user-owned data for the authenticated user
+ * @route   GET /api/profile/export (or GET /api/data-export)
+ * @access  Private (Protected by JWT)
+ */
+const exportUserData = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    console.log('\n[DATA EXPORT DEBUG]');
+    console.log('route hit = true');
+    console.log(`authenticated user id = ${userId.toString()}`);
+    console.log('database query started = true');
+
+    // 1. Fetch user (safe sanitized representation without password/tokens)
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log('response status = 404');
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    const safeUser = user.toJSON();
+
+    // 2. Fetch personalization profile
+    const personalizationDoc = await Personalization.findOne({ userId });
+    const personalization = personalizationDoc ? personalizationDoc.toJSON() : null;
+
+    // 3. Fetch scan history
+    const scans = await ScanHistory.find({ userId }).sort({ scannedAt: -1 }).lean();
+    const scanHistory = scans.map((s) => ({
+      id: s._id?.toString(),
+      barcode: s.barcode || '',
+      productName: s.productName,
+      brand: s.brand || '',
+      imageUrl: s.imageUrl || '',
+      score: s.score,
+      ingredients: s.ingredients || '',
+      allergens: s.allergens || [],
+      nutrients: s.nutrients || {},
+      scannedAt: s.scannedAt,
+    }));
+
+    // 4. Fetch recipe history and saved recipes
+    const recipes = await RecipeHistory.find({ userId }).sort({ generatedAt: -1 }).lean();
+    const recipeHistory = recipes.map((r) => ({
+      recipeId: r.recipeId,
+      title: r.title,
+      description: r.description || '',
+      imageUrl: r.imageUrl || '',
+      ingredients: r.ingredients || [],
+      instructions: r.instructions || [],
+      nutrition: r.nutrition || {},
+      timeMinutes: r.timeMinutes,
+      prepTime: r.prepTime || '',
+      cookTime: r.cookTime || '',
+      servings: r.servings,
+      difficulty: r.difficulty || 'Easy',
+      tags: r.tags || [],
+      recipeSource: r.recipeSource || 'api',
+      generationMode: r.generationMode || 'pantry',
+      sourceProduct: r.sourceProduct || '',
+      normalizedIngredient: r.normalizedIngredient || '',
+      pantryIngredients: r.pantryIngredients || [],
+      isBookmarked: Boolean(r.isBookmarked),
+      isViewed: Boolean(r.isViewed),
+      generatedAt: r.generatedAt,
+    }));
+
+    const savedRecipes = recipeHistory.filter((r) => r.isBookmarked);
+
+    const exportPayload = {
+      exportMetadata: {
+        appName: 'DietCompass',
+        version: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        userId: userId.toString(),
+      },
+      user: safeUser,
+      personalization,
+      scanHistory,
+      savedRecipes,
+      recipeHistory,
+    };
+
+    console.log(`database query result = success (user: ${Boolean(safeUser)}, personalization: ${Boolean(personalization)}, scans: ${scanHistory.length}, recipes: ${recipeHistory.length})`);
+    console.log('response status = 200\n');
+
+    res.status(200).json({
+      success: true,
+      message: 'User data exported successfully.',
+      data: exportPayload,
+    });
+  } catch (error) {
+    console.error('[DATA EXPORT DEBUG] error =', error.message);
+    console.log('response status = 500\n');
+    next(error);
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
+  exportUserData,
 };

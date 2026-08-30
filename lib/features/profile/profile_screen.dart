@@ -1,19 +1,25 @@
-import 'dart:math' as math;
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/services/storage_service.dart';
 import '../../core/model/user_profile.dart';
 import '../../core/model/personalization_profile.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/personalization_service.dart';
-import '../home/home_screen.dart';
 import 'saved_recipes_screen.dart';
 import 'personal_info_screen.dart';
 import 'health_profile_screen.dart';
 import 'dietary_preferences_screen.dart';
 import 'activity_level_screen.dart';
 import 'notifications_screen.dart';
+import 'privacy_security_screen.dart';
+import 'help_support_screen.dart';
+import 'about_screen.dart';
+import 'settings_screen.dart';
 
 /// DietCompass — My Profile Screen
 /// -----------------------------------------------------------------------
@@ -111,6 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   UserProfile? _profile;
   PersonalizationProfile? _personalization;
+  String? _localProfileImagePath;
 
   String _monthName(int month) => const [
     'January',
@@ -140,6 +147,270 @@ class _ProfileScreenState extends State<ProfileScreen>
     )..repeat(reverse: true);
 
     _loadCloudProfile();
+    _loadLocalProfileImage();
+  }
+
+  Future<void> _loadLocalProfileImage() async {
+    final path = await StorageService.instance.getProfileImagePath();
+    if (path != null && File(path).existsSync()) {
+      if (mounted) setState(() => _localProfileImagePath = path);
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      final dir = await getApplicationDocumentsDirectory();
+      final targetFile = File('${dir.path}/profile_avatar.jpg');
+      await File(pickedFile.path).copy(targetFile.path);
+
+      await StorageService.instance.saveProfileImagePath(targetFile.path);
+      if (mounted) {
+        setState(() {
+          _localProfileImagePath = targetFile.path;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1B1B2E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Color(0xFF1E8A4C), size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Profile photo updated successfully.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1B1B2E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Color(0xFFE0525C), size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Could not update photo: $e',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    await StorageService.instance.saveProfileImagePath(null);
+    if (mounted) {
+      setState(() {
+        _localProfileImagePath = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1B1B2E),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: const Text(
+            'Profile photo removed.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showAvatarPicker() {
+    final colors = context.dcColors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final mq = MediaQuery.of(context);
+        final scale = (mq.size.width / 390.0).clamp(0.85, 1.25);
+        final hasCustomPhoto = _localProfileImagePath != null && File(_localProfileImagePath!).existsSync();
+
+        return Container(
+          padding: EdgeInsets.all(22 * scale),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: colors.cardBorder),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36 * scale,
+                    height: 36 * scale,
+                    decoration: BoxDecoration(
+                      color: colors.iconPurpleBg,
+                      borderRadius: BorderRadius.circular(10 * scale),
+                    ),
+                    child: Icon(Icons.camera_alt_rounded, color: colors.iconPurple, size: 18 * scale),
+                  ),
+                  SizedBox(width: 10 * scale),
+                  Expanded(
+                    child: Text(
+                      'Update Profile Photo',
+                      style: TextStyle(
+                        fontSize: 16.5 * scale,
+                        fontWeight: FontWeight.w800,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 20, color: colors.textSecondary),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16 * scale),
+
+              // Option 1: Take a Photo
+              _buildAvatarOption(
+                icon: Icons.camera_alt_rounded,
+                iconColor: colors.iconPurple,
+                iconBg: colors.iconPurpleBg,
+                title: 'Take a Photo',
+                subtitle: 'Use camera to snap a new photo',
+                scale: scale,
+                colors: colors,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              SizedBox(height: 10 * scale),
+
+              // Option 2: Choose from Gallery
+              _buildAvatarOption(
+                icon: Icons.photo_library_rounded,
+                iconColor: colors.iconGreen,
+                iconBg: colors.iconGreenBg,
+                title: 'Choose from Gallery',
+                subtitle: 'Select an image from device gallery',
+                scale: scale,
+                colors: colors,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+
+              // Option 3: Remove Photo
+              if (hasCustomPhoto) ...[
+                SizedBox(height: 10 * scale),
+                _buildAvatarOption(
+                  icon: Icons.delete_outline_rounded,
+                  iconColor: colors.iconRed,
+                  iconBg: colors.iconRedBg,
+                  title: 'Remove Photo',
+                  subtitle: 'Restore default avatar',
+                  scale: scale,
+                  colors: colors,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeAvatar();
+                  },
+                ),
+              ],
+
+              SizedBox(height: 8 * scale),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatarOption({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    required double scale,
+    required DietCompassThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16 * scale),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 12 * scale),
+        decoration: BoxDecoration(
+          color: colors.surfaceSecondary,
+          borderRadius: BorderRadius.circular(16 * scale),
+          border: Border.all(color: colors.cardBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36 * scale,
+              height: 36 * scale,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12 * scale),
+              ),
+              child: Icon(icon, color: iconColor, size: 18 * scale),
+            ),
+            SizedBox(width: 14 * scale),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13.5 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 2 * scale),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11.5 * scale,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: colors.textMuted),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadCloudProfile() async {
@@ -242,13 +513,69 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  void _openHealthProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HealthProfileScreen(
+          fullName: _displayName,
+          gender: _profile?.gender.isNotEmpty == true
+              ? _profile!.gender
+              : 'Female',
+          height: _height,
+          weight: _weight,
+        ),
+      ),
+    ).then((_) => _loadCloudProfile());
+  }
+
+  void _openPrivacySecurity() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const PrivacySecurityScreen(),
+      ),
+    );
+  }
+
+  void _openHelpSupport() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HelpSupportScreen(),
+      ),
+    );
+  }
+
+  void _openAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AboutScreen(appVersion: widget.appVersion),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(
+          appVersion: widget.appVersion,
+          onLogout: widget.onLogout,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final colors = context.dcColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -272,8 +599,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ambientCtrl: _ambientCtrl,
                       onNotificationsTap: widget.onNotificationsTap ??
                           () => _openNotifications(initialTab: 0),
-                      onSettingsTap: widget.onSettingsTap ??
-                          () => _openNotifications(initialTab: 1),
+                      onSettingsTap: widget.onSettingsTap ?? _openSettings,
                     ),
                   ),
                 ),
@@ -299,7 +625,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             : '${_monthName(_profile!.createdAt!.month)} ${_profile!.createdAt!.year}',
                         healthScore: _profile?.healthScore ?? 0,
                         streakDays: _profile?.streakDays ?? 0,
-                        onEditAvatarTap: widget.onEditAvatarTap,
+                        imagePath: _localProfileImagePath,
+                        onEditAvatarTap: widget.onEditAvatarTap ?? _showAvatarPicker,
                       ),
                     ),
                   ),
@@ -330,7 +657,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       uiScale: scale,
                       title: 'My Health Summary',
                       actionLabel: 'View Details',
-                      onActionTap: widget.onViewHealthDetailsTap,
+                      onActionTap: widget.onViewHealthDetailsTap ?? _openHealthProfile,
                     ),
                   ),
                 ),
@@ -352,10 +679,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                         dietType: _dietType,
                         height: _height,
                         weight: _weight,
-                        onGoalTap: widget.onGoalTap,
-                        onDietTypeTap: widget.onDietTypeTap,
-                        onHeightTap: widget.onHeightTap,
-                        onWeightTap: widget.onWeightTap,
+                        onGoalTap: widget.onGoalTap ?? _openHealthProfile,
+                        onDietTypeTap: widget.onDietTypeTap ?? _openDietaryPreferences,
+                        onHeightTap: widget.onHeightTap ?? _openHealthProfile,
+                        onWeightTap: widget.onWeightTap ?? _openHealthProfile,
                       ),
                     ),
                   ),
@@ -419,21 +746,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF1E8A4C),
                             title: 'Health Profile',
                             subtitle: 'Manage your health preferences',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => HealthProfileScreen(
-                                    fullName: _displayName,
-                                    gender: _profile?.gender.isNotEmpty == true
-                                        ? _profile!.gender
-                                        : 'Female',
-                                    height: _height,
-                                    weight: _weight,
-                                  ),
-                                ),
-                              ).then((_) => _loadCloudProfile());
-                            },
+                            onTap: widget.onHealthProfileTap ?? _openHealthProfile,
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(
@@ -470,7 +783,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => SavedRecipesScreen(),
+                                  builder: (_) => const SavedRecipesScreen(),
                                 ),
                               );
                             },
@@ -494,7 +807,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF6C4EF5),
                             title: 'Privacy & Security',
                             subtitle: 'Control your data and privacy',
-                            onTap: widget.onPrivacyTap,
+                            onTap: widget.onPrivacyTap ?? _openPrivacySecurity,
                           ),
                         ],
                       ),
@@ -519,7 +832,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF1E8A4C),
                             title: 'Help & Support',
                             subtitle: 'Get help and contact support',
-                            onTap: widget.onHelpSupportTap,
+                            onTap: widget.onHelpSupportTap ?? _openHelpSupport,
                           ),
                           const _TileDivider(),
                           _ProfileMenuTile(
@@ -529,7 +842,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             iconColor: const Color(0xFF6C4EF5),
                             title: 'About DietCompass',
                             subtitle: 'App version ${widget.appVersion}',
-                            onTap: widget.onAboutTap,
+                            onTap: widget.onAboutTap ?? _openAbout,
                           ),
                         ],
                       ),
@@ -572,6 +885,7 @@ class _GlassBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return AnimatedBuilder(
       animation: ambientCtrl,
       builder: (context, child) {
@@ -579,21 +893,21 @@ class _GlassBackdrop extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFF3F0FB)),
+            Container(color: colors.bg),
             Positioned(
               top: -90 + t * 16,
               right: -60,
-              child: _blob(220 * uiScale, const Color(0xFF6C4EF5)),
+              child: _blob(220 * uiScale, colors.iconPurple, colors.isDark ? 0.16 : 0.22),
             ),
             Positioned(
               top: 260 - t * 20,
               left: -70,
-              child: _blob(190 * uiScale, const Color(0xFF1E8A4C)),
+              child: _blob(190 * uiScale, colors.iconGreen, colors.isDark ? 0.12 : 0.22),
             ),
             Positioned(
               bottom: -60 + t * 12,
               right: -40,
-              child: _blob(180 * uiScale, const Color(0xFF3B82F6)),
+              child: _blob(180 * uiScale, colors.iconBlue, colors.isDark ? 0.14 : 0.22),
             ),
           ],
         );
@@ -601,7 +915,7 @@ class _GlassBackdrop extends StatelessWidget {
     );
   }
 
-  Widget _blob(double size, Color color) => ClipRRect(
+  Widget _blob(double size, Color color, double alpha) => ClipRRect(
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
       child: Container(
@@ -609,7 +923,7 @@ class _GlassBackdrop extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.22),
+          color: color.withValues(alpha: alpha),
         ),
       ),
     ),
@@ -627,6 +941,7 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -634,15 +949,19 @@ class _GlassCard extends StatelessWidget {
         child: Container(
           padding: padding ?? EdgeInsets.all(16 * uiScale),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
+            color: colors.isDark
+                ? const Color(0xFF1D1B2A).withValues(alpha: 0.90)
+                : Colors.white.withValues(alpha: 0.62),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.75),
+              color: colors.cardBorder,
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C4EF5).withValues(alpha: 0.08),
+                color: colors.isDark
+                    ? Colors.black.withValues(alpha: 0.25)
+                    : const Color(0xFF6C4EF5).withValues(alpha: 0.08),
                 blurRadius: 24,
                 offset: const Offset(0, 12),
               ),
@@ -659,10 +978,10 @@ class _GlassCard extends StatelessWidget {
 // Generic press-scale wrapper for tappable elements
 // ---------------------------------------------------------------------------
 class _Pressable extends StatefulWidget {
-  const _Pressable({required this.child, this.onTap, this.minScale = 0.96});
+  const _Pressable({required this.child, this.onTap});
   final Widget child;
   final VoidCallback? onTap;
-  final double minScale;
+  static const double _minScale = 0.96;
 
   @override
   State<_Pressable> createState() => _PressableState();
@@ -677,7 +996,7 @@ class _PressableState extends State<_Pressable> {
       behavior: HitTestBehavior.opaque,
       onTapDown: widget.onTap == null
           ? null
-          : (_) => setState(() => _scale = widget.minScale),
+          : (_) => setState(() => _scale = _Pressable._minScale),
       onTapUp: widget.onTap == null
           ? null
           : (_) => setState(() => _scale = 1.0),
@@ -712,6 +1031,7 @@ class _TopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -732,7 +1052,7 @@ class _TopHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 24 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(height: 2 * uiScale),
@@ -740,7 +1060,7 @@ class _TopHeader extends StatelessWidget {
                 'Manage your account and preferences',
                 style: TextStyle(
                   fontSize: 12 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -763,8 +1083,8 @@ class _TopHeader extends StatelessWidget {
                     child: Container(
                       width: 8 * uiScale,
                       height: 8 * uiScale,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF6C4EF5),
+                      decoration: BoxDecoration(
+                        color: colors.iconPurple,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -799,15 +1119,17 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       width: 44 * uiScale,
       height: 44 * uiScale,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.75),
+        color: colors.surface,
         shape: BoxShape.circle,
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -819,10 +1141,10 @@ class _HeaderIconButton extends StatelessWidget {
             child: Icon(
               icon,
               size: 20 * uiScale,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
-          if (child != null) child!,
+          ?child,
         ],
       ),
     );
@@ -845,6 +1167,7 @@ class _ProfileHeaderSection extends StatelessWidget {
     required this.memberSince,
     required this.healthScore,
     required this.streakDays,
+    this.imagePath,
     this.onEditAvatarTap,
   });
 
@@ -859,10 +1182,12 @@ class _ProfileHeaderSection extends StatelessWidget {
   final String memberSince;
   final int healthScore;
   final int streakDays;
+  final String? imagePath;
   final VoidCallback? onEditAvatarTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Stack(
       children: [
         // Faint decorative leaf sprigs, top-right
@@ -876,7 +1201,7 @@ class _ProfileHeaderSection extends StatelessWidget {
               child: Icon(
                 Icons.spa_rounded,
                 size: 78 * uiScale,
-                color: const Color(0xFF6C4EF5),
+                color: colors.iconPurple,
               ),
             ),
           ),
@@ -891,7 +1216,7 @@ class _ProfileHeaderSection extends StatelessWidget {
               child: Icon(
                 Icons.eco_rounded,
                 size: 34 * uiScale,
-                color: const Color(0xFF6C4EF5),
+                color: colors.iconPurple,
               ),
             ),
           ),
@@ -906,6 +1231,7 @@ class _ProfileHeaderSection extends StatelessWidget {
                   uiScale: uiScale,
                   initial: avatarInitial,
                   ambientCtrl: ambientCtrl,
+                  imagePath: imagePath,
                   onEditTap: onEditAvatarTap,
                 ),
                 SizedBox(width: 14 * uiScale),
@@ -923,7 +1249,7 @@ class _ProfileHeaderSection extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 17 * uiScale,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF1B1B2E),
+                              color: colors.textPrimary,
                             ),
                           ),
                           _Badge(uiScale: uiScale, label: badgeLabel),
@@ -946,55 +1272,32 @@ class _ProfileHeaderSection extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 16 * uiScale),
+            SizedBox(height: 18 * uiScale),
+
+            // Stat mini-cards row
             Row(
               children: [
                 Expanded(
                   child: _StatMiniCard(
                     uiScale: uiScale,
-                    icon: Icons.calendar_today_rounded,
-                    iconBg: const Color(0xFFEDE7FA),
-                    iconColor: const Color(0xFF6C4EF5),
-                    label: 'Member Since',
-                    value: memberSince,
-                    valueColor: const Color(0xFF1B1B2E),
+                    icon: Icons.favorite_rounded,
+                    iconBg: colors.iconGreenBg,
+                    iconColor: colors.iconGreen,
+                    label: 'Health Score',
+                    value: '$healthScore/100',
+                    valueColor: colors.iconGreen,
                   ),
                 ),
                 SizedBox(width: 10 * uiScale),
                 Expanded(
                   child: _StatMiniCard(
                     uiScale: uiScale,
-                    icon: Icons.favorite_rounded,
-                    iconBg: const Color(0xFFEDE7FA),
-                    iconColor: const Color(0xFF6C4EF5),
-                    label: 'Health Score',
-                    value: '',
-                    valueColor: const Color(0xFF1E8A4C),
-                    valueBuilder: (context) => TweenAnimationBuilder<int>(
-                      tween: IntTween(begin: 0, end: healthScore),
-                      duration: const Duration(milliseconds: 1200),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, val, child) => RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            fontSize: 14 * uiScale,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1E8A4C),
-                          ),
-                          children: [
-                            TextSpan(text: '$val'),
-                            TextSpan(
-                              text: ' /100',
-                              style: TextStyle(
-                                fontSize: 11 * uiScale,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF6B6B7B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    icon: Icons.calendar_today_rounded,
+                    iconBg: colors.iconPurpleBg,
+                    iconColor: colors.iconPurple,
+                    label: 'Member Since',
+                    value: memberSince,
+                    valueColor: colors.textPrimary,
                   ),
                 ),
                 SizedBox(width: 10 * uiScale),
@@ -1002,11 +1305,11 @@ class _ProfileHeaderSection extends StatelessWidget {
                   child: _StatMiniCard(
                     uiScale: uiScale,
                     icon: Icons.local_fire_department_rounded,
-                    iconBg: const Color(0xFFFCEEDD),
-                    iconColor: const Color(0xFFE0862E),
+                    iconBg: colors.iconOrangeBg,
+                    iconColor: colors.iconOrange,
                     label: 'Streak',
                     value: '$streakDays days',
-                    valueColor: const Color(0xFF6C4EF5),
+                    valueColor: colors.iconPurple,
                   ),
                 ),
               ],
@@ -1023,55 +1326,83 @@ class _Avatar extends StatelessWidget {
     required this.uiScale,
     required this.initial,
     required this.ambientCtrl,
+    this.imagePath,
     this.onEditTap,
   });
   final double uiScale;
   final String initial;
   final AnimationController ambientCtrl;
+  final String? imagePath;
   final VoidCallback? onEditTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final d = 76 * uiScale;
+    final hasImage = imagePath != null && File(imagePath!).existsSync();
+
     return SizedBox(
       width: d + 10 * uiScale,
       height: d + 10 * uiScale,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          AnimatedBuilder(
-            animation: ambientCtrl,
-            builder: (context, child) {
-              final glow = 0.18 + ambientCtrl.value * 0.14;
-              return Container(
-                width: d,
-                height: d,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6C4EF5).withValues(alpha: glow),
-                      blurRadius: 22,
-                      spreadRadius: 2,
+          _Pressable(
+            onTap: onEditTap,
+            child: AnimatedBuilder(
+              animation: ambientCtrl,
+              builder: (context, child) {
+                final glow = 0.18 + ambientCtrl.value * 0.14;
+                return Container(
+                  width: d,
+                  height: d,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [colors.iconPurple, colors.iconGreen],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  initial,
-                  style: TextStyle(
-                    fontSize: 30 * uiScale,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: colors.iconPurple.withValues(alpha: glow),
+                        blurRadius: 22,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                ),
-              );
-            },
+                  child: ClipOval(
+                    child: hasImage
+                        ? Image.file(
+                            File(imagePath!),
+                            width: d,
+                            height: d,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => Center(
+                              child: Text(
+                                initial,
+                                style: TextStyle(
+                                  fontSize: 30 * uiScale,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              initial,
+                              style: TextStyle(
+                                fontSize: 30 * uiScale,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                  ),
+                );
+              },
+            ),
           ),
           Positioned(
             right: 0,
@@ -1082,10 +1413,10 @@ class _Avatar extends StatelessWidget {
                 width: 26 * uiScale,
                 height: 26 * uiScale,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFFF3F0FB),
+                    color: colors.cardBorder,
                     width: 2.5,
                   ),
                   boxShadow: [
@@ -1099,7 +1430,7 @@ class _Avatar extends StatelessWidget {
                 child: Icon(
                   Icons.edit_rounded,
                   size: 13 * uiScale,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ),
             ),
@@ -1117,13 +1448,14 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 9 * uiScale,
         vertical: 5 * uiScale,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFE3F5EA),
+        color: colors.iconGreenBg,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -1132,7 +1464,7 @@ class _Badge extends StatelessWidget {
           Icon(
             Icons.eco_rounded,
             size: 12 * uiScale,
-            color: const Color(0xFF1E8A4C),
+            color: colors.iconGreen,
           ),
           SizedBox(width: 4 * uiScale),
           Text(
@@ -1140,7 +1472,7 @@ class _Badge extends StatelessWidget {
             style: TextStyle(
               fontSize: 10.5 * uiScale,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E8A4C),
+              color: colors.iconGreen,
             ),
           ),
         ],
@@ -1161,9 +1493,10 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
-        Icon(icon, size: 13 * uiScale, color: const Color(0xFFB0ACC2)),
+        Icon(icon, size: 13 * uiScale, color: colors.textMuted),
         SizedBox(width: 6 * uiScale),
         Flexible(
           child: Text(
@@ -1171,7 +1504,7 @@ class _ContactRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12 * uiScale,
-              color: const Color(0xFF6B6B7B),
+              color: colors.textSecondary,
             ),
           ),
         ),
@@ -1189,7 +1522,6 @@ class _StatMiniCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueColor,
-    this.valueBuilder,
   });
   final double uiScale;
   final IconData icon;
@@ -1198,19 +1530,19 @@ class _StatMiniCard extends StatelessWidget {
   final String label;
   final String value;
   final Color valueColor;
-  final WidgetBuilder? valueBuilder;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 10 * uiScale,
         vertical: 12 * uiScale,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.7),
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEDEAF7)),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1232,22 +1564,20 @@ class _StatMiniCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 9.5 * uiScale,
-              color: const Color(0xFF6B6B7B),
+              color: colors.textSecondary,
             ),
           ),
           SizedBox(height: 2 * uiScale),
-          valueBuilder != null
-              ? valueBuilder!(context)
-              : Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13 * uiScale,
-                    fontWeight: FontWeight.w800,
-                    color: valueColor,
-                  ),
-                ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13 * uiScale,
+              fontWeight: FontWeight.w800,
+              color: valueColor,
+            ),
+          ),
         ],
       ),
     );
@@ -1271,6 +1601,7 @@ class _CompleteProfileBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: BackdropFilter(
@@ -1278,9 +1609,13 @@ class _CompleteProfileBanner extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(16 * uiScale),
           decoration: BoxDecoration(
-            color: const Color(0xFFE3F5EA).withValues(alpha: 0.75),
+            color: colors.isDark
+                ? const Color(0xFF183224).withValues(alpha: 0.85)
+                : const Color(0xFFE3F5EA).withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFBFE6CE)),
+            border: Border.all(
+              color: colors.isDark ? const Color(0xFF225037) : const Color(0xFFBFE6CE),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1291,14 +1626,14 @@ class _CompleteProfileBanner extends StatelessWidget {
                   Container(
                     width: 42 * uiScale,
                     height: 42 * uiScale,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFCDEEDA),
+                    decoration: BoxDecoration(
+                      color: colors.isDark ? const Color(0xFF244D37) : const Color(0xFFCDEEDA),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.track_changes_rounded,
                       size: 21 * uiScale,
-                      color: const Color(0xFF1E8A4C),
+                      color: colors.iconGreen,
                     ),
                   ),
                   SizedBox(width: 12 * uiScale),
@@ -1311,7 +1646,7 @@ class _CompleteProfileBanner extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13.5 * uiScale,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                         SizedBox(height: 2 * uiScale),
@@ -1319,7 +1654,7 @@ class _CompleteProfileBanner extends StatelessWidget {
                           'Help us give you better recommendations',
                           style: TextStyle(
                             fontSize: 11 * uiScale,
-                            color: const Color(0xFF4E7A5F),
+                            color: colors.isDark ? const Color(0xFF68A37E) : const Color(0xFF4E7A5F),
                           ),
                         ),
                       ],
@@ -1334,16 +1669,16 @@ class _CompleteProfileBanner extends StatelessWidget {
                         vertical: 9 * uiScale,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF1E8A4C)),
+                        border: Border.all(color: colors.iconGreen),
                       ),
                       child: Text(
                         'Complete Now',
                         style: TextStyle(
                           fontSize: 11 * uiScale,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1E8A4C),
+                          color: colors.iconGreen,
                         ),
                       ),
                     ),
@@ -1358,7 +1693,7 @@ class _CompleteProfileBanner extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
                         height: 8 * uiScale,
-                        color: const Color(0xFFD7E9DD),
+                        color: colors.isDark ? const Color(0xFF204432) : const Color(0xFFD7E9DD),
                         child: TweenAnimationBuilder<double>(
                           tween: Tween(begin: 0, end: completion),
                           duration: const Duration(milliseconds: 1300),
@@ -1370,10 +1705,10 @@ class _CompleteProfileBanner extends StatelessWidget {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(20),
-                                    gradient: const LinearGradient(
+                                    gradient: LinearGradient(
                                       colors: [
-                                        Color(0xFF1E8A4C),
-                                        Color(0xFF3FBE7E),
+                                        colors.iconGreen,
+                                        const Color(0xFF3FBE7E),
                                       ],
                                     ),
                                   ),
@@ -1389,7 +1724,7 @@ class _CompleteProfileBanner extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1E8A4C),
+                      color: colors.iconGreen,
                     ),
                   ),
                 ],
@@ -1419,6 +1754,7 @@ class _SectionHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         Expanded(
@@ -1427,7 +1763,7 @@ class _SectionHeaderRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.5 * uiScale,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -1442,13 +1778,13 @@ class _SectionHeaderRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12 * uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ),
                 Icon(
                   Icons.chevron_right_rounded,
                   size: 16 * uiScale,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ],
             ),
@@ -1486,17 +1822,18 @@ class _HealthSummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         Expanded(
           child: _HealthSummaryItem(
             uiScale: uiScale,
             icon: Icons.flag_rounded,
-            iconBg: const Color(0xFFE3F5EA),
-            iconColor: const Color(0xFF1E8A4C),
+            iconBg: colors.iconGreenBg,
+            iconColor: colors.iconGreen,
             label: 'Goal',
             value: goal,
-            valueColor: const Color(0xFF1E8A4C),
+            valueColor: colors.iconGreen,
             onTap: onGoalTap,
           ),
         ),
@@ -1504,10 +1841,10 @@ class _HealthSummaryRow extends StatelessWidget {
         Expanded(
           child: _HealthSummaryItem(
             uiScale: uiScale,
-            iconBg: const Color(0xFFEDE7FA),
+            iconBg: colors.iconPurpleBg,
             label: 'Diet Type',
             value: dietType,
-            valueColor: const Color(0xFF6C4EF5),
+            valueColor: colors.iconPurple,
             onTap: onDietTypeTap,
             customIcon: Stack(
               clipBehavior: Clip.none,
@@ -1515,7 +1852,7 @@ class _HealthSummaryRow extends StatelessWidget {
                 Icon(
                   Icons.person_rounded,
                   size: 16 * uiScale,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
                 Positioned(
                   right: -2 * uiScale,
@@ -1523,7 +1860,7 @@ class _HealthSummaryRow extends StatelessWidget {
                   child: Icon(
                     Icons.check_circle_rounded,
                     size: 10 * uiScale,
-                    color: const Color(0xFF1E8A4C),
+                    color: colors.iconGreen,
                   ),
                 ),
               ],
@@ -1535,11 +1872,11 @@ class _HealthSummaryRow extends StatelessWidget {
           child: _HealthSummaryItem(
             uiScale: uiScale,
             icon: Icons.straighten_rounded,
-            iconBg: const Color(0xFFFCEEDD),
-            iconColor: const Color(0xFFE0862E),
+            iconBg: colors.iconOrangeBg,
+            iconColor: colors.iconOrange,
             label: 'Height',
             value: height,
-            valueColor: const Color(0xFFE0862E),
+            valueColor: colors.iconOrange,
             onTap: onHeightTap,
           ),
         ),
@@ -1548,11 +1885,11 @@ class _HealthSummaryRow extends StatelessWidget {
           child: _HealthSummaryItem(
             uiScale: uiScale,
             icon: Icons.monitor_weight_rounded,
-            iconBg: const Color(0xFFE3EEFC),
-            iconColor: const Color(0xFF3B82F6),
+            iconBg: colors.iconBlueBg,
+            iconColor: colors.iconBlue,
             label: 'Weight',
             value: weight,
-            valueColor: const Color(0xFF3B82F6),
+            valueColor: colors.iconBlue,
             onTap: onWeightTap,
           ),
         ),
@@ -1570,7 +1907,7 @@ class _VDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 64 * uiScale,
-      color: const Color(0xFFEDEAF7),
+      color: context.dcColors.cardBorder,
     );
   }
 }
@@ -1600,6 +1937,7 @@ class _HealthSummaryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return _Pressable(
       onTap: onTap,
       child: Column(
@@ -1622,7 +1960,7 @@ class _HealthSummaryItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5 * uiScale,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
           SizedBox(height: 3 * uiScale),
@@ -1686,6 +2024,7 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
   @override
   Widget build(BuildContext context) {
     final uiScale = widget.uiScale;
+    final colors = context.dcColors;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => setState(() => _pressed = true),
@@ -1694,7 +2033,7 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
       onTap: widget.onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        color: _pressed ? const Color(0xFFF1ECFB) : Colors.transparent,
+        color: _pressed ? colors.surfaceSecondary : Colors.transparent,
         padding: EdgeInsets.symmetric(
           horizontal: 10 * uiScale,
           vertical: 12 * uiScale,
@@ -1724,7 +2063,7 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
                     style: TextStyle(
                       fontSize: 13.5 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                      color: colors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 2 * uiScale),
@@ -1732,7 +2071,7 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
                     widget.subtitle,
                     style: TextStyle(
                       fontSize: 11 * uiScale,
-                      color: const Color(0xFF6B6B7B),
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -1744,7 +2083,7 @@ class _ProfileMenuTileState extends State<_ProfileMenuTile> {
               child: Icon(
                 Icons.chevron_right_rounded,
                 size: 18 * uiScale,
-                color: const Color(0xFFB0ACC2),
+                color: colors.textMuted,
               ),
             ),
           ],
@@ -1771,27 +2110,32 @@ class _LogoutTileState extends State<_LogoutTile> {
   bool _loading = false;
 
   Future<void> _confirmLogout() async {
+    final colors = context.dcColors;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.cardBorder),
+        ),
+        title: Text(
           'Log Out',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1B1B2E),
+            color: colors.textPrimary,
           ),
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to log out from this device?',
-          style: TextStyle(color: Color(0xFF6B6B7B)),
+          style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF6B6B7B)),
+              style: TextStyle(color: colors.textSecondary),
             ),
           ),
           TextButton(
@@ -1822,6 +2166,7 @@ class _LogoutTileState extends State<_LogoutTile> {
   @override
   Widget build(BuildContext context) {
     final s = widget.uiScale;
+    final colors = context.dcColors;
     return InkWell(
       onTap: _loading ? null : _confirmLogout,
       borderRadius: BorderRadius.circular(16),
@@ -1833,21 +2178,21 @@ class _LogoutTileState extends State<_LogoutTile> {
               width: 40 * s,
               height: 40 * s,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFECEE),
+                color: colors.iconRedBg,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: _loading
                   ? Padding(
                       padding: EdgeInsets.all(10 * s),
-                      child: const CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Color(0xFFE0525C)),
+                        valueColor: AlwaysStoppedAnimation(colors.iconRed),
                       ),
                     )
                   : Icon(
                       Icons.logout_rounded,
                       size: 19 * s,
-                      color: const Color(0xFFE0525C),
+                      color: colors.iconRed,
                     ),
             ),
             SizedBox(width: 12 * s),
@@ -1860,7 +2205,7 @@ class _LogoutTileState extends State<_LogoutTile> {
                     style: TextStyle(
                       fontSize: 13.5 * s,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFFE0525C),
+                      color: colors.iconRed,
                     ),
                   ),
                   SizedBox(height: 2 * s),
@@ -1868,7 +2213,7 @@ class _LogoutTileState extends State<_LogoutTile> {
                     'Sign out from this device',
                     style: TextStyle(
                       fontSize: 11 * s,
-                      color: const Color(0xFF6B6B7B),
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -1877,7 +2222,7 @@ class _LogoutTileState extends State<_LogoutTile> {
             Icon(
               Icons.chevron_right_rounded,
               size: 18 * s,
-              color: const Color(0xFFE0525C),
+              color: colors.iconRed,
             ),
           ],
         ),
@@ -1891,6 +2236,6 @@ class _TileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, thickness: 1, color: Color(0xFFEDEAF7));
+    return Divider(height: 1, thickness: 1, color: context.dcColors.divider);
   }
 }

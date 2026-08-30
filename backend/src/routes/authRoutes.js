@@ -10,6 +10,8 @@ const {
   logoutAll,
   forgotPassword,
   resetPassword,
+  changePassword,
+  getSessions,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -25,5 +27,7 @@ router.post('/reset-password/:token', resetPassword);
 router.get('/me', protect, getMe);
 router.post('/logout', protect, logout);
 router.post('/logout-all', protect, logoutAll);
+router.post('/change-password', protect, changePassword);
+router.get('/sessions', protect, getSessions);
 
 module.exports = router;

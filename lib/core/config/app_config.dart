@@ -19,6 +19,13 @@ abstract final class AppConfig {
     '524989513168-1n4a7ofhk707jnq7s8bctctlsc1quifj.apps.googleusercontent.com',
   );
 
+  /// Official DietCompass support and feedback email address.
+  /// Configurable via --dart-define=SUPPORT_EMAIL=<email>
+  static const supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: 'support@dietcompass.app',
+  );
+
   /// Base API URL.
   ///
   /// Priority:
