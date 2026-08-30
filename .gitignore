@@ -47,3 +47,4 @@ backend/.env.*
 !backend/.env.example
 backend/uploads/
 
+installed.apk
