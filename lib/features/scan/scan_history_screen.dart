@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/model/scan_history_item.dart';
 import '../../core/services/scan_history_service.dart';
 import 'camera_scan_screen.dart';
@@ -88,21 +89,22 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final colors = context.dcColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: colors.bg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1B1B2E), size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
         title: Text(
           'All Scans',
           style: TextStyle(
-            color: const Color(0xFF1B1B2E),
+            color: colors.textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 18 * scale,
             letterSpacing: -0.3,
@@ -113,18 +115,18 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E8A4C).withOpacity(0.1),
+              color: colors.iconGreen.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.history_rounded, size: 14, color: Color(0xFF1E8A4C)),
+                Icon(Icons.history_rounded, size: 14, color: colors.iconGreen),
                 const SizedBox(width: 4),
                 Text(
                   '${_allScans.length}',
-                  style: const TextStyle(
-                    color: Color(0xFF1E8A4C),
+                  style: TextStyle(
+                    color: colors.iconGreen,
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
@@ -135,28 +137,32 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
         ],
       ),
       body: RefreshIndicator(
-        color: const Color(0xFF1E8A4C),
+        color: colors.iconGreen,
         onRefresh: () => _loadHistory(forceRefresh: true),
         child: Column(
           children: [
             // Search Bar
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
-              color: Colors.white,
+              color: colors.surface,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F3F9),
+                  color: colors.surfaceSecondary,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: TextField(
                   controller: _searchCtrl,
                   onChanged: (val) => setState(() => _searchQuery = val),
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14 * scale,
+                  ),
                   decoration: InputDecoration(
-                    icon: const Icon(Icons.search_rounded, color: Color(0xFF8C8CA1), size: 20),
+                    icon: Icon(Icons.search_rounded, color: colors.textSecondary, size: 20),
                     hintText: 'Search scanned products…',
                     hintStyle: TextStyle(
-                      color: const Color(0xFFA0A0B2),
+                      color: colors.textMuted,
                       fontSize: 14 * scale,
                     ),
                     border: InputBorder.none,
@@ -164,7 +170,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: Color(0xFF8C8CA1)),
+                            icon: Icon(Icons.clear, size: 18, color: colors.textSecondary),
                             onPressed: () {
                               _searchCtrl.clear();
                               setState(() => _searchQuery = '');
@@ -179,9 +185,9 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
             // Content area
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E8A4C)),
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.iconGreen),
                       ),
                     )
                   : _filteredScans.isEmpty
@@ -203,6 +209,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
   }
 
   Widget _buildEmptyState(double scale) {
+    final colors = context.dcColors;
     if (_searchQuery.isNotEmpty) {
       return Center(
         child: Padding(
@@ -210,14 +217,14 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.search_off_rounded, size: 64 * scale, color: const Color(0xFFB0B0C4)),
+              Icon(Icons.search_off_rounded, size: 64 * scale, color: colors.textMuted),
               SizedBox(height: 16 * scale),
               Text(
                 'No matching scans found',
                 style: TextStyle(
                   fontSize: 17 * scale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(height: 8 * scale),
@@ -226,7 +233,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5 * scale,
-                  color: const Color(0xFF8C8CA1),
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -245,13 +252,13 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               width: 90 * scale,
               height: 90 * scale,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E8A4C).withOpacity(0.08),
+                color: colors.iconGreen.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.qr_code_scanner_rounded,
                 size: 44 * scale,
-                color: const Color(0xFF1E8A4C),
+                color: colors.iconGreen,
               ),
             ),
             SizedBox(height: 20 * scale),
@@ -260,7 +267,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               style: TextStyle(
                 fontSize: 20 * scale,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1B1B2E),
+                color: colors.textPrimary,
                 letterSpacing: -0.3,
               ),
             ),
@@ -270,7 +277,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14 * scale,
-                color: const Color(0xFF7A7A90),
+                color: colors.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -288,7 +295,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               icon: const Icon(Icons.camera_alt_rounded, size: 18),
               label: const Text('Scan Product'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E8A4C),
+                backgroundColor: colors.iconGreen,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24 * scale, vertical: 14 * scale),
                 elevation: 0,
@@ -308,6 +315,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
   }
 
   Widget _buildScanCard(ScanHistoryItem item, double scale) {
+    final colors = context.dcColors;
     final scoreColor = _getScoreColor(item.score);
 
     return InkWell(
@@ -322,11 +330,12 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
       child: Container(
         padding: EdgeInsets.all(12 * scale),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -340,7 +349,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               child: Container(
                 width: 64 * scale,
                 height: 64 * scale,
-                color: const Color(0xFFF3F5FA),
+                color: colors.surfaceSecondary,
                 child: item.imageUrl.isNotEmpty
                     ? Image.network(
                         item.imageUrl,
@@ -364,7 +373,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     style: TextStyle(
                       fontSize: 15 * scale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1B1B2E),
+                      color: colors.textPrimary,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -376,20 +385,20 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     style: TextStyle(
                       fontSize: 12.5 * scale,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF8C8CA1),
+                      color: colors.textSecondary,
                     ),
                   ),
                   SizedBox(height: 6 * scale),
                   Row(
                     children: [
-                      Icon(Icons.access_time_rounded, size: 12 * scale, color: const Color(0xFFA0A0B2)),
+                      Icon(Icons.access_time_rounded, size: 12 * scale, color: colors.textMuted),
                       SizedBox(width: 4 * scale),
                       Text(
                         item.formattedTime,
                         style: TextStyle(
                           fontSize: 11.5 * scale,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFFA0A0B2),
+                          color: colors.textMuted,
                         ),
                       ),
                     ],
@@ -402,7 +411,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 6 * scale),
               decoration: BoxDecoration(
-                color: scoreColor.withOpacity(0.12),
+                color: scoreColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -428,7 +437,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
               ),
             ),
             SizedBox(width: 6 * scale),
-            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: const Color(0xFFB0B0C4)),
+            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: colors.textMuted),
           ],
         ),
       ),
@@ -436,11 +445,12 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
   }
 
   Widget _buildFallbackIcon(double scale) {
+    final colors = context.dcColors;
     return Center(
       child: Icon(
         Icons.inventory_2_outlined,
         size: 28 * scale,
-        color: const Color(0xFFB0B0C4),
+        color: colors.textMuted,
       ),
     );
   }

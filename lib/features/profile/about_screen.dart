@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'privacy_security_screen.dart';
 import 'help_support_screen.dart';
 
@@ -110,8 +111,9 @@ class _AboutScreenState extends State<AboutScreen>
     final width = mq.size.width;
     final scale = (width / 390.0).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred background glows
@@ -154,11 +156,12 @@ class _AboutScreenState extends State<AboutScreen>
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -167,7 +170,7 @@ class _AboutScreenState extends State<AboutScreen>
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -181,14 +184,14 @@ class _AboutScreenState extends State<AboutScreen>
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               'Scan. Analyze. Eat Better.',
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -248,7 +251,7 @@ class _AboutScreenState extends State<AboutScreen>
                                     fontSize: 22 * scale,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.3,
-                                    color: const Color(0xFF1B1B2E),
+                                    color: colors.textPrimary,
                                   ),
                                 ),
                                 SizedBox(height: 4 * scale),
@@ -258,7 +261,7 @@ class _AboutScreenState extends State<AboutScreen>
                                   style: TextStyle(
                                     fontSize: 12.5 * scale,
                                     fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF6C4EF5),
+                                    color: colors.iconPurple,
                                   ),
                                 ),
                                 SizedBox(height: 10 * scale),
@@ -270,10 +273,10 @@ class _AboutScreenState extends State<AboutScreen>
                                     vertical: 4 * scale,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F0FB),
+                                    color: colors.surfaceSecondary,
                                     borderRadius: BorderRadius.circular(8 * scale),
                                     border: Border.all(
-                                      color: const Color(0xFF6C4EF5).withValues(alpha: 0.2),
+                                      color: colors.cardBorder,
                                     ),
                                   ),
                                   child: Text(
@@ -281,13 +284,13 @@ class _AboutScreenState extends State<AboutScreen>
                                     style: TextStyle(
                                       fontSize: 11 * scale,
                                       fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF6C4EF5),
+                                      color: colors.iconPurple,
                                     ),
                                   ),
                                 ),
 
                                 SizedBox(height: 16 * scale),
-                                const Divider(height: 1, color: Color(0xFFF0EDF8)),
+                                Divider(height: 1, color: colors.cardBorder),
                                 SizedBox(height: 16 * scale),
 
                                 // Description
@@ -296,7 +299,7 @@ class _AboutScreenState extends State<AboutScreen>
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 12.5 * scale,
-                                    color: const Color(0xFF5A5A6A),
+                                    color: colors.textSecondary,
                                     height: 1.5,
                                   ),
                                 ),
@@ -366,15 +369,15 @@ class _AboutScreenState extends State<AboutScreen>
                               children: [
                                 _buildInfoRow('App Name', 'DietCompass', scale),
                                 const SizedBox(height: 10),
-                                const Divider(height: 1, color: Color(0xFFF0EDF8)),
+                                Divider(height: 1, color: colors.cardBorder),
                                 const SizedBox(height: 10),
                                 _buildInfoRow('Version', widget.appVersion, scale),
                                 const SizedBox(height: 10),
-                                const Divider(height: 1, color: Color(0xFFF0EDF8)),
+                                Divider(height: 1, color: colors.cardBorder),
                                 const SizedBox(height: 10),
                                 _buildInfoRow('Release Channel', 'Beta', scale),
                                 const SizedBox(height: 10),
-                                const Divider(height: 1, color: Color(0xFFF0EDF8)),
+                                Divider(height: 1, color: colors.cardBorder),
                                 const SizedBox(height: 10),
                                 _buildInfoRow('Platform', 'Android & Web (Flutter)', scale),
                               ],
@@ -459,20 +462,21 @@ class _AboutScreenState extends State<AboutScreen>
       style: TextStyle(
         fontSize: 15 * scale,
         fontWeight: FontWeight.w800,
-        color: const Color(0xFF1B1B2E),
+        color: context.dcColors.textPrimary,
       ),
     );
   }
 
   Widget _buildCard({required double scale, required Widget child}) {
+    final colors = context.dcColors;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20 * scale),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+            color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -483,7 +487,7 @@ class _AboutScreenState extends State<AboutScreen>
   }
 
   Widget _buildDivider() {
-    return const Divider(height: 1, color: Color(0xFFF3F0FB), indent: 16, endIndent: 16);
+    return Divider(height: 1, color: context.dcColors.cardBorder, indent: 16, endIndent: 16);
   }
 
   Widget _buildFeatureRow({
@@ -518,7 +522,7 @@ class _AboutScreenState extends State<AboutScreen>
                   style: TextStyle(
                     fontSize: 14 * scale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: context.dcColors.textPrimary,
                   ),
                 ),
                 SizedBox(height: 3 * scale),
@@ -526,7 +530,7 @@ class _AboutScreenState extends State<AboutScreen>
                   description,
                   style: TextStyle(
                     fontSize: 12 * scale,
-                    color: const Color(0xFF5A5A6A),
+                    color: context.dcColors.textSecondary,
                     height: 1.35,
                   ),
                 ),
@@ -539,6 +543,7 @@ class _AboutScreenState extends State<AboutScreen>
   }
 
   Widget _buildInfoRow(String label, String value, double scale) {
+    final colors = context.dcColors;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -547,7 +552,7 @@ class _AboutScreenState extends State<AboutScreen>
           style: TextStyle(
             fontSize: 12.5 * scale,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF6B6B7B),
+            color: colors.textSecondary,
           ),
         ),
         Text(
@@ -555,7 +560,7 @@ class _AboutScreenState extends State<AboutScreen>
           style: TextStyle(
             fontSize: 13 * scale,
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF1B1B2E),
+            color: colors.textPrimary,
           ),
         ),
       ],
@@ -597,7 +602,7 @@ class _AboutScreenState extends State<AboutScreen>
                     style: TextStyle(
                       fontSize: 13.5 * scale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 2 * scale),
@@ -605,13 +610,13 @@ class _AboutScreenState extends State<AboutScreen>
                     subtitle,
                     style: TextStyle(
                       fontSize: 11.5 * scale,
-                      color: const Color(0xFF6B6B7B),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: const Color(0xFFA0A0B0)),
+            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: context.dcColors.textMuted),
           ],
         ),
       ),

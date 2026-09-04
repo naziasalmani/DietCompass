@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/config/app_config.dart';
@@ -595,8 +596,9 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -667,27 +669,27 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen>
                                         style: TextStyle(
                                           fontSize: 16 * scale,
                                           fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF1B1B2E),
+                                          color: colors.textPrimary,
                                         ),
                                       ),
                                     ),
                                     Container(
                                       padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 3 * scale),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFE3F5EA),
+                                        color: colors.isDark ? const Color(0xFF1B2E24) : const Color(0xFFE3F5EA),
                                         borderRadius: BorderRadius.circular(8 * scale),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.lock_rounded, size: 10 * scale, color: const Color(0xFF1E8A4C)),
+                                          Icon(Icons.lock_rounded, size: 10 * scale, color: colors.iconGreen),
                                           SizedBox(width: 3 * scale),
                                           Text(
                                             'Encrypted',
                                             style: TextStyle(
                                               fontSize: 9.5 * scale,
                                               fontWeight: FontWeight.w800,
-                                              color: const Color(0xFF1E8A4C),
+                                              color: colors.iconGreen,
                                             ),
                                           ),
                                         ],
@@ -701,7 +703,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen>
                                   style: TextStyle(
                                     fontSize: 12 * scale,
                                     height: 1.4,
-                                    color: const Color(0xFF6B6B7B),
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -982,7 +984,7 @@ class _SectionHeader extends StatelessWidget {
         style: TextStyle(
           fontSize: 14.5 * uiScale,
           fontWeight: FontWeight.w800,
-          color: const Color(0xFF1B1B2E),
+          color: context.dcColors.textPrimary,
         ),
       ),
     );
@@ -1003,6 +1005,7 @@ class _TopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1012,11 +1015,12 @@ class _TopHeader extends StatelessWidget {
             width: 42 * uiScale,
             height: 42 * uiScale,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: colors.surface,
               shape: BoxShape.circle,
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1025,7 +1029,7 @@ class _TopHeader extends StatelessWidget {
             child: Icon(
               Icons.arrow_back_rounded,
               size: 19 * uiScale,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -1039,7 +1043,7 @@ class _TopHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(height: 2 * uiScale),
@@ -1047,7 +1051,7 @@ class _TopHeader extends StatelessWidget {
                 'Control your data and privacy',
                 style: TextStyle(
                   fontSize: 12 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -1075,7 +1079,7 @@ class _GlassBackdrop extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFF3F0FB)),
+            Container(color: context.dcColors.bg),
             Positioned(
               top: -90 + t * 16,
               right: -60,
@@ -1130,15 +1134,15 @@ class _GlassCard extends StatelessWidget {
         child: Container(
           padding: padding ?? EdgeInsets.all(16 * uiScale),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.65),
+            color: context.dcColors.surface.withValues(alpha: context.dcColors.isDark ? 0.85 : 0.65),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.75),
+              color: context.dcColors.cardBorder,
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                color: context.dcColors.iconPurple.withValues(alpha: context.dcColors.isDark ? 0.12 : 0.06),
                 blurRadius: 24,
                 offset: const Offset(0, 12),
               ),
@@ -1228,7 +1232,7 @@ class _PrivacyMenuTileState extends State<_PrivacyMenuTile> {
       onTap: widget.onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        color: _pressed ? const Color(0xFFF1ECFB) : Colors.transparent,
+        color: _pressed ? (context.dcColors.isDark ? const Color(0xFF2B264A) : const Color(0xFFF1ECFB)) : Colors.transparent,
         padding: EdgeInsets.symmetric(
           horizontal: 12 * uiScale,
           vertical: 13 * uiScale,
@@ -1258,7 +1262,7 @@ class _PrivacyMenuTileState extends State<_PrivacyMenuTile> {
                     style: TextStyle(
                       fontSize: 13.5 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: widget.titleColor,
+                      color: widget.titleColor == const Color(0xFF1B1B2E) ? context.dcColors.textPrimary : widget.titleColor,
                     ),
                   ),
                   SizedBox(height: 2 * uiScale),
@@ -1266,7 +1270,7 @@ class _PrivacyMenuTileState extends State<_PrivacyMenuTile> {
                     widget.subtitle,
                     style: TextStyle(
                       fontSize: 11 * uiScale,
-                      color: const Color(0xFF6B6B7B),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                 ],
@@ -1278,7 +1282,7 @@ class _PrivacyMenuTileState extends State<_PrivacyMenuTile> {
               child: Icon(
                 Icons.chevron_right_rounded,
                 size: 18 * uiScale,
-                color: widget.chevronColor,
+                color: widget.chevronColor == const Color(0xFFB0ACC2) ? context.dcColors.textMuted : widget.chevronColor,
               ),
             ),
           ],
@@ -1296,12 +1300,12 @@ class _TileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
+    return Divider(
       height: 1,
       thickness: 1,
       indent: 64,
       endIndent: 12,
-      color: Color(0xFFEDEAF7),
+      color: context.dcColors.cardBorder,
     );
   }
 }
@@ -1322,11 +1326,12 @@ class _ActionBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
@@ -1339,7 +1344,7 @@ class _ActionBottomSheet extends StatelessWidget {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3DDF5),
+                  color: colors.cardBorder,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1347,18 +1352,18 @@ class _ActionBottomSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1B1B2E),
+                color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               description,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFF6B6B7B),
+                color: colors.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -1409,16 +1414,16 @@ class _SheetActionItem extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B6B7B)),
+                    style: TextStyle(fontSize: 11.5, color: context.dcColors.textSecondary),
                   ),
                 ],
               ),

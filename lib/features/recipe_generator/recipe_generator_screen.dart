@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/model/food_product.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/dietary_safety_validator.dart';
@@ -584,8 +585,9 @@ class _RecipeGeneratorScreenState extends State<RecipeGeneratorScreen>
     final productContext = _effectiveProduct;
 
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       extendBody: true,
       body: Stack(
         fit: StackFit.expand,
@@ -977,12 +979,16 @@ class _BackgroundGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF5F0FF), Color(0xFFF2FFF7)],
+          colors: [
+            colors.bg,
+            colors.isDark ? const Color(0xFF141320) : const Color(0xFFF2FFF7),
+          ],
         ),
       ),
     );
@@ -1061,6 +1067,7 @@ class _GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
@@ -1075,15 +1082,17 @@ class _GlassContainer extends StatelessWidget {
                     colors: gradientColors!,
                   )
                 : null,
-            color: gradientColors == null ? Colors.white.withValues(alpha: opacity) : null,
+            color: gradientColors == null
+                ? (colors.isDark ? colors.surface.withValues(alpha: 0.85) : Colors.white.withValues(alpha: opacity))
+                : null,
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
-              color: borderColor ?? Colors.white.withValues(alpha: 0.65),
+              color: borderColor ?? (colors.isDark ? colors.cardBorder : Colors.white.withValues(alpha: 0.65)),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: (boxShadowColor ?? _kPurple).withValues(alpha: 0.1),
+                color: (boxShadowColor ?? colors.iconPurple).withValues(alpha: colors.isDark ? 0.2 : 0.1),
                 blurRadius: 26,
                 offset: const Offset(0, 12),
               ),
@@ -1148,6 +1157,7 @@ class _ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -1158,7 +1168,7 @@ class _ScreenHeader extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.auto_awesome_rounded, color: _kPurple, size: 17 * uiScale),
+                  Icon(Icons.auto_awesome_rounded, color: colors.iconPurple, size: 17 * uiScale),
                   SizedBox(width: 6 * uiScale),
                   Flexible(
                     child: Text(
@@ -1167,7 +1177,7 @@ class _ScreenHeader extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 17.5 * uiScale,
                         fontWeight: FontWeight.w800,
-                        color: _kInk,
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -1177,7 +1187,7 @@ class _ScreenHeader extends StatelessWidget {
               Text(
                 'AI creates healthy recipes just for you',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10.5 * uiScale, color: _kMutedInk),
+                style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
               ),
             ],
           ),
@@ -1215,13 +1225,14 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
           width: 42 * widget.uiScale,
           height: 42 * widget.uiScale,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             shape: BoxShape.circle,
+            border: Border.all(color: context.dcColors.cardBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06), blurRadius: 10, offset: const Offset(0, 4)),
             ],
           ),
-          child: Icon(widget.icon, size: 19 * widget.uiScale, color: _kInk),
+          child: Icon(widget.icon, size: 19 * widget.uiScale, color: context.dcColors.textPrimary),
         ),
       ),
     );
@@ -1253,20 +1264,21 @@ class _HistoryButtonState extends State<_HistoryButton> {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.dcColors.cardBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06), blurRadius: 10, offset: const Offset(0, 4)),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.history_rounded, size: 14 * widget.uiScale, color: _kPurple),
+              Icon(Icons.history_rounded, size: 14 * widget.uiScale, color: context.dcColors.iconPurple),
               SizedBox(width: 4 * widget.uiScale),
               Text(
                 'History',
-                style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: _kPurple),
+                style: TextStyle(fontSize: 11.5 * widget.uiScale, fontWeight: FontWeight.w700, color: context.dcColors.iconPurple),
               ),
             ],
           ),
@@ -1287,9 +1299,12 @@ class _AiIntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return _GlassContainer(
       borderRadius: 24,
-      gradientColors: const [Color(0xFFEDE7FC), Color(0xFFF7F3FF)],
+      gradientColors: colors.isDark
+          ? const [Color(0xFF221F35), Color(0xFF1B192A)]
+          : const [Color(0xFFEDE7FC), Color(0xFFF7F3FF)],
       padding: EdgeInsets.all(16 * uiScale),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1313,7 +1328,7 @@ class _AiIntroCard extends StatelessWidget {
                       child: Text(
                         'Hi $userName!',
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 15.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+                        style: TextStyle(fontSize: 15.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
                       ),
                     ),
                     SizedBox(width: 4 * uiScale),
@@ -1323,12 +1338,12 @@ class _AiIntroCard extends StatelessWidget {
                 SizedBox(height: 3 * uiScale),
                 RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 11.5 * uiScale, height: 1.35, color: _kMutedInk),
+                    style: TextStyle(fontSize: 11.5 * uiScale, height: 1.35, color: colors.textSecondary),
                     children: [
                       const TextSpan(text: "Tell me what you have or what you're craving, I'll create the "),
                       TextSpan(
                         text: 'perfect recipe!',
-                        style: TextStyle(color: _kPurple, fontWeight: FontWeight.w700),
+                        style: TextStyle(color: colors.iconPurple, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -1376,14 +1391,16 @@ class _SpinningWandBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       width: 44 * uiScale,
       height: 44 * uiScale,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         shape: BoxShape.circle,
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
-          BoxShadow(color: _kPurple.withValues(alpha: 0.18), blurRadius: 14, offset: const Offset(0, 6)),
+          BoxShadow(color: colors.iconPurple.withValues(alpha: 0.18), blurRadius: 14, offset: const Offset(0, 6)),
         ],
       ),
       child: AnimatedBuilder(
@@ -1392,7 +1409,7 @@ class _SpinningWandBadge extends StatelessWidget {
           final angle = math.sin(ambientCtrl.value * math.pi) * 0.35;
           return Transform.rotate(angle: angle, child: child);
         },
-        child: Icon(Icons.auto_fix_high_rounded, color: _kPurple, size: 19 * uiScale),
+        child: Icon(Icons.auto_fix_high_rounded, color: colors.iconPurple, size: 19 * uiScale),
       ),
     );
   }
@@ -1418,6 +1435,7 @@ class _PantrySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1429,7 +1447,7 @@ class _PantrySection extends StatelessWidget {
               height: 30 * uiScale,
               margin: EdgeInsets.only(top: 2 * uiScale, right: 8 * uiScale),
               decoration: BoxDecoration(
-                color: _kPurple,
+                color: colors.iconPurple,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -1439,11 +1457,11 @@ class _PantrySection extends StatelessWidget {
                 children: [
                   Text(
                     'What do you have?',
-                    style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+                    style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
                   ),
                   Text(
                     'Add ingredients from your pantry',
-                    style: TextStyle(fontSize: 10.5 * uiScale, color: _kMutedInk),
+                    style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                   ),
                 ],
               ),
@@ -1453,13 +1471,13 @@ class _PantrySection extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.shopping_basket_rounded, size: 13 * uiScale, color: _kPurple),
+                  Icon(Icons.shopping_basket_rounded, size: 13 * uiScale, color: colors.iconPurple),
                   SizedBox(width: 4 * uiScale),
                   Text(
                     'View Pantry',
-                    style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: _kPurple),
+                    style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: colors.iconPurple),
                   ),
-                  Icon(Icons.chevron_right_rounded, size: 15 * uiScale, color: _kPurple),
+                  Icon(Icons.chevron_right_rounded, size: 15 * uiScale, color: colors.iconPurple),
                 ],
               ),
             ),
@@ -1541,7 +1559,7 @@ class _PantryTile extends StatelessWidget {
             data.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w600, color: _kInk),
+            style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w600, color: context.dcColors.textPrimary),
           ),
         ],
       ),
@@ -1671,12 +1689,12 @@ Widget build(BuildContext context) {
                 Expanded(
                   child: TextField(
                     controller: widget.controller,
-                    style: TextStyle(fontSize: 12.5 * uiScale, color: _kInk),
+                    style: TextStyle(fontSize: 12.5 * uiScale, color: context.dcColors.textPrimary),
                     decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
                       hintText: 'e.g., high protein breakfast',
-                      hintStyle: TextStyle(fontSize: 12 * uiScale, color: _kMutedInk),
+                      hintStyle: TextStyle(fontSize: 12 * uiScale, color: context.dcColors.textMuted),
                     ),
                   ),
                 ),
@@ -1758,12 +1776,13 @@ class _CustomizeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Customize your recipe',
-          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
         ),
         SizedBox(height: 10 * uiScale),
         SizedBox(
@@ -1827,10 +1846,10 @@ class _CustomizeChipState extends State<_CustomizeChip> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(data.label, style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
+                  Text(data.label, style: TextStyle(fontSize: 8.5 * uiScale, color: context.dcColors.textSecondary)),
                   Text(
                     data.value,
-                    style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: _kInk),
+                    style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
                   ),
                 ],
               ),
@@ -1849,19 +1868,21 @@ class _FilterIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 38 * uiScale,
         height: 38 * uiScale,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.cardBorder),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 3)),
+            BoxShadow(color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05), blurRadius: 8, offset: const Offset(0, 3)),
           ],
         ),
-        child: Icon(Icons.tune_rounded, size: 16 * uiScale, color: _kInk),
+        child: Icon(Icons.tune_rounded, size: 16 * uiScale, color: colors.textPrimary),
       ),
     );
   }
@@ -1884,12 +1905,13 @@ class _SectionTitleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+            style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
           ),
         ),
         if (actionLabel != null)
@@ -1900,9 +1922,9 @@ class _SectionTitleRow extends StatelessWidget {
               children: [
                 Text(
                   actionLabel!,
-                  style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: _kPurple),
+                  style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: colors.iconPurple),
                 ),
-                Icon(Icons.chevron_right_rounded, size: 15 * uiScale, color: _kPurple),
+                Icon(Icons.chevron_right_rounded, size: 15 * uiScale, color: colors.iconPurple),
               ],
             ),
           ),
@@ -1998,11 +2020,11 @@ class _RecipeCard extends StatelessWidget {
                         recipe.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk, height: 1.15),
+                        style: TextStyle(fontSize: 13.5 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary, height: 1.15),
                       ),
                     ),
                     SizedBox(width: 4 * uiScale),
-                    Icon(Icons.eco_rounded, size: 13 * uiScale, color: _kGreen),
+                    Icon(Icons.eco_rounded, size: 13 * uiScale, color: context.dcColors.iconGreen),
                   ],
                 ),
                 SizedBox(height: 4 * uiScale),
@@ -2010,14 +2032,14 @@ class _RecipeCard extends StatelessWidget {
                   recipe.tagline,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w600, color: _kPurple),
+                  style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w600, color: context.dcColors.iconPurple),
                 ),
                 SizedBox(height: 6 * uiScale),
                 Text(
                   recipe.description,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9.5 * uiScale, height: 1.3, color: _kMutedInk),
+                  style: TextStyle(fontSize: 9.5 * uiScale, height: 1.3, color: context.dcColors.textSecondary),
                 ),
                 SizedBox(height: 8 * uiScale),
                 Wrap(
@@ -2170,12 +2192,13 @@ class _WhatsInRecipeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "What's in this recipe?",
-          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
         ),
         SizedBox(height: 10 * uiScale),
         AnimatedSwitcher(
@@ -2224,13 +2247,13 @@ class _WhatsInChip extends StatelessWidget {
                   tag.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: _kInk),
+                  style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
                 ),
                 Text(
                   tag.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk),
+                  style: TextStyle(fontSize: 8.5 * uiScale, color: context.dcColors.textSecondary),
                 ),
               ],
             ),
@@ -2259,12 +2282,13 @@ class _MoreIdeasSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'More ideas for you',
-          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: _kInk),
+          style: TextStyle(fontSize: 14.5 * uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary),
         ),
         SizedBox(height: 12 * uiScale),
         SizedBox(
@@ -2305,13 +2329,15 @@ class _MoreIdeaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       width: 118 * uiScale,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 14, offset: const Offset(0, 6)),
+          BoxShadow(color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05), blurRadius: 14, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
@@ -2355,7 +2381,7 @@ class _MoreIdeaCard extends StatelessWidget {
                   idea.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: _kInk),
+                  style: TextStyle(fontSize: 10.5 * uiScale, fontWeight: FontWeight.w700, color: colors.textPrimary),
                 ),
                 SizedBox(height: 3 * uiScale),
                 FittedBox(
@@ -2364,13 +2390,13 @@ class _MoreIdeaCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.access_time_rounded, size: 9 * uiScale, color: _kPurple),
+                      Icon(Icons.access_time_rounded, size: 9 * uiScale, color: colors.iconPurple),
                       SizedBox(width: 2 * uiScale),
-                      Text('${idea.timeMinutes} min', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
+                      Text('${idea.timeMinutes} min', style: TextStyle(fontSize: 8.5 * uiScale, color: colors.textSecondary)),
                       SizedBox(width: 6 * uiScale),
-                      Icon(Icons.local_fire_department_rounded, size: 9 * uiScale, color: _kOrange),
+                      Icon(Icons.local_fire_department_rounded, size: 9 * uiScale, color: colors.iconOrange),
                       SizedBox(width: 2 * uiScale),
-                      Text('${idea.kcal} kcal', style: TextStyle(fontSize: 8.5 * uiScale, color: _kMutedInk)),
+                      Text('${idea.kcal} kcal', style: TextStyle(fontSize: 8.5 * uiScale, color: colors.textSecondary)),
                     ],
                   ),
                 ),
@@ -2394,11 +2420,13 @@ class _MealPlanBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: _kFaintPurple,
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Row(
         children: [
@@ -2417,12 +2445,12 @@ class _MealPlanBanner extends StatelessWidget {
               children: [
                 Text(
                   'Want personalized weekly meal plans?',
-                  style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: _kPurple),
+                  style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: colors.iconPurple),
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
                   'Let AI create a complete plan based on your goals, preferences and pantry.',
-                  style: TextStyle(fontSize: 10 * uiScale, height: 1.3, color: _kMutedInk),
+                  style: TextStyle(fontSize: 10 * uiScale, height: 1.3, color: colors.textSecondary),
                 ),
               ],
             ),
@@ -2506,16 +2534,18 @@ class _BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return SafeArea(
       top: false,
       child: Container(
         margin: EdgeInsets.fromLTRB(14 * uiScale, 0, 14 * uiScale, 10 * uiScale),
         padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: colors.cardBorder),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 8)),
+            BoxShadow(color: Colors.black.withValues(alpha: colors.isDark ? 0.25 : 0.08), blurRadius: 20, offset: const Offset(0, 8)),
           ],
         ),
         child: Row(
@@ -2534,7 +2564,7 @@ class _BottomNavBar extends StatelessWidget {
                   vertical: 6 * uiScale,
                 ),
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xFFF1ECFB) : Colors.transparent,
+                  color: selected ? (colors.isDark ? const Color(0xFF2B264A) : const Color(0xFFF1ECFB)) : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -2543,7 +2573,7 @@ class _BottomNavBar extends StatelessWidget {
                     Icon(
                       item.icon,
                       size: 20 * uiScale,
-                      color: selected ? _kPurple : const Color(0xFFB0ACC2),
+                      color: selected ? colors.iconPurple : colors.textMuted,
                     ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 200),
@@ -2552,7 +2582,7 @@ class _BottomNavBar extends StatelessWidget {
                               padding: EdgeInsets.only(top: 3 * uiScale),
                               child: Text(
                                 item.label,
-                                style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: _kPurple),
+                                style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: colors.iconPurple),
                               ),
                             )
                           : const SizedBox.shrink(),
@@ -2654,7 +2684,7 @@ class _ProductSourceBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: _kInk,
+                    color: context.dcColors.textPrimary,
                   ),
                 ),
                 Text(
@@ -2663,7 +2693,7 @@ class _ProductSourceBanner extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10 * uiScale,
-                    color: _kMutedInk,
+                    color: context.dcColors.textSecondary,
                   ),
                 ),
               ],

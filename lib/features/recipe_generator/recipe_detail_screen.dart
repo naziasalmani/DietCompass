@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/recipe_history_service.dart';
 import 'recipe_generator_screen.dart';
 /// DietCompass — Recipe Detail Screen
@@ -118,8 +119,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
     final r = widget.recipe;
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF1EDFB),
+      backgroundColor: colors.bg,
       body: SafeArea(
         top: false,
         bottom: false,
@@ -193,7 +195,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                         SizedBox(height: 8 * scale),
                         FadeTransition(
                           opacity: _fade(0.12, 0.46),
-                          child: Text(r.description, style: TextStyle(fontSize: 12.5 * scale, height: 1.4, color: const Color(0xFF3B3B4F))),
+                          child: Text(r.description, style: TextStyle(fontSize: 12.5 * scale, height: 1.4, color: colors.textSecondary)),
                         ),
                         SizedBox(height: 16 * scale),
                         FadeTransition(
@@ -213,8 +215,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('Nutrition Facts', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                                      Text('Per Serving', style: TextStyle(fontSize: 10.5 * scale, color: const Color(0xFF6B6B7B))),
+                                      Text('Nutrition Facts', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: colors.textPrimary)),
+                                      Text('Per Serving', style: TextStyle(fontSize: 10.5 * scale, color: colors.textSecondary)),
                                     ],
                                   ),
                                 ),
@@ -222,8 +224,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                                   onTap: widget.onViewAllNutrition,
                                   child: Row(
                                     children: [
-                                      Text('View All', style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
-                                      Icon(Icons.chevron_right, size: 15 * scale, color: const Color(0xFF6C4EF5)),
+                                      Text('View All', style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w700, color: colors.iconPurple)),
+                                      Icon(Icons.chevron_right, size: 15 * scale, color: colors.iconPurple),
                                     ],
                                   ),
                                 ),
@@ -244,8 +246,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                           opacity: _fade(0.32, 0.62),
                           child: Row(
                             children: [
-                              Expanded(child: Text('Ingredients', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)))),
-                              Text('Serves ${r.serves}', style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5))),
+                              Expanded(child: Text('Ingredients', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: colors.textPrimary))),
+                              Text('Serves ${r.serves}', style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w700, color: colors.iconPurple)),
                             ],
                           ),
                         ),
@@ -260,7 +262,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with TickerProv
                         SizedBox(height: 20 * scale),
                         FadeTransition(
                           opacity: _fade(0.4, 0.7),
-                          child: Text('Instructions', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                          child: Text('Instructions', style: TextStyle(fontSize: 15.5 * scale, fontWeight: FontWeight.w800, color: colors.textPrimary)),
                         ),
                         SizedBox(height: 10 * scale),
                         FadeTransition(
@@ -406,13 +408,17 @@ class _HeroCarousel extends StatelessWidget {
           bottom: 22 * uiScale,
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 8 * uiScale),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: context.dcColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: context.dcColors.cardBorder),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.local_fire_department, size: 14 * uiScale, color: const Color(0xFFE0862E)),
+                Icon(Icons.local_fire_department, size: 14 * uiScale, color: context.dcColors.iconOrange),
                 SizedBox(width: 5 * uiScale),
-                Text(calories, style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                Text(calories, style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary)),
               ],
             ),
           ),
@@ -489,8 +495,9 @@ class _CircleButtonState extends State<_CircleButton> {
           height: 42 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+            color: context.dcColors.surface,
+            border: Border.all(color: context.dcColors.cardBorder),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.25 : 0.1), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Icon(widget.icon, size: 18 * widget.uiScale, color: widget.iconColor),
         ),
@@ -566,15 +573,15 @@ class _TitleRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(title, style: TextStyle(fontSize: 20 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                    child: Text(title, style: TextStyle(fontSize: 20 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary)),
                   ),
-                  Icon(Icons.eco, size: 17 * uiScale, color: const Color(0xFF1E8A4C)),
+                  Icon(Icons.eco, size: 17 * uiScale, color: context.dcColors.iconGreen),
                 ],
               ),
               SizedBox(height: 3 * uiScale),
               Text(
                 tags.join(' • '),
-                style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF6C4EF5)),
+                style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.iconPurple),
               ),
             ],
           ),
@@ -615,17 +622,18 @@ class _QuickStatsRow extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(vertical: 12 * uiScale, horizontal: 6 * uiScale),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.dcColors.surface,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 4))],
+                border: Border.all(color: context.dcColors.cardBorder),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04), blurRadius: 8, offset: const Offset(0, 4))],
               ),
               child: Column(
                 children: [
                   Icon(s.icon, size: 16 * uiScale, color: s.color),
                   SizedBox(height: 6 * uiScale),
                   Text(s.value, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
-                  Text(s.label, style: TextStyle(fontSize: 9 * uiScale, color: const Color(0xFF6B6B7B))),
+                      style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary)),
+                  Text(s.label, style: TextStyle(fontSize: 9 * uiScale, color: context.dcColors.textSecondary)),
                 ],
               ),
             ),
@@ -649,9 +657,10 @@ class _NutritionFactsCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 14 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+        border: Border.all(color: context.dcColors.cardBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -664,9 +673,9 @@ class _NutritionFactsCard extends StatelessWidget {
                 children: [
                   Icon(f.icon, size: 16 * uiScale, color: f.color),
                   SizedBox(height: 6 * uiScale),
-                  Text(f.label, style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFF6B6B7B))),
+                  Text(f.label, style: TextStyle(fontSize: 10 * uiScale, color: context.dcColors.textSecondary)),
                   SizedBox(height: 2 * uiScale),
-                  Text(f.value, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                  Text(f.value, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary)),
                 ],
               ),
             );
@@ -694,9 +703,10 @@ class _IngredientsCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+        border: Border.all(color: context.dcColors.cardBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -727,15 +737,15 @@ class _IngredientColumn extends StatelessWidget {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: 5 * uiScale),
-                child: Container(width: 4 * uiScale, height: 4 * uiScale, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF6C4EF5))),
+                child: Container(width: 4 * uiScale, height: 4 * uiScale, decoration: BoxDecoration(shape: BoxShape.circle, color: context.dcColors.iconPurple)),
               ),
               SizedBox(width: 8 * uiScale),
               Expanded(
                 child: RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF3B3B4F), height: 1.3),
+                    style: TextStyle(fontSize: 11.5 * uiScale, color: context.dcColors.textSecondary, height: 1.3),
                     children: [
-                      TextSpan(text: '${item.amount} ', style: TextStyle(fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E))),
+                      TextSpan(text: '${item.amount} ', style: TextStyle(fontWeight: FontWeight.w800, color: context.dcColors.textPrimary)),
                       TextSpan(text: item.name),
                     ],
                   ),
@@ -762,9 +772,10 @@ class _InstructionsCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 6))],
+        border: Border.all(color: context.dcColors.cardBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04), blurRadius: 12, offset: const Offset(0, 6))],
       ),
       child: Stack(
         children: [
@@ -837,19 +848,19 @@ class _SaveForLaterButtonState extends State<_SaveForLaterButton> {
           padding: EdgeInsets.symmetric(vertical: 14 * widget.uiScale),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFF6C4EF5), width: 1.6),
+            border: Border.all(color: context.dcColors.iconPurple, width: 1.6),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.saved ? Icons.alarm_on_rounded : Icons.alarm_outlined, size: 16 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(widget.saved ? Icons.alarm_on_rounded : Icons.alarm_outlined, size: 16 * widget.uiScale, color: context.dcColors.iconPurple),
               SizedBox(width: 6 * widget.uiScale),
               Flexible(
                 child: Text(
                   widget.saved ? 'Saved' : 'Save for Later',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5 * widget.uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
+                  style: TextStyle(fontSize: 12.5 * widget.uiScale, fontWeight: FontWeight.w800, color: context.dcColors.iconPurple),
                 ),
               ),
             ],
@@ -886,8 +897,8 @@ class _AddToMealPlanButtonState extends State<_AddToMealPlanButton> {
           padding: EdgeInsets.symmetric(vertical: 14 * widget.uiScale),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF7C5CFC)]),
-            boxShadow: [BoxShadow(color: const Color(0xFF6C4EF5).withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 8))],
+            gradient: LinearGradient(colors: [context.dcColors.iconPurple, const Color(0xFF7C5CFC)]),
+            boxShadow: [BoxShadow(color: context.dcColors.iconPurple.withValues(alpha: 0.3), blurRadius: 14, offset: const Offset(0, 8))],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

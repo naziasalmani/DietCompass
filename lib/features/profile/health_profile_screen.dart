@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/personalization_service.dart';
 
 /// DietCompass — Health Profile Screen
@@ -356,8 +357,9 @@ class _HealthProfileScreenState extends State<HealthProfileScreen>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F3FC),
+      backgroundColor: colors.bg,
       extendBody: true,
       body: SafeArea(
         bottom: false,
@@ -611,10 +613,11 @@ class _RoundButtonState extends State<_RoundButton> {
           height: 42 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
+            color: context.dcColors.surface,
+            border: Border.all(color: context.dcColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -623,7 +626,7 @@ class _RoundButtonState extends State<_RoundButton> {
           child: Icon(
             widget.icon,
             size: 19 * widget.uiScale,
-            color: const Color(0xFF1B1B2E),
+            color: context.dcColors.textPrimary,
           ),
         ),
       ),
@@ -673,8 +676,9 @@ class _ProfileCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1ECFB),
+        color: context.dcColors.isDark ? const Color(0xFF252236) : const Color(0xFFF1ECFB),
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -724,7 +728,7 @@ class _ProfileCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 17 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: context.dcColors.textPrimary,
                   ),
                 ),
                 SizedBox(height: 5 * uiScale),
@@ -771,27 +775,27 @@ class _ProfileCard extends StatelessWidget {
                       dateOfBirth,
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF3B3B4F),
+                        color: context.dcColors.textSecondary,
                       ),
                     ),
                     Text(
                       '  •  ',
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF9A96A8),
+                        color: context.dcColors.textMuted,
                       ),
                     ),
                     Icon(
                       Icons.person_outline,
                       size: 11 * uiScale,
-                      color: const Color(0xFF9A96A8),
+                      color: context.dcColors.textMuted,
                     ),
                     SizedBox(width: 4 * uiScale),
                     Text(
                       gender,
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF3B3B4F),
+                        color: context.dcColors.textSecondary,
                       ),
                     ),
                   ],
@@ -802,34 +806,34 @@ class _ProfileCard extends StatelessWidget {
                     Icon(
                       Icons.straighten,
                       size: 11 * uiScale,
-                      color: const Color(0xFF9A96A8),
+                      color: context.dcColors.textMuted,
                     ),
                     SizedBox(width: 4 * uiScale),
                     Text(
                       height,
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF3B3B4F),
+                        color: context.dcColors.textSecondary,
                       ),
                     ),
                     Text(
                       '  •  ',
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF9A96A8),
+                        color: context.dcColors.textMuted,
                       ),
                     ),
                     Icon(
                       Icons.monitor_weight_outlined,
                       size: 11 * uiScale,
-                      color: const Color(0xFF9A96A8),
+                      color: context.dcColors.textMuted,
                     ),
                     SizedBox(width: 4 * uiScale),
                     Text(
                       weight,
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF3B3B4F),
+                        color: context.dcColors.textSecondary,
                       ),
                     ),
                   ],
@@ -871,14 +875,14 @@ class _ProfileCard extends StatelessWidget {
                 'Profile',
                 style: TextStyle(
                   fontSize: 9.5 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: context.dcColors.textSecondary,
                 ),
               ),
               Text(
                 'Completeness',
                 style: TextStyle(
                   fontSize: 9.5 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: context.dcColors.textSecondary,
                 ),
               ),
               SizedBox(height: 3 * uiScale),
@@ -978,11 +982,11 @@ class _CameraButtonState extends State<_CameraButton> {
           height: 26 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFF1ECFB), width: 2.2),
+            color: context.dcColors.surface,
+            border: Border.all(color: context.dcColors.cardBorder, width: 2.2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -991,7 +995,7 @@ class _CameraButtonState extends State<_CameraButton> {
           child: Icon(
             Icons.camera_alt,
             size: 12 * widget.uiScale,
-            color: const Color(0xFF6C4EF5),
+            color: context.dcColors.iconPurple,
           ),
         ),
       ),
@@ -1028,11 +1032,12 @@ class _SectionCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.dcColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -1063,14 +1068,14 @@ class _SectionCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14.5 * uiScale,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                        color: context.dcColors.textPrimary,
                       ),
                     ),
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontSize: 10.5 * uiScale,
-                        color: const Color(0xFF6B6B7B),
+                        color: context.dcColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1085,14 +1090,14 @@ class _SectionCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12 * uiScale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF6C4EF5),
+                        color: context.dcColors.iconPurple,
                       ),
                     ),
                     SizedBox(width: 3 * uiScale),
                     Icon(
                       Icons.edit_outlined,
                       size: 13 * uiScale,
-                      color: const Color(0xFF6C4EF5),
+                      color: context.dcColors.iconPurple,
                     ),
                   ],
                 ),
@@ -1167,11 +1172,11 @@ class _SelectableChipState extends State<_SelectableChip> {
           ),
           decoration: BoxDecoration(
             color: widget.selected
-                ? widget.color.withOpacity(0.1)
-                : Colors.white,
+                ? widget.color.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.1)
+                : context.dcColors.surfaceSecondary,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: widget.selected ? widget.color : const Color(0xFFE4E0F2),
+              color: widget.selected ? widget.color : context.dcColors.cardBorder,
               width: widget.selected ? 1.6 : 1.2,
             ),
           ),
@@ -1181,7 +1186,7 @@ class _SelectableChipState extends State<_SelectableChip> {
               Icon(
                 widget.icon,
                 size: 14 * widget.uiScale,
-                color: widget.selected ? widget.color : const Color(0xFF6B6B7B),
+                color: widget.selected ? widget.color : context.dcColors.textMuted,
               ),
               SizedBox(width: 6 * widget.uiScale),
               Text(
@@ -1191,7 +1196,7 @@ class _SelectableChipState extends State<_SelectableChip> {
                   fontWeight: FontWeight.w700,
                   color: widget.selected
                       ? widget.color
-                      : const Color(0xFF3B3B4F),
+                      : context.dcColors.textSecondary,
                 ),
               ),
             ],
@@ -1288,8 +1293,9 @@ class _HighlightRow extends StatelessWidget {
           vertical: 12 * uiScale,
         ),
         decoration: BoxDecoration(
-          color: bg,
+          color: context.dcColors.isDark ? const Color(0xFF2B264A) : bg,
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: context.dcColors.cardBorder),
         ),
         child: Row(
           children: [
@@ -1301,14 +1307,14 @@ class _HighlightRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5 * uiScale,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1B1B2E),
+                  color: context.dcColors.textPrimary,
                 ),
               ),
             ),
             Icon(
               Icons.chevron_right,
               size: 16 * uiScale,
-              color: const Color(0xFF9A96A8),
+              color: context.dcColors.textMuted,
             ),
           ],
         ),
@@ -1338,9 +1344,9 @@ class _InfoTilesRow extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.all(10 * uiScale),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.dcColors.surfaceSecondary,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE4E0F2)),
+                border: Border.all(color: context.dcColors.cardBorder),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1360,7 +1366,7 @@ class _InfoTilesRow extends StatelessWidget {
                     maxLines: 2,
                     style: TextStyle(
                       fontSize: 9.5 * uiScale,
-                      color: const Color(0xFF6B6B7B),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                   SizedBox(height: 2 * uiScale),
@@ -1369,7 +1375,7 @@ class _InfoTilesRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: t.valueColor ?? const Color(0xFF1B1B2E),
+                      color: t.valueColor ?? context.dcColors.textPrimary,
                     ),
                   ),
                 ],
@@ -1409,12 +1415,13 @@ class _AlertRow extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(12 * uiScale),
         decoration: BoxDecoration(
-          color: const Color(0xFFFCEBEB),
+          color: context.dcColors.isDark ? const Color(0xFF331C1F) : const Color(0xFFFCEBEB),
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: context.dcColors.cardBorder),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16 * uiScale, color: const Color(0xFFE0525C)),
+            Icon(icon, size: 16 * uiScale, color: context.dcColors.iconRed),
             SizedBox(width: 8 * uiScale),
             Expanded(
               child: Column(
@@ -1425,14 +1432,14 @@ class _AlertRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFFE0525C),
+                      color: context.dcColors.iconRed,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
                       fontSize: 10 * uiScale,
-                      color: const Color(0xFF3B3B4F),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                 ],
@@ -1446,13 +1453,13 @@ class _AlertRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10.5 * uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFFE0525C),
+                    color: context.dcColors.iconRed,
                   ),
                 ),
                 Icon(
                   Icons.arrow_forward,
                   size: 12 * uiScale,
-                  color: const Color(0xFFE0525C),
+                  color: context.dcColors.iconRed,
                 ),
               ],
             ),
@@ -1492,7 +1499,7 @@ class _MetricsRow extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: context.dcColors.textSecondary,
                 ),
               ),
               SizedBox(height: 3 * uiScale),
@@ -1501,7 +1508,7 @@ class _MetricsRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: context.dcColors.textPrimary,
                 ),
               ),
               if (m.status != null) ...[
@@ -1539,16 +1546,16 @@ class _TipBanner extends StatelessWidget {
         vertical: 12 * uiScale,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFE3EEFC),
+        color: context.dcColors.isDark ? const Color(0xFF192A3E) : const Color(0xFFE3EEFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBFDAF7)),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         children: [
           Icon(
             Icons.lightbulb_outline,
             size: 16 * uiScale,
-            color: const Color(0xFF3B82F6),
+            color: context.dcColors.iconBlue,
           ),
           SizedBox(width: 8 * uiScale),
           Expanded(
@@ -1557,7 +1564,7 @@ class _TipBanner extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11 * uiScale,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1B4D8F),
+                color: context.dcColors.isDark ? const Color(0xFF93C5FD) : const Color(0xFF1B4D8F),
               ),
             ),
           ),

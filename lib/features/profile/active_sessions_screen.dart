@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 
@@ -99,8 +100,9 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
     final scale = (width / 390.0).clamp(0.85, 1.25);
     final user = AuthService.instance.currentUser;
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred background orbs
@@ -131,11 +133,12 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -144,7 +147,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -158,14 +161,14 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               'Manage devices where your account is active',
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -187,11 +190,12 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                         Container(
                           padding: EdgeInsets.all(18 * scale),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(20 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                                color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.06),
                                 blurRadius: 16,
                                 offset: const Offset(0, 4),
                               ),
@@ -229,7 +233,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                           style: TextStyle(
                                             fontSize: 14.5 * scale,
                                             fontWeight: FontWeight.w800,
-                                            color: const Color(0xFF1B1B2E),
+                                            color: colors.textPrimary,
                                           ),
                                         ),
                                         SizedBox(height: 2 * scale),
@@ -237,7 +241,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                           user?.email ?? 'Active Mobile Session',
                                           style: TextStyle(
                                             fontSize: 12 * scale,
-                                            color: const Color(0xFF6B6B7B),
+                                            color: colors.textSecondary,
                                           ),
                                         ),
                                       ],
@@ -246,7 +250,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                   Container(
                                     padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 4 * scale),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFE3F5EA),
+                                      color: colors.isDark ? const Color(0xFF1B2E24) : const Color(0xFFE3F5EA),
                                       borderRadius: BorderRadius.circular(8 * scale),
                                     ),
                                     child: Row(
@@ -255,8 +259,8 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                         Container(
                                           width: 6,
                                           height: 6,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF1E8A4C),
+                                          decoration: BoxDecoration(
+                                            color: colors.iconGreen,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -266,7 +270,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                           style: TextStyle(
                                             fontSize: 10 * scale,
                                             fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF1E8A4C),
+                                            color: colors.iconGreen,
                                           ),
                                         ),
                                       ],
@@ -278,15 +282,16 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                               Container(
                                 padding: EdgeInsets.all(12 * scale),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF9F7FD),
+                                  color: colors.surfaceSecondary,
                                   borderRadius: BorderRadius.circular(12 * scale),
+                                  border: Border.all(color: colors.cardBorder),
                                 ),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.lock_rounded,
                                       size: 16 * scale,
-                                      color: const Color(0xFF6C4EF5),
+                                      color: colors.iconPurple,
                                     ),
                                     SizedBox(width: 8 * scale),
                                     Expanded(
@@ -294,7 +299,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                         'Session protected with encrypted JWT Bearer tokens in device storage.',
                                         style: TextStyle(
                                           fontSize: 11.5 * scale,
-                                          color: const Color(0xFF6B6B7B),
+                                          color: colors.textSecondary,
                                           height: 1.3,
                                         ),
                                       ),
@@ -331,17 +336,18 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                             margin: EdgeInsets.only(bottom: 10 * scale),
                             padding: EdgeInsets.all(14 * scale),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(16 * scale),
+                              border: Border.all(color: colors.cardBorder),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.devices_other_rounded, color: const Color(0xFF6C4EF5), size: 20 * scale),
+                                Icon(Icons.devices_other_rounded, color: colors.iconPurple, size: 20 * scale),
                                 SizedBox(width: 10 * scale),
                                 Expanded(
                                   child: Text(
                                     s['deviceInfo'] ?? 'Remote Device',
-                                    style: TextStyle(fontSize: 13 * scale, fontWeight: FontWeight.w600),
+                                    style: TextStyle(fontSize: 13 * scale, fontWeight: FontWeight.w600, color: colors.textPrimary),
                                   ),
                                 ),
                               ],
@@ -367,11 +373,12 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                         Container(
                           padding: EdgeInsets.all(16 * scale),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(20 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+                                color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.05),
                                 blurRadius: 16,
                                 offset: const Offset(0, 4),
                               ),
@@ -385,7 +392,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                 style: TextStyle(
                                   fontSize: 13.5 * scale,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1B1B2E),
+                                  color: colors.textPrimary,
                                 ),
                               ),
                               SizedBox(height: 4 * scale),
@@ -393,7 +400,7 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                                 'If you notice unfamiliar activity, you can terminate all other active device sessions immediately.',
                                 style: TextStyle(
                                   fontSize: 12 * scale,
-                                  color: const Color(0xFF6B6B7B),
+                                  color: colors.textSecondary,
                                   height: 1.4,
                                 ),
                               ),

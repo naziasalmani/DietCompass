@@ -1,10 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/model/ai_analysis_model.dart';
 import '../../../core/model/food_product.dart';
 import '../../../core/services/ai_service.dart';
-import '../../../core/services/personalization_service.dart';
-import '../../../core/services/dietary_safety_validator.dart';
 
 /// DietCompass — Product-Centric AI Coach Bottom Sheet
 ///
@@ -194,23 +192,25 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final height = (size.height * 0.88).clamp(500.0, 780.0);
+    final height = size.height * 0.85;
+    final colors = context.dcColors;
 
-    final score = widget.compatibility?.score ?? widget.overallScore ?? 85;
-    Color scoreColor = const Color(0xFF1E8A4C);
+    final score = widget.compatibility?.score ?? widget.overallScore ?? 75;
+    Color scoreColor = colors.iconGreen;
     if (score < 50) {
-      scoreColor = const Color(0xFFE0525C);
+      scoreColor = colors.iconRed;
     } else if (score < 70) {
-      scoreColor = const Color(0xFFE0862E);
+      scoreColor = colors.iconOrange;
     }
 
     return Container(
       height: height + (bottomInset > 0 ? bottomInset : 0),
       margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF3F0FB),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: colors.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: colors.cardBorder),
+        boxShadow: const [
           BoxShadow(
             color: Colors.black26,
             blurRadius: 24,
@@ -225,7 +225,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
             // Drag handle & Header
             Container(
               padding: EdgeInsets.fromLTRB(18 * scale, 12 * scale, 18 * scale, 10 * scale),
-              color: Colors.white.withOpacity(0.85),
+              color: colors.surface,
               child: Column(
                 children: [
                   Center(
@@ -233,7 +233,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                       width: 40 * scale,
                       height: 4.5 * scale,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD4CFE6),
+                        color: colors.divider,
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -266,7 +266,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                               style: TextStyle(
                                 fontSize: 16 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             SizedBox(height: 2 * scale),
@@ -274,7 +274,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                               'Get personalized answers about this product',
                               style: TextStyle(
                                 fontSize: 11.5 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -282,7 +282,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.close_rounded, size: 22 * scale, color: const Color(0xFF6B6B7B)),
+                        icon: Icon(Icons.close_rounded, size: 22 * scale, color: colors.textSecondary),
                         tooltip: 'Close',
                       ),
                     ],
@@ -296,12 +296,12 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
               margin: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 8 * scale),
               padding: EdgeInsets.all(10 * scale),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE4DFFA)),
+                border: Border.all(color: colors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6C4EF5).withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -329,7 +329,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                           style: TextStyle(
                             fontSize: 13 * scale,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                         if (widget.product.brand.isNotEmpty) ...[
@@ -340,7 +340,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11 * scale,
-                              color: const Color(0xFF6B6B7B),
+                              color: colors.textSecondary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -352,9 +352,9 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
                     decoration: BoxDecoration(
-                      color: scoreColor.withOpacity(0.12),
+                      color: scoreColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: scoreColor.withOpacity(0.3)),
+                      border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -393,11 +393,11 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                       style: TextStyle(
                         fontSize: 11.5 * scale,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                       ),
                     ),
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFD4C9FA)),
+                    backgroundColor: colors.surface,
+                    side: BorderSide(color: colors.cardBorder),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     elevation: 0,
                     padding: EdgeInsets.symmetric(horizontal: 4 * scale),
@@ -434,10 +434,10 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                 (MediaQuery.of(context).padding.bottom + 8) * scale,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.surface,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
@@ -448,9 +448,9 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3F0FB),
+                        color: colors.surfaceSecondary,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE2DCF5)),
+                        border: Border.all(color: colors.cardBorder),
                       ),
                       padding: EdgeInsets.symmetric(horizontal: 14 * scale),
                       child: TextField(
@@ -461,13 +461,13 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                         onSubmitted: _sendMessage,
                         style: TextStyle(
                           fontSize: 13.5 * scale,
-                          color: const Color(0xFF1B1B2E),
+                          color: colors.textPrimary,
                         ),
                         decoration: InputDecoration(
                           hintText: 'Ask about ingredients, sugar, safety...',
                           hintStyle: TextStyle(
                             fontSize: 12.5 * scale,
-                            color: const Color(0xFF9A96A8),
+                            color: colors.textMuted,
                           ),
                           border: InputBorder.none,
                           isDense: true,
@@ -489,7 +489,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF6C4EF5).withOpacity(0.32),
+                            color: const Color(0xFF6C4EF5).withValues(alpha: 0.32),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -531,17 +531,21 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
     return _thumbnailFallback(uiScale);
   }
 
-  Widget _thumbnailFallback(double uiScale) => Container(
-        color: const Color(0xFFEDE7FA),
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.fastfood_rounded,
-          size: 22 * uiScale,
-          color: const Color(0xFF6C4EF5),
-        ),
-      );
+  Widget _thumbnailFallback(double uiScale) {
+    final colors = context.dcColors;
+    return Container(
+      color: colors.surfaceSecondary,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.fastfood_rounded,
+        size: 22 * uiScale,
+        color: colors.iconPurple,
+      ),
+    );
+  }
 
   Widget _buildChatBubble(AiCoachChatMessage msg, double uiScale) {
+    final colors = context.dcColors;
     final isUser = msg.isUser;
 
     return Padding(
@@ -555,8 +559,8 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
               width: 28 * uiScale,
               height: 28 * uiScale,
               margin: EdgeInsets.only(right: 8 * uiScale, top: 2 * uiScale),
-              decoration: const BoxDecoration(
-                color: Color(0xFF6C4EF5),
+              decoration: BoxDecoration(
+                color: colors.iconPurple,
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 16 * uiScale),
@@ -566,7 +570,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 10 * uiScale),
               decoration: BoxDecoration(
-                color: isUser ? const Color(0xFF6C4EF5) : Colors.white,
+                color: isUser ? colors.iconPurple : colors.surface,
                 gradient: isUser
                     ? const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8467F8)])
                     : null,
@@ -576,9 +580,10 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                   bottomLeft: isUser ? const Radius.circular(18) : const Radius.circular(4),
                   bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
                 ),
+                border: isUser ? null : Border.all(color: colors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -589,7 +594,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                 style: TextStyle(
                   fontSize: 13 * uiScale,
                   height: 1.45,
-                  color: isUser ? Colors.white : const Color(0xFF1B1B2E),
+                  color: isUser ? Colors.white : colors.textPrimary,
                 ),
               ),
             ),
@@ -603,6 +608,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
   }
 
   Widget _buildThinkingBubble(double uiScale) {
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.only(bottom: 10 * uiScale),
       child: Row(
@@ -612,8 +618,8 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
             width: 28 * uiScale,
             height: 28 * uiScale,
             margin: EdgeInsets.only(right: 8 * uiScale, top: 2 * uiScale),
-            decoration: const BoxDecoration(
-              color: Color(0xFF6C4EF5),
+            decoration: BoxDecoration(
+              color: colors.iconPurple,
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 16 * uiScale),
@@ -621,11 +627,12 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
           Container(
             padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -638,7 +645,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                   'Coach is thinking',
                   style: TextStyle(
                     fontSize: 12 * uiScale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -652,7 +659,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                       style: TextStyle(
                         fontSize: 14 * uiScale,
                         fontWeight: FontWeight.w900,
-                        color: const Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                       ),
                     );
                   },

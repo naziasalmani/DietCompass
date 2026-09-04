@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../home/home_screen.dart';
 import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
@@ -279,14 +280,18 @@ class _PantryScreenState extends State<PantryScreen>
         .where((i) => i.status == ItemStatus.lowStock)
         .length;
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       extendBody: true,
       body: Stack(
         fit: StackFit.expand,
         children: [
           Positioned.fill(
-            child: Image.asset('assets/images/home_bg.jpeg', fit: BoxFit.cover),
+            child: Opacity(
+              opacity: colors.isDark ? 0.08 : 1.0,
+              child: Image.asset('assets/images/home_bg.jpeg', fit: BoxFit.cover),
+            ),
           ),
 
           SafeArea(
@@ -369,7 +374,7 @@ class _PantryScreenState extends State<PantryScreen>
                         style: TextStyle(
                           fontSize: 15.5 * scale,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1B1B2E),
+                          color: colors.textPrimary,
                         ),
                       ),
                       const Spacer(),
@@ -381,7 +386,7 @@ class _PantryScreenState extends State<PantryScreen>
                               'Sort by: ',
                               style: TextStyle(
                                 fontSize: 11.5 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                             Text(
@@ -389,13 +394,13 @@ class _PantryScreenState extends State<PantryScreen>
                               style: TextStyle(
                                 fontSize: 11.5 * scale,
                                 fontWeight: FontWeight.w700,
-                                color: const Color(0xFF6C4EF5),
+                                color: colors.iconPurple,
                               ),
                             ),
                             Icon(
                               Icons.keyboard_arrow_down,
                               size: 16 * scale,
-                              color: const Color(0xFF6C4EF5),
+                              color: colors.iconPurple,
                             ),
                           ],
                         ),
@@ -405,7 +410,7 @@ class _PantryScreenState extends State<PantryScreen>
                 ),
                 SizedBox(height: 10 * scale),
 
-                ..._buildItemRows(scale),
+                ..._buildItemRows(scale, colors),
 
                 SizedBox(height: 16 * scale),
                 FadeTransition(
@@ -474,7 +479,7 @@ class _PantryScreenState extends State<PantryScreen>
     );
   }
 
-  List<Widget> _buildItemRows(double scale) {
+  List<Widget> _buildItemRows(double scale, DietCompassThemeColors colors) {
     final items = _filtered;
     if (items.isEmpty) {
       final isOverallEmpty = _items.isEmpty;
@@ -487,14 +492,14 @@ class _PantryScreenState extends State<PantryScreen>
               Container(
                 width: 64 * scale,
                 height: 64 * scale,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEDE7FA),
+                decoration: BoxDecoration(
+                  color: colors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.inventory_2_outlined,
                   size: 32 * scale,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ),
               SizedBox(height: 12 * scale),
@@ -505,7 +510,7 @@ class _PantryScreenState extends State<PantryScreen>
                 style: TextStyle(
                   fontSize: 15 * scale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(height: 6 * scale),
@@ -518,7 +523,7 @@ class _PantryScreenState extends State<PantryScreen>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11.5 * scale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                     height: 1.3,
                   ),
                 ),
@@ -642,14 +647,14 @@ class _Header extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 23 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   SizedBox(width: 6 * uiScale),
                   Icon(
                     Icons.eco,
                     size: 18 * uiScale,
-                    color: const Color(0xFF1E8A4C),
+                    color: context.dcColors.iconGreen,
                   ),
                 ],
               ),
@@ -658,7 +663,7 @@ class _Header extends StatelessWidget {
                 'Manage your items and never run out of healthy choices.',
                 style: TextStyle(
                   fontSize: 11 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: context.dcColors.textSecondary,
                 ),
               ),
             ],
@@ -670,7 +675,7 @@ class _Header extends StatelessWidget {
           icon: Icon(
             Icons.add_circle_rounded,
             size: 30 * uiScale,
-            color: const Color(0xFF6C4EF5),
+            color: context.dcColors.iconPurple,
           ),
         ),
       ],
@@ -705,11 +710,12 @@ class _StatsRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(12 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.dcColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -825,14 +831,14 @@ class _StatTileState extends State<_StatTile> {
                 style: TextStyle(
                   fontSize: 19 * widget.uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: context.dcColors.textPrimary,
                 ),
               ),
               Text(
                 widget.label,
                 style: TextStyle(
                   fontSize: 9 * widget.uiScale,
-                  color: const Color(0xFF3B3B4F),
+                  color: context.dcColors.textSecondary,
                 ),
               ),
             ],
@@ -861,16 +867,17 @@ class _ExpiringBanner extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCF2E0),
+        color: context.dcColors.isDark ? const Color(0xFF2E2419) : const Color(0xFFFCF2E0),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         children: [
           Container(
             width: 40 * uiScale,
             height: 40 * uiScale,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE0862E),
+            decoration: BoxDecoration(
+              color: context.dcColors.iconOrange,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -889,14 +896,14 @@ class _ExpiringBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: context.dcColors.textPrimary,
                   ),
                 ),
                 Text(
                   'You have $count items that will expire in the next 7 days.',
                   style: TextStyle(
                     fontSize: 10.5 * uiScale,
-                    color: const Color(0xFF3B3B4F),
+                    color: context.dcColors.textSecondary,
                   ),
                 ),
               ],
@@ -911,13 +918,13 @@ class _ExpiringBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11.5 * uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF6C4EF5),
+                    color: context.dcColors.iconPurple,
                   ),
                 ),
                 Icon(
                   Icons.chevron_right,
                   size: 15 * uiScale,
-                  color: const Color(0xFF6C4EF5),
+                  color: context.dcColors.iconPurple,
                 ),
               ],
             ),
@@ -962,11 +969,12 @@ class _FilterTabs extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(4 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.dcColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -989,7 +997,7 @@ class _FilterTabs extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFF6C4EF5)
+                        ? context.dcColors.iconPurple
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -998,7 +1006,7 @@ class _FilterTabs extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : const Color(0xFF6B6B7B),
+                      color: selected ? Colors.white : context.dcColors.textSecondary,
                     ),
                   ),
                 ),
@@ -1091,10 +1099,10 @@ class _CategoryChip extends StatelessWidget {
           vertical: 8 * uiScale,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.dcColors.surfaceSecondary,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2),
+            color: selected ? context.dcColors.iconPurple : context.dcColors.cardBorder,
             width: selected ? 1.6 : 1.2,
           ),
         ),
@@ -1108,7 +1116,7 @@ class _CategoryChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11 * uiScale,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1B1B2E),
+                color: context.dcColors.textPrimary,
               ),
             ),
           ],
@@ -1184,11 +1192,12 @@ class _PantryItemRowState extends State<_PantryItemRow> {
         child: Container(
           padding: EdgeInsets.all(10 * widget.uiScale),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.dcColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1201,7 +1210,7 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                 child: Container(
                   width: 52 * widget.uiScale,
                   height: 52 * widget.uiScale,
-                  color: const Color(0xFFF6F3FC),
+                  color: context.dcColors.surfaceSecondary,
                   padding: EdgeInsets.all(4 * widget.uiScale),
                   child: widget.item.imageUrl.isNotEmpty
                       ? Image.network(
@@ -1234,7 +1243,7 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                       style: TextStyle(
                         fontSize: 13.5 * widget.uiScale,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                        color: context.dcColors.textPrimary,
                       ),
                     ),
                     SizedBox(height: 3 * widget.uiScale),
@@ -1253,7 +1262,7 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                           widget.item.category.label,
                           style: TextStyle(
                             fontSize: 10.5 * widget.uiScale,
-                            color: const Color(0xFF6B6B7B),
+                            color: context.dcColors.textSecondary,
                           ),
                         ),
                       ],
@@ -1264,14 +1273,14 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                         Icon(
                           Icons.calendar_today_outlined,
                           size: 10 * widget.uiScale,
-                          color: const Color(0xFF9A96A8),
+                          color: context.dcColors.textMuted,
                         ),
                         SizedBox(width: 4 * widget.uiScale),
                         Text(
                           'Added on $_formattedDate',
                           style: TextStyle(
                             fontSize: 9.5 * widget.uiScale,
-                            color: const Color(0xFF9A96A8),
+                            color: context.dcColors.textMuted,
                           ),
                         ),
                       ],
@@ -1306,7 +1315,7 @@ class _PantryItemRowState extends State<_PantryItemRow> {
                     style: TextStyle(
                       fontSize: 11 * widget.uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   Text(
@@ -1342,15 +1351,16 @@ class _SmartTipBanner extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFEDE7FA),
+        color: context.dcColors.isDark ? const Color(0xFF232038) : const Color(0xFFEDE7FA),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         children: [
           Icon(
             Icons.auto_awesome,
             size: 20 * uiScale,
-            color: const Color(0xFF6C4EF5),
+            color: context.dcColors.iconPurple,
           ),
           SizedBox(width: 10 * uiScale),
           Expanded(
@@ -1362,7 +1372,7 @@ class _SmartTipBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF6C4EF5),
+                    color: context.dcColors.iconPurple,
                   ),
                 ),
                 Text(
@@ -1370,7 +1380,7 @@ class _SmartTipBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10.5 * uiScale,
                     height: 1.3,
-                    color: const Color(0xFF3B3B4F),
+                    color: context.dcColors.textSecondary,
                   ),
                 ),
               ],
@@ -1412,8 +1422,9 @@ class _ExploreRecipesButtonState extends State<_ExploreRecipesButton> {
             vertical: 9 * widget.uiScale,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: context.dcColors.cardBorder),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1423,14 +1434,14 @@ class _ExploreRecipesButtonState extends State<_ExploreRecipesButton> {
                 style: TextStyle(
                   fontSize: 10.5 * widget.uiScale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF6C4EF5),
+                  color: context.dcColors.iconPurple,
                 ),
               ),
               SizedBox(width: 4 * widget.uiScale),
               Icon(
                 Icons.arrow_forward,
                 size: 12 * widget.uiScale,
-                color: const Color(0xFF6C4EF5),
+                color: context.dcColors.iconPurple,
               ),
             ],
           ),
@@ -1474,11 +1485,12 @@ class _BottomNavBar extends StatelessWidget {
         ),
         padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.dcColors.surface,
           borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: context.dcColors.cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.25 : 0.08),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -1501,7 +1513,7 @@ class _BottomNavBar extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? const Color(0xFFEDE7FA)
+                      ? (context.dcColors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA))
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -1512,8 +1524,8 @@ class _BottomNavBar extends StatelessWidget {
                       item.icon,
                       size: 20 * uiScale,
                       color: selected
-                          ? const Color(0xFF6C4EF5)
-                          : const Color(0xFFB0ACC2),
+                          ? context.dcColors.iconPurple
+                          : context.dcColors.textMuted,
                     ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 200),
@@ -1525,7 +1537,7 @@ class _BottomNavBar extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 9.5 * uiScale,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF6C4EF5),
+                                  color: context.dcColors.iconPurple,
                                 ),
                               ),
                             )

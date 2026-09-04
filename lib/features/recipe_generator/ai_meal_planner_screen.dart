@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/model/meal_plan_model.dart';
 import '../../core/services/meal_plan_service.dart';
 import 'pdf_service.dart';
@@ -220,8 +221,9 @@ class _AiMealPlannerScreenState extends State<AiMealPlannerScreen>
     final days = _plan?.days ?? [];
     final currentDay = days.isNotEmpty ? days[_selectedDay.clamp(0, days.length - 1)] : null;
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -435,7 +437,7 @@ class _GlassBackdropState extends State<_GlassBackdrop> with SingleTickerProvide
         return Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFF3F0FB)),
+            Container(color: context.dcColors.bg),
             Positioned(top: -80 + t * 14, right: -60, child: _blob(200 * uiScale, const Color(0xFF6C4EF5))),
             Positioned(bottom: -60 + t * 12, left: -60, child: _blob(170 * uiScale, const Color(0xFF1E8A4C))),
           ],
@@ -476,11 +478,22 @@ class _Glass extends StatelessWidget {
           width: double.infinity,
           padding: padding ?? EdgeInsets.all(16 * uiScale),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.7),
+            color: context.dcColors.isDark
+                ? context.dcColors.surface.withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: Colors.white.withOpacity(0.8), width: 1.1),
+            border: Border.all(
+              color: context.dcColors.isDark
+                  ? context.dcColors.cardBorder
+                  : Colors.white.withValues(alpha: 0.8),
+              width: 1.1,
+            ),
             boxShadow: [
-              BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 10)),
+              BoxShadow(
+                color: context.dcColors.iconPurple.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.07),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
             ],
           ),
           child: child,
@@ -541,11 +554,12 @@ class _TopHeader extends StatelessWidget {
             width: 42 * uiScale,
             height: 42 * uiScale,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
+              color: context.dcColors.surface,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+              border: Border.all(color: context.dcColors.cardBorder),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-            child: Icon(Icons.arrow_back_rounded, size: 19 * uiScale, color: const Color(0xFF1B1B2E)),
+            child: Icon(Icons.arrow_back_rounded, size: 19 * uiScale, color: context.dcColors.textPrimary),
           ),
         ),
         Expanded(
@@ -554,13 +568,13 @@ class _TopHeader extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.auto_awesome, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+                  Icon(Icons.auto_awesome, size: 16 * uiScale, color: context.dcColors.iconPurple),
                   SizedBox(width: 6 * uiScale),
                   Flexible(
                     child: Text(
                       'AI Meal Planner',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+                      style: TextStyle(fontSize: 16.5 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary),
                     ),
                   ),
                 ],
@@ -569,7 +583,7 @@ class _TopHeader extends StatelessWidget {
               Text(
                 'Personalized nutrition plan crafted for your goals',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: context.dcColors.textSecondary),
               ),
             ],
           ),
@@ -629,10 +643,12 @@ class _PlanDurationSection extends StatelessWidget {
                   curve: Curves.easeOut,
                   padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 11 * uiScale),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFEDE7FA) : Colors.white.withOpacity(0.7),
+                    color: selected
+                        ? (context.dcColors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA))
+                        : (context.dcColors.isDark ? context.dcColors.surfaceSecondary : Colors.white.withValues(alpha: 0.7)),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: selected ? const Color(0xFF6C4EF5) : const Color(0xFFE3DDF5),
+                      color: selected ? context.dcColors.iconPurple : context.dcColors.cardBorder,
                       width: selected ? 1.6 : 1,
                     ),
                   ),
@@ -642,7 +658,7 @@ class _PlanDurationSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: selected ? const Color(0xFF6C4EF5) : const Color(0xFF1B1B2E),
+                      color: selected ? context.dcColors.iconPurple : context.dcColors.textPrimary,
                     ),
                   ),
                 ),
@@ -772,18 +788,18 @@ class _PreferencesSection extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.shopping_bag_rounded, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
+                      Icon(Icons.shopping_bag_rounded, size: 13 * uiScale, color: context.dcColors.iconPurple),
                       SizedBox(width: 6 * uiScale),
                       Text(
                         'Use pantry ingredients',
-                        style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                        style: TextStyle(fontSize: 12.5 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
                       ),
                     ],
                   ),
                   SizedBox(height: 2 * uiScale),
                   Text(
                     'Prioritize ingredients from your pantry',
-                    style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                    style: TextStyle(fontSize: 10.5 * uiScale, color: context.dcColors.textSecondary),
                   ),
                 ],
               ),
@@ -819,13 +835,13 @@ class _DropdownField extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
+            Icon(icon, size: 13 * uiScale, color: context.dcColors.iconPurple),
             SizedBox(width: 6 * uiScale),
             Flexible(
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
               ),
             ),
           ],
@@ -834,16 +850,17 @@ class _DropdownField extends StatelessWidget {
         PopupMenuButton<String>(
           onSelected: onChanged,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          color: context.dcColors.surface,
           itemBuilder: (context) => options
-              .map((o) => PopupMenuItem(value: o, child: Text(o, style: TextStyle(fontSize: 12.5 * uiScale))))
+              .map((o) => PopupMenuItem(value: o, child: Text(o, style: TextStyle(fontSize: 12.5 * uiScale, color: context.dcColors.textPrimary))))
               .toList(),
           child: Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 12 * uiScale),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
+              color: context.dcColors.isDark ? context.dcColors.surfaceSecondary : Colors.white.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE3DDF5)),
+              border: Border.all(color: context.dcColors.cardBorder),
             ),
             child: Row(
               children: [
@@ -852,10 +869,10 @@ class _DropdownField extends StatelessWidget {
                     value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w600, color: const Color(0xFF1B1B2E)),
+                    style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w600, color: context.dcColors.textPrimary),
                   ),
                 ),
-                Icon(Icons.expand_more_rounded, size: 16 * uiScale, color: const Color(0xFF6B6B7B)),
+                Icon(Icons.expand_more_rounded, size: 16 * uiScale, color: context.dcColors.textSecondary),
               ],
             ),
           ),
@@ -970,12 +987,12 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                   width: 66 * uiScale,
                   padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
                   decoration: BoxDecoration(
-                    gradient: selected ? const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8467F8)]) : null,
-                    color: selected ? null : Colors.white.withOpacity(0.75),
+                    gradient: selected ? LinearGradient(colors: [context.dcColors.iconPurple, const Color(0xFF8467F8)]) : null,
+                    color: selected ? null : (context.dcColors.isDark ? context.dcColors.surfaceSecondary : Colors.white.withValues(alpha: 0.75)),
                     borderRadius: BorderRadius.circular(14),
-                    border: selected ? null : Border.all(color: const Color(0xFFE3DDF5)),
+                    border: selected ? null : Border.all(color: context.dcColors.cardBorder),
                     boxShadow: selected
-                        ? [BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]
+                        ? [BoxShadow(color: context.dcColors.iconPurple.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
                         : null,
                   ),
                   child: Column(
@@ -986,7 +1003,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12 * uiScale,
                           fontWeight: FontWeight.w800,
-                          color: selected ? Colors.white : const Color(0xFF1B1B2E),
+                          color: selected ? Colors.white : context.dcColors.textPrimary,
                         ),
                       ),
                       SizedBox(height: 2 * uiScale),
@@ -994,7 +1011,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                         d.dayNumber,
                         style: TextStyle(
                           fontSize: 9.5 * uiScale,
-                          color: selected ? Colors.white.withOpacity(0.9) : const Color(0xFF6B6B7B),
+                          color: selected ? Colors.white.withValues(alpha: 0.9) : context.dcColors.textSecondary,
                         ),
                       ),
                     ],
@@ -1033,7 +1050,7 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
 
         Padding(
           padding: EdgeInsets.symmetric(vertical: 14 * uiScale),
-          child: const Divider(height: 1, color: Color(0xFFE1DAF2)),
+          child: Divider(height: 1, color: context.dcColors.cardBorder),
         ),
 
         // Daily Totals Row
@@ -1088,8 +1105,9 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(14 * uiScale),
           decoration: BoxDecoration(
-            color: const Color(0xFFEDE7FA),
+            color: context.dcColors.isDark ? const Color(0xFF232038) : const Color(0xFFEDE7FA),
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.dcColors.cardBorder),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1097,8 +1115,11 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
               Container(
                 width: 30 * uiScale,
                 height: 30 * uiScale,
-                decoration: const BoxDecoration(color: Color(0xFFDCD0F5), shape: BoxShape.circle),
-                child: Icon(Icons.auto_awesome, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                decoration: BoxDecoration(
+                  color: context.dcColors.iconPurple.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.auto_awesome, size: 15 * uiScale, color: context.dcColors.iconPurple),
               ),
               SizedBox(width: 10 * uiScale),
               Expanded(
@@ -1107,12 +1128,12 @@ class _WeeklyPlanPreviewSection extends StatelessWidget {
                   children: [
                     Text(
                       'AI Meal Plan Summary',
-                      style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+                      style: TextStyle(fontSize: 11.5 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary),
                     ),
                     SizedBox(height: 3 * uiScale),
                     Text(
                       plan.summary,
-                      style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: const Color(0xFF4A4A5A)),
+                      style: TextStyle(fontSize: 10.5 * uiScale, height: 1.35, color: context.dcColors.textSecondary),
                     ),
                   ],
                 ),
@@ -1156,9 +1177,9 @@ class _MealRow extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(8 * uiScale),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
+          color: context.dcColors.isDark ? context.dcColors.surfaceSecondary : Colors.white.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEDEAF7)),
+          border: Border.all(color: context.dcColors.cardBorder),
         ),
         child: Row(
           children: [
@@ -1180,7 +1201,7 @@ class _MealRow extends StatelessWidget {
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
                         decoration: BoxDecoration(
-                          color: typeColor.withOpacity(0.12),
+                          color: typeColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -1194,7 +1215,7 @@ class _MealRow extends StatelessWidget {
                       ),
                       if (meal.isVegetarian) ...[
                         SizedBox(width: 4 * uiScale),
-                        Icon(Icons.eco_rounded, size: 11 * uiScale, color: const Color(0xFF1E8A4C)),
+                        Icon(Icons.eco_rounded, size: 11 * uiScale, color: context.dcColors.iconGreen),
                       ],
                     ],
                   ),
@@ -1203,12 +1224,12 @@ class _MealRow extends StatelessWidget {
                     meal.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                    style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
                   ),
                   SizedBox(height: 2 * uiScale),
                   Text(
                     '${meal.proteinGrams}g Protein • ${meal.fiberGrams}g Fiber',
-                    style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                    style: TextStyle(fontSize: 9.5 * uiScale, color: context.dcColors.textSecondary),
                   ),
                 ],
               ),
@@ -1216,12 +1237,12 @@ class _MealRow extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 5 * uiScale),
               decoration: BoxDecoration(
-                color: const Color(0xFFEDE7FA),
+                color: context.dcColors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '${meal.calories} kcal',
-                style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF6C4EF5)),
+                style: TextStyle(fontSize: 10 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.iconPurple),
               ),
             ),
           ],
@@ -1285,7 +1306,7 @@ class _TotalStat extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(fontSize: 9.5 * uiScale, color: context.dcColors.textSecondary),
               ),
             ),
           ],
@@ -1326,8 +1347,8 @@ class _BottomActionBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(18 * uiScale, 10 * uiScale, 18 * uiScale, 14 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        border: const Border(top: BorderSide(color: Color(0xFFEDEAF7))),
+        color: context.dcColors.surface,
+        border: Border(top: BorderSide(color: context.dcColors.cardBorder)),
       ),
       child: SafeArea(
         top: false,

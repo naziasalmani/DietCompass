@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/auth_service.dart';
 
@@ -218,8 +219,9 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
     final user = AuthService.instance.currentUser;
     final isGoogleUser = user != null && user.email.contains('@gmail.com');
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred background orbs
@@ -262,11 +264,12 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -275,7 +278,7 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -289,14 +292,14 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               'Manage your account credentials',
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -320,12 +323,12 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                           Container(
                             padding: EdgeInsets.all(16 * scale),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(20 * scale),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                              border: Border.all(color: colors.cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                                  color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.06),
                                   blurRadius: 16,
                                   offset: const Offset(0, 4),
                                 ),
@@ -360,7 +363,7 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                                         style: TextStyle(
                                           fontSize: 14 * scale,
                                           fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF1B1B2E),
+                                          color: colors.textPrimary,
                                         ),
                                       ),
                                       SizedBox(height: 2 * scale),
@@ -368,7 +371,7 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                                         user?.email ?? 'Logged in user',
                                         style: TextStyle(
                                           fontSize: 12 * scale,
-                                          color: const Color(0xFF6B6B7B),
+                                          color: colors.textSecondary,
                                         ),
                                       ),
                                     ],
@@ -410,12 +413,12 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                           Container(
                             padding: EdgeInsets.all(16 * scale),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(20 * scale),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                              border: Border.all(color: colors.cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+                                  color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.05),
                                   blurRadius: 16,
                                   offset: const Offset(0, 4),
                                 ),
@@ -519,12 +522,12 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
                           Container(
                             padding: EdgeInsets.all(16 * scale),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(20 * scale),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                              border: Border.all(color: colors.cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+                                  color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.05),
                                   blurRadius: 16,
                                   offset: const Offset(0, 4),
                                 ),
@@ -610,6 +613,7 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
     required String? Function(String?) validator,
     required double scale,
   }) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -618,7 +622,7 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
           style: TextStyle(
             fontSize: 12.5 * scale,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF1B1B2E),
+            color: colors.textPrimary,
           ),
         ),
         SizedBox(height: 6 * scale),
@@ -626,32 +630,32 @@ class _PasswordLoginScreenState extends State<PasswordLoginScreen>
           controller: controller,
           obscureText: obscure,
           validator: validator,
-          style: TextStyle(fontSize: 14 * scale, color: const Color(0xFF1B1B2E)),
+          style: TextStyle(fontSize: 14 * scale, color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: '••••••••',
-            hintStyle: TextStyle(color: const Color(0xFFA0A0B0), fontSize: 14 * scale),
+            hintStyle: TextStyle(color: colors.textMuted, fontSize: 14 * scale),
             filled: true,
-            fillColor: const Color(0xFFF9F7FD),
+            fillColor: colors.surfaceSecondary,
             contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 12 * scale),
             suffixIcon: IconButton(
               icon: Icon(
                 obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: const Color(0xFF6B6B7B),
+                color: colors.textSecondary,
                 size: 20 * scale,
               ),
               onPressed: onToggle,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12 * scale),
-              borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+              borderSide: BorderSide(color: colors.cardBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12 * scale),
-              borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+              borderSide: BorderSide(color: colors.cardBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12 * scale),
-              borderSide: const BorderSide(color: Color(0xFF6C4EF5), width: 1.5),
+              borderSide: BorderSide(color: colors.iconPurple, width: 1.5),
             ),
           ),
         ),

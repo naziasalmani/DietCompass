@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 
 import '../../core/services/voice_assistant_service.dart';
 import '../../core/services/ai_service.dart';
@@ -236,6 +237,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final colors = context.dcColors;
 
     final isListening = _state == VoiceAssistantState.listening;
     final isThinking = _state == VoiceAssistantState.thinking;
@@ -274,15 +276,15 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
       margin: EdgeInsets.only(bottom: bottomInset),
       padding: EdgeInsets.fromLTRB(22 * scale, 18 * scale, 22 * scale, 26 * scale),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F101D), // Dark navy / near-black background matching reference
+        color: colors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         border: Border.all(
-          color: const Color(0xFF262640),
+          color: colors.cardBorder,
           width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.6 : 0.15),
             blurRadius: 36,
             offset: const Offset(0, -10),
           ),
@@ -301,7 +303,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                   child: Text(
                     'DietCompass Assistant',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: colors.textPrimary,
                       fontSize: 16.5 * scale,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.2,
@@ -320,16 +322,16 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                       width: 34 * scale,
                       height: 34 * scale,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: colors.surfaceSecondary,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: colors.cardBorder,
                           width: 1.0,
                         ),
                       ),
                       child: Icon(
                         Icons.close_rounded,
-                        color: Colors.white,
+                        color: colors.textPrimary,
                         size: 19 * scale,
                       ),
                     ),
@@ -357,10 +359,10 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                           isListening: isListening,
                           animValue: _waveCtrl.value,
                           color: isError
-                              ? const Color(0xFFE0525C)
+                              ? colors.iconRed
                               : isThinking
-                                  ? const Color(0xFFE0862E)
-                                  : const Color(0xFF8B5CF6),
+                                  ? colors.iconOrange
+                                  : colors.iconPurple,
                         ),
                       );
                     },
@@ -378,10 +380,10 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                           isThinking: isThinking,
                           animValue: _pulseCtrl.value,
                           primaryColor: isError
-                              ? const Color(0xFFE0525C)
+                              ? colors.iconRed
                               : isThinking
-                                  ? const Color(0xFFE0862E)
-                                  : const Color(0xFF7B52F8),
+                                  ? colors.iconOrange
+                                  : colors.iconPurple,
                         ),
                       );
                     },
@@ -403,22 +405,22 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
                                 colors: isError
-                                    ? [const Color(0xFFE0525C), const Color(0xFFB52D37)]
+                                    ? [colors.iconRed, const Color(0xFFB52D37)]
                                     : isThinking
-                                        ? [const Color(0xFFE0862E), const Color(0xFFF0A04B)]
+                                        ? [colors.iconOrange, const Color(0xFFF0A04B)]
                                         : isSpeaking
-                                            ? [const Color(0xFF3B82F6), const Color(0xFF6C4EF5)]
-                                            : [const Color(0xFF8B5CF6), const Color(0xFF6C4EF5)],
+                                            ? [colors.iconBlue, colors.iconPurple]
+                                            : [const Color(0xFF8B5CF6), colors.iconPurple],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: (isError
-                                          ? const Color(0xFFE0525C)
+                                          ? colors.iconRed
                                           : isThinking
-                                              ? const Color(0xFFE0862E)
-                                              : const Color(0xFF7B52F8))
+                                              ? colors.iconOrange
+                                              : colors.iconPurple)
                                       .withValues(alpha: isListening || isSpeaking ? 0.55 : 0.35),
                                   blurRadius: isListening || isSpeaking ? 28 : 18,
                                   spreadRadius: isListening ? 3 : 1,
@@ -449,7 +451,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
               titleText,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
+                color: colors.textPrimary,
                 fontSize: 20 * scale,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
@@ -462,7 +464,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
               subtitleText,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xFF8E8EA6),
+                color: colors.textSecondary,
                 fontSize: 13.5 * scale,
                 fontWeight: FontWeight.w500,
               ),
@@ -488,7 +490,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                           height: 7 * scale,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF8B5CF6).withValues(alpha: opacity),
+                            color: colors.iconPurple.withValues(alpha: opacity),
                           ),
                         ),
                       );
@@ -506,10 +508,10 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                 constraints: BoxConstraints(minHeight: 60 * scale, maxHeight: 150 * scale),
                 padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF171828),
+                  color: colors.surfaceSecondary,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: const Color(0xFF2E2F48),
+                    color: colors.cardBorder,
                     width: 1.0,
                   ),
                 ),
@@ -525,10 +527,8 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                       fontSize: 13 * scale,
                       height: 1.4,
                       color: isError
-                          ? const Color(0xFFFF6B75)
-                          : _aiResponse.isNotEmpty
-                              ? Colors.white
-                              : const Color(0xFFD6D0EC),
+                          ? colors.iconRed
+                          : colors.textPrimary,
                       fontStyle: _spokenText.isNotEmpty && _aiResponse.isEmpty
                           ? FontStyle.italic
                           : FontStyle.normal,
@@ -547,11 +547,11 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _stopSpeaking,
-                        icon: Icon(Icons.stop_rounded, size: 16 * scale, color: const Color(0xFFFF6B75)),
-                        label: Text('Stop Audio', style: TextStyle(fontSize: 12 * scale, color: const Color(0xFFFF6B75), fontWeight: FontWeight.w700)),
+                        icon: Icon(Icons.stop_rounded, size: 16 * scale, color: colors.iconRed),
+                        label: Text('Stop Audio', style: TextStyle(fontSize: 12 * scale, color: colors.iconRed, fontWeight: FontWeight.w700)),
                         style: OutlinedButton.styleFrom(
                           padding: EdgeInsets.symmetric(vertical: 10 * scale),
-                          side: const BorderSide(color: Color(0xFFFF6B75)),
+                          side: BorderSide(color: colors.iconRed),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                       ),
@@ -561,13 +561,13 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _openFullCoach,
-                      icon: Icon(Icons.chat_bubble_outline_rounded, size: 16 * scale, color: Colors.white),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.white),
                       label: Text(
                         'Open AI Coach Chat',
                         style: TextStyle(fontSize: 12 * scale, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C4EF5),
+                        backgroundColor: colors.iconPurple,
                         padding: EdgeInsets.symmetric(vertical: 10 * scale),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         elevation: 0,
@@ -584,7 +584,7 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
               bottomHint,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xFF7A7A90),
+                color: colors.textMuted,
                 fontSize: 13 * scale,
                 fontWeight: FontWeight.w500,
               ),

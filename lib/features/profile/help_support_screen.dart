@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/config/app_config.dart';
@@ -230,13 +231,14 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
           final mq = MediaQuery.of(context);
           final scale = (mq.size.width / 390.0).clamp(0.85, 1.25);
 
+          final colors = context.dcColors;
           return Padding(
             padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
             child: Container(
               padding: EdgeInsets.all(22 * scale),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -249,10 +251,10 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                           width: 36 * scale,
                           height: 36 * scale,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFECEE),
+                            color: colors.isDark ? const Color(0xFF331C1F) : const Color(0xFFFFECEE),
                             borderRadius: BorderRadius.circular(10 * scale),
                           ),
-                          child: Icon(Icons.bug_report_outlined, color: const Color(0xFFE0525C), size: 20 * scale),
+                          child: Icon(Icons.bug_report_outlined, color: colors.iconRed, size: 20 * scale),
                         ),
                         SizedBox(width: 10 * scale),
                         Expanded(
@@ -261,12 +263,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                             style: TextStyle(
                               fontSize: 16.5 * scale,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF1B1B2E),
+                              color: colors.textPrimary,
                             ),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF6B6B7B)),
+                          icon: Icon(Icons.close_rounded, size: 20, color: colors.textSecondary),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
@@ -274,30 +276,32 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     SizedBox(height: 14 * scale),
                     Text(
                       'Category',
-                      style: TextStyle(fontSize: 12.5 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                      style: TextStyle(fontSize: 12.5 * scale, fontWeight: FontWeight.w700, color: colors.textPrimary),
                     ),
                     SizedBox(height: 6 * scale),
                     DropdownButtonFormField<String>(
                       initialValue: selectedCategory,
+                      dropdownColor: colors.surface,
+                      style: TextStyle(color: colors.textPrimary, fontSize: 13.5 * scale),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFFF9F7FD),
+                        fillColor: colors.surfaceSecondary,
                         contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 10 * scale),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12 * scale),
-                          borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+                          borderSide: BorderSide(color: colors.cardBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12 * scale),
-                          borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+                          borderSide: BorderSide(color: colors.cardBorder),
                         ),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'Scanning', child: Text('Scanning & Barcodes')),
-                        DropdownMenuItem(value: 'Recipes', child: Text('Recipe Generator')),
-                        DropdownMenuItem(value: 'MealPlanner', child: Text('Meal Planner')),
-                        DropdownMenuItem(value: 'Account', child: Text('Account & Login')),
-                        DropdownMenuItem(value: 'Other', child: Text('Other Issue')),
+                      items: [
+                        DropdownMenuItem(value: 'Scanning', child: Text('Scanning & Barcodes', style: TextStyle(color: colors.textPrimary))),
+                        DropdownMenuItem(value: 'Recipes', child: Text('Recipe Generator', style: TextStyle(color: colors.textPrimary))),
+                        DropdownMenuItem(value: 'MealPlanner', child: Text('Meal Planner', style: TextStyle(color: colors.textPrimary))),
+                        DropdownMenuItem(value: 'Account', child: Text('Account & Login', style: TextStyle(color: colors.textPrimary))),
+                        DropdownMenuItem(value: 'Other', child: Text('Other Issue', style: TextStyle(color: colors.textPrimary))),
                       ],
                       onChanged: (val) {
                         if (val != null) setModalState(() => selectedCategory = val);
@@ -306,30 +310,30 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     SizedBox(height: 14 * scale),
                     Text(
                       'Problem Description',
-                      style: TextStyle(fontSize: 12.5 * scale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+                      style: TextStyle(fontSize: 12.5 * scale, fontWeight: FontWeight.w700, color: colors.textPrimary),
                     ),
                     SizedBox(height: 6 * scale),
                     TextField(
                       controller: problemCtrl,
                       maxLines: 4,
-                      style: TextStyle(fontSize: 13.5 * scale, color: const Color(0xFF1B1B2E)),
+                      style: TextStyle(fontSize: 13.5 * scale, color: colors.textPrimary),
                       decoration: InputDecoration(
                         hintText: 'Please describe what happened and how to reproduce the issue...',
-                        hintStyle: TextStyle(color: const Color(0xFFA0A0B0), fontSize: 12.5 * scale),
+                        hintStyle: TextStyle(color: colors.textMuted, fontSize: 12.5 * scale),
                         filled: true,
-                        fillColor: const Color(0xFFF9F7FD),
+                        fillColor: colors.surfaceSecondary,
                         contentPadding: EdgeInsets.all(12 * scale),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12 * scale),
-                          borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+                          borderSide: BorderSide(color: colors.cardBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12 * scale),
-                          borderSide: BorderSide(color: const Color(0xFF6C4EF5).withValues(alpha: 0.15)),
+                          borderSide: BorderSide(color: colors.cardBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12 * scale),
-                          borderSide: const BorderSide(color: Color(0xFF6C4EF5), width: 1.5),
+                          borderSide: BorderSide(color: colors.iconPurple, width: 1.5),
                         ),
                       ),
                     ),
@@ -409,8 +413,9 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
     final width = mq.size.width;
     final scale = (width / 390.0).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred background orbs
@@ -453,11 +458,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -466,7 +472,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -480,14 +486,14 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               "We're here to help you",
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -612,7 +618,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                                         style: TextStyle(
                                           fontSize: 14.5 * scale,
                                           fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF1B1B2E),
+                                          color: colors.textPrimary,
                                         ),
                                       ),
                                       SizedBox(height: 2 * scale),
@@ -620,7 +626,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                                         'AI-Powered Nutrition & Diet Assistant',
                                         style: TextStyle(
                                           fontSize: 11.5 * scale,
-                                          color: const Color(0xFF6B6B7B),
+                                          color: colors.textSecondary,
                                         ),
                                       ),
                                     ],
@@ -629,7 +635,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                                 Container(
                                   padding: EdgeInsets.symmetric(horizontal: 9 * scale, vertical: 4 * scale),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEDE7FA),
+                                    color: colors.iconPurple.withValues(alpha: 0.14),
                                     borderRadius: BorderRadius.circular(8 * scale),
                                   ),
                                   child: Text(
@@ -637,7 +643,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                                     style: TextStyle(
                                       fontSize: 11 * scale,
                                       fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF6C4EF5),
+                                      color: colors.iconPurple,
                                     ),
                                   ),
                                 ),
@@ -665,20 +671,21 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
       style: TextStyle(
         fontSize: 15 * scale,
         fontWeight: FontWeight.w800,
-        color: const Color(0xFF1B1B2E),
+        color: context.dcColors.textPrimary,
       ),
     );
   }
 
   Widget _buildCard({required double scale, required Widget child}) {
+    final colors = context.dcColors;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20 * scale),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+            color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -689,7 +696,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
   }
 
   Widget _buildDivider() {
-    return const Divider(height: 1, color: Color(0xFFF3F0FB), indent: 16, endIndent: 16);
+    return Divider(height: 1, color: context.dcColors.cardBorder, indent: 16, endIndent: 16);
   }
 
   Widget _buildMenuRow({
@@ -723,7 +730,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     style: TextStyle(
                       fontSize: 13.5 * scale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 2 * scale),
@@ -731,13 +738,13 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     topic.subtitle,
                     style: TextStyle(
                       fontSize: 11.5 * scale,
-                      color: const Color(0xFF6B6B7B),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: const Color(0xFFA0A0B0)),
+            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: context.dcColors.textMuted),
           ],
         ),
       ),
@@ -779,7 +786,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     style: TextStyle(
                       fontSize: 13.5 * scale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 2 * scale),
@@ -787,13 +794,13 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     subtitle,
                     style: TextStyle(
                       fontSize: 11.5 * scale,
-                      color: const Color(0xFF6B6B7B),
+                      color: context.dcColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: const Color(0xFFA0A0B0)),
+            Icon(Icons.chevron_right_rounded, size: 20 * scale, color: context.dcColors.textMuted),
           ],
         ),
       ),
@@ -831,7 +838,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                     style: TextStyle(
                       fontSize: 13.5 * scale,
                       fontWeight: FontWeight.w700,
-                      color: isExpanded ? const Color(0xFF6C4EF5) : const Color(0xFF1B1B2E),
+                      color: isExpanded ? context.dcColors.iconPurple : context.dcColors.textPrimary,
                     ),
                   ),
                 ),
@@ -842,7 +849,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                   child: Icon(
                     Icons.chevron_right_rounded,
                     size: 20 * scale,
-                    color: isExpanded ? const Color(0xFF6C4EF5) : const Color(0xFFA0A0B0),
+                    color: isExpanded ? context.dcColors.iconPurple : context.dcColors.textMuted,
                   ),
                 ),
               ],
@@ -855,7 +862,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen>
                   answer,
                   style: TextStyle(
                     fontSize: 12.5 * scale,
-                    color: const Color(0xFF5A5A6A),
+                    color: context.dcColors.textSecondary,
                     height: 1.45,
                   ),
                 ),

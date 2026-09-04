@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/auth_service.dart';
 
 /// DietCompass — Google Sign-In Management Screen
@@ -85,8 +86,9 @@ class _GoogleSignInManagementScreenState
     final user = AuthService.instance.currentUser;
     final isGoogleConnected = user != null && user.email.contains('@gmail.com');
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred background orbs
@@ -117,11 +119,12 @@ class _GoogleSignInManagementScreenState
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -130,7 +133,7 @@ class _GoogleSignInManagementScreenState
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -144,14 +147,14 @@ class _GoogleSignInManagementScreenState
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               'Connected account & authentication',
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -173,11 +176,12 @@ class _GoogleSignInManagementScreenState
                         Container(
                           padding: EdgeInsets.all(20 * scale),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(20 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                                color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.12 : 0.06),
                                 blurRadius: 16,
                                 offset: const Offset(0, 4),
                               ),
@@ -192,7 +196,7 @@ class _GoogleSignInManagementScreenState
                                     width: 48 * scale,
                                     height: 48 * scale,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F0FB),
+                                      color: colors.surfaceSecondary,
                                       borderRadius: BorderRadius.circular(16 * scale),
                                     ),
                                     child: Center(
@@ -216,7 +220,7 @@ class _GoogleSignInManagementScreenState
                                           style: TextStyle(
                                             fontSize: 15 * scale,
                                             fontWeight: FontWeight.w800,
-                                            color: const Color(0xFF1B1B2E),
+                                            color: colors.textPrimary,
                                           ),
                                         ),
                                         SizedBox(height: 2 * scale),
@@ -224,7 +228,7 @@ class _GoogleSignInManagementScreenState
                                           user?.email ?? 'No email linked',
                                           style: TextStyle(
                                             fontSize: 12.5 * scale,
-                                            color: const Color(0xFF6B6B7B),
+                                            color: colors.textSecondary,
                                           ),
                                         ),
                                       ],
@@ -249,7 +253,7 @@ class _GoogleSignInManagementScreenState
                               ),
 
                               SizedBox(height: 18 * scale),
-                              const Divider(height: 1, color: Color(0xFFF0EDF7)),
+                              Divider(height: 1, color: colors.cardBorder),
                               SizedBox(height: 16 * scale),
 
                               // Security Bullet Points
@@ -338,6 +342,7 @@ class _GoogleSignInManagementScreenState
     required String subtitle,
     required double scale,
   }) {
+    final colors = context.dcColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -345,10 +350,10 @@ class _GoogleSignInManagementScreenState
           width: 32 * scale,
           height: 32 * scale,
           decoration: BoxDecoration(
-            color: const Color(0xFFEDE7FA),
+            color: colors.iconPurple.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(10 * scale),
           ),
-          child: Icon(icon, color: const Color(0xFF6C4EF5), size: 16 * scale),
+          child: Icon(icon, color: colors.iconPurple, size: 16 * scale),
         ),
         SizedBox(width: 12 * scale),
         Expanded(
@@ -360,14 +365,14 @@ class _GoogleSignInManagementScreenState
                 style: TextStyle(
                   fontSize: 13 * scale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               Text(
                 subtitle,
                 style: TextStyle(
                   fontSize: 11.5 * scale,
-                  color: const Color(0xFF6B6B7B),
+                  color: colors.textSecondary,
                 ),
               ),
             ],

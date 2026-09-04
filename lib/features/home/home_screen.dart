@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../ai/ai_recommendation_screen.dart';
 import '../scan/scan_screen.dart';
 import '../scan/camera_scan_screen.dart';
@@ -313,22 +314,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
+
     return Scaffold(
-  backgroundColor: const Color(0xFFF3F0FB),
-  extendBody: true,
-  body: Stack(
-    fit: StackFit.expand,
-    children: [
-
-      Positioned.fill(
-  child: Image.asset(
-    'assets/images/home_bg.jpeg',
-    fit: BoxFit.cover,
-  ),
-),
-
-//     const _BackgroundGradient(),
-      _DriftingLeaves(controller: _ambientCtrl),
+      backgroundColor: colors.bg,
+      extendBody: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (!colors.isDark)
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/home_bg.jpeg',
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF13111C),
+                      Color(0xFF0D0C14),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          _DriftingLeaves(controller: _ambientCtrl),
 
           SafeArea(
             bottom: false,
@@ -713,6 +729,7 @@ class _HeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         GestureDetector(
@@ -729,8 +746,8 @@ class _HeaderRow extends StatelessWidget {
     height: 48 * uiScale,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      gradient: const LinearGradient(
-        colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+      gradient: LinearGradient(
+        colors: [colors.iconPurple, colors.iconGreen],
       ),
       image: avatarUrl != null
           ? DecorationImage(
@@ -767,7 +784,7 @@ class _HeaderRow extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 17 * uiScale,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -778,14 +795,14 @@ class _HeaderRow extends StatelessWidget {
                 text: TextSpan(
                   style: TextStyle(
                     fontSize: 12.5 * uiScale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                   ),
-                  children: const [
-                    TextSpan(text: 'Your AI companion for a '),
+                  children: [
+                    const TextSpan(text: 'Your AI companion for a '),
                     TextSpan(
                       text: 'healthier you',
                       style: TextStyle(
-                        color: Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -833,6 +850,7 @@ class _NotificationBellState extends State<_NotificationBell>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.9),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -845,11 +863,12 @@ class _NotificationBellState extends State<_NotificationBell>
           width: 44 * widget.uiScale,
           height: 44 * widget.uiScale,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.surface,
             shape: BoxShape.circle,
+            border: Border.all(color: colors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -861,7 +880,7 @@ class _NotificationBellState extends State<_NotificationBell>
               Icon(
                 Icons.notifications_none_rounded,
                 size: 20 * widget.uiScale,
-                color: const Color(0xFF1B1B2E),
+                color: colors.textPrimary,
               ),
               Positioned(
                 top: 10 * widget.uiScale,
@@ -883,7 +902,7 @@ class _NotificationBellState extends State<_NotificationBell>
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFFE0525C)
-                                .withOpacity(0.5 * (1 - t)),
+                                .withValues(alpha: 0.5 * (1 - t)),
                             blurRadius: 4 + t * 4,
                             spreadRadius: t * 2,
                           ),
@@ -939,6 +958,7 @@ class _SearchBarState extends State<_SearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         Expanded(
@@ -946,17 +966,17 @@ class _SearchBarState extends State<_SearchBar> {
             duration: const Duration(milliseconds: 180),
             height: 50 * widget.uiScale,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: _focused
-                    ? const Color(0xFF6C4EF5)
-                    : Colors.white,
+                    ? colors.iconPurple
+                    : colors.cardBorder,
                 width: 1.6,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.05),
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
@@ -965,17 +985,20 @@ class _SearchBarState extends State<_SearchBar> {
             child: TextField(
               focusNode: _focusNode,
               onSubmitted: widget.onSubmitted,
-              style: TextStyle(fontSize: 13.5 * widget.uiScale),
+              style: TextStyle(
+                fontSize: 13.5 * widget.uiScale,
+                color: colors.textPrimary,
+              ),
               decoration: InputDecoration(
                 hintText: 'Search food, recipes or ask AI...',
                 hintStyle: TextStyle(
-                  color: const Color(0xFFB0ACC2),
+                  color: colors.textMuted,
                   fontSize: 13 * widget.uiScale,
                 ),
                 prefixIcon: Icon(
                   Icons.auto_awesome,
                   size: 18 * widget.uiScale,
-                  color: const Color(0xFF9B7BFA),
+                  color: colors.iconPurple,
                 ),
                 border: InputBorder.none,
                 isDense: true,
@@ -1007,6 +1030,7 @@ class _MicButtonState extends State<_MicButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.9),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -1020,12 +1044,12 @@ class _MicButtonState extends State<_MicButton> {
           height: 50 * widget.uiScale,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E8A4C), Color(0xFF2FAE68)],
+            gradient: LinearGradient(
+              colors: [colors.iconGreen, const Color(0xFF2FAE68)],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1E8A4C).withOpacity(0.3),
+                color: colors.iconGreen.withValues(alpha: 0.3),
                 blurRadius: 20,
                 spreadRadius: 1,
                 offset: const Offset(0, 8),
@@ -1112,7 +1136,7 @@ class _HeroBannerState extends State<_HeroBanner> {
           Icons.qr_code_scanner_rounded,
           color: const Color(0xFF5CE0A0),
           size: 15 * widget.uiScale,
-                        ),
+        ),
       ],
     ),
   ),
@@ -1140,39 +1164,41 @@ class _AiHubSection extends StatelessWidget {
   final VoidCallback? onExploreAll;
   final ValueChanged<int>? onCardTap;
 
-  static const _cards = [
-    (
-      icon: Icons.forum_rounded,
-      bg: Color(0xFFEDE7FA),
-      fg: Color(0xFF6C4EF5),
-      title: 'AI Nutrition Coach',
-      subtitle: 'Ask anything about\nfood, nutrition or your diet.',
-    ),
-    (
-      icon: Icons.ramen_dining_rounded,
-      bg: Color(0xFFFCEBE0),
-      fg: Color(0xFFE0862E),
-      title: 'Recipe Generator',
-      subtitle: 'Get healthy recipes\nusing ingredients in your pantry.',
-    ),
-    (
-      icon: Icons.balance_rounded,
-      bg: Color(0xFFE3EEFC),
-      fg: Color(0xFF3B82F6),
-      title: 'Compare Products',
-      subtitle: 'Compare products\n& choose the healthier one.',
-    ),
-    (
-      icon: Icons.add_shopping_cart_rounded,
-      bg: Color(0xFFE4F5E9),
-      fg: Color(0xFF1E8A4C),
-      title: 'AI Product Recommendations',
-      subtitle: 'Find healthier products that match your goals.',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
+
+    final cards = [
+      (
+        icon: Icons.forum_rounded,
+        bg: colors.isDark ? const Color(0xFF26203D) : const Color(0xFFEDE7FA),
+        fg: colors.iconPurple,
+        title: 'AI Nutrition Coach',
+        subtitle: 'Ask anything about\nfood, nutrition or your diet.',
+      ),
+      (
+        icon: Icons.ramen_dining_rounded,
+        bg: colors.isDark ? const Color(0xFF33241C) : const Color(0xFFFCEBE0),
+        fg: colors.iconOrange,
+        title: 'Recipe Generator',
+        subtitle: 'Get healthy recipes\nusing ingredients in your pantry.',
+      ),
+      (
+        icon: Icons.balance_rounded,
+        bg: colors.isDark ? const Color(0xFF1B283D) : const Color(0xFFE3EEFC),
+        fg: colors.iconBlue,
+        title: 'Compare Products',
+        subtitle: 'Compare products\n& choose the healthier one.',
+      ),
+      (
+        icon: Icons.add_shopping_cart_rounded,
+        bg: colors.isDark ? const Color(0xFF1B3326) : const Color(0xFFE4F5E9),
+        fg: colors.iconGreen,
+        title: 'AI Product Recommendations',
+        subtitle: 'Find healthier products that match your goals.',
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1181,7 +1207,7 @@ class _AiHubSection extends StatelessWidget {
             Icon(
               Icons.auto_awesome,
               size: 16 * uiScale,
-              color: const Color(0xFF9B7BFA),
+              color: colors.iconPurple,
             ),
             SizedBox(width: 6 * uiScale),
             Text(
@@ -1189,7 +1215,7 @@ class _AiHubSection extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16 * uiScale,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1B1B2E),
+                color: colors.textPrimary,
               ),
             ),
             const Spacer(),
@@ -1202,13 +1228,13 @@ class _AiHubSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
                     size: 16 * uiScale,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ],
               ),
@@ -1220,14 +1246,14 @@ class _AiHubSection extends StatelessWidget {
           'Smart tools to guide your health journey',
           style: TextStyle(
             fontSize: 12 * uiScale,
-            color: const Color(0xFF6B6B7B),
+            color: colors.textSecondary,
           ),
         ),
         SizedBox(height: 12 * uiScale),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _cards.length,
+          itemCount: cards.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             mainAxisSpacing: 12 * uiScale,
@@ -1235,7 +1261,7 @@ class _AiHubSection extends StatelessWidget {
             childAspectRatio: 1.02,
           ),
           itemBuilder: (context, i) {
-            final c = _cards[i];
+            final c = cards[i];
             return _AiHubCard(
               uiScale: uiScale,
               icon: c.icon,
@@ -1291,6 +1317,7 @@ class _AiHubCardState extends State<_AiHubCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.96),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -1304,6 +1331,7 @@ class _AiHubCardState extends State<_AiHubCard> {
           decoration: BoxDecoration(
             color: widget.bg,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.cardBorder),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1312,7 +1340,7 @@ class _AiHubCardState extends State<_AiHubCard> {
                 width: 34 * widget.uiScale,
                 height: 34 * widget.uiScale,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
+                  color: colors.surface.withValues(alpha: 0.8),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -1327,7 +1355,7 @@ class _AiHubCardState extends State<_AiHubCard> {
                 style: TextStyle(
                   fontSize: 12.5 * widget.uiScale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(height: 3 * widget.uiScale),
@@ -1336,7 +1364,7 @@ class _AiHubCardState extends State<_AiHubCard> {
                 style: TextStyle(
                   fontSize: 10 * widget.uiScale,
                   height: 1.3,
-                  color: const Color(0xFF6B6B7B),
+                  color: colors.textSecondary,
                 ),
               ),
               SizedBox(height: 6 * widget.uiScale),
@@ -1346,7 +1374,7 @@ class _AiHubCardState extends State<_AiHubCard> {
                   width: 22 * widget.uiScale,
                   height: 22 * widget.uiScale,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
+                    color: colors.surface.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -1382,6 +1410,7 @@ class _HealthCompassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final gaugeAnim = CurvedAnimation(
       parent: entranceCtrl,
       curve: const Interval(0.35, 0.95, curve: Curves.easeOutCubic),
@@ -1397,16 +1426,19 @@ class _HealthCompassCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withOpacity(0.07),
+            color: colors.isDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : const Color(0xFF6C4EF5).withValues(alpha: 0.07),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.15 : 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1424,13 +1456,13 @@ class _HealthCompassCard extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.all(8 * uiScale),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C4EF5).withOpacity(0.12),
+                      color: colors.iconPurpleBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.explore_rounded,
                       size: 18 * uiScale,
-                      color: const Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                   SizedBox(width: 10 * uiScale),
@@ -1440,7 +1472,7 @@ class _HealthCompassCard extends StatelessWidget {
                       fontSize: 16 * uiScale,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.7,
-                      color: const Color(0xFF1B1B2E),
+                      color: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -1450,7 +1482,7 @@ class _HealthCompassCard extends StatelessWidget {
                 child: Icon(
                   Icons.info_outline_rounded,
                   size: 19 * uiScale,
-                  color: const Color(0xFFB0ACC2),
+                  color: colors.textMuted,
                 ),
               ),
             ],
@@ -1484,6 +1516,7 @@ class _HealthCompassCard extends StatelessWidget {
                             painter: _CompassGaugePainter(
                               progress: progress,
                               hasScans: hasScans,
+                              isDark: colors.isDark,
                             ),
                           ),
                           Positioned(
@@ -1500,7 +1533,7 @@ class _HealthCompassCard extends StatelessWidget {
                                           fontSize: 36 * uiScale,
                                           fontWeight: FontWeight.w900,
                                           letterSpacing: -0.6,
-                                          color: const Color(0xFF1B1B2E),
+                                          color: colors.textPrimary,
                                         ),
                                       ),
                                       TextSpan(
@@ -1508,7 +1541,7 @@ class _HealthCompassCard extends StatelessWidget {
                                         style: TextStyle(
                                           fontSize: 16 * uiScale,
                                           fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF9A96A8),
+                                          color: colors.textMuted,
                                         ),
                                       ),
                                     ],
@@ -1520,7 +1553,7 @@ class _HealthCompassCard extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 13 * uiScale,
                                     fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF6B6B7B),
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1539,7 +1572,7 @@ class _HealthCompassCard extends StatelessWidget {
                         color: statusBadgeBg,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: statusBadgeColor.withOpacity(0.25),
+                          color: statusBadgeColor.withValues(alpha: 0.25),
                           width: 1.2,
                         ),
                       ),
@@ -1578,7 +1611,7 @@ class _HealthCompassCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12.5 * uiScale,
-                  color: const Color(0xFF9A96A8),
+                  color: colors.textMuted,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1590,7 +1623,7 @@ class _HealthCompassCard extends StatelessWidget {
           // Divider
           Container(
             height: 1.2,
-            color: const Color(0xFFF0EDF8),
+            color: colors.divider,
           ),
 
           SizedBox(height: 20 * uiScale),
@@ -1605,9 +1638,9 @@ class _HealthCompassCard extends StatelessWidget {
                   line1: 'Products',
                   line2: 'Analyzed',
                   icon: Icons.inventory_2_rounded,
-                  accentColor: const Color(0xFF6C4EF5),
-                  bgColor: const Color(0xFFF7F5FF),
-                  borderColor: const Color(0xFFE8E2FF),
+                  accentColor: colors.iconPurple,
+                  bgColor: colors.surfaceSecondary,
+                  borderColor: colors.cardBorder,
                 ),
               ),
               SizedBox(width: 12 * uiScale),
@@ -1618,9 +1651,9 @@ class _HealthCompassCard extends StatelessWidget {
                   line1: 'Ingredients',
                   line2: 'Flagged',
                   icon: Icons.flag_rounded,
-                  accentColor: const Color(0xFFE0525C),
-                  bgColor: const Color(0xFFFFF4F4),
-                  borderColor: const Color(0xFFFFE2E2),
+                  accentColor: colors.iconRed,
+                  bgColor: colors.surfaceSecondary,
+                  borderColor: colors.cardBorder,
                 ),
               ),
             ],
@@ -1637,9 +1670,9 @@ class _HealthCompassCard extends StatelessWidget {
                   line1: 'Better',
                   line2: 'Alternatives',
                   icon: Icons.swap_horiz_rounded,
-                  accentColor: const Color(0xFF1E8A4C),
-                  bgColor: const Color(0xFFF0FAF3),
-                  borderColor: const Color(0xFFD4F3DE),
+                  accentColor: colors.iconGreen,
+                  bgColor: colors.surfaceSecondary,
+                  borderColor: colors.cardBorder,
                 ),
               ),
               SizedBox(width: 12 * uiScale),
@@ -1650,9 +1683,9 @@ class _HealthCompassCard extends StatelessWidget {
                   line1: 'Scans',
                   line2: 'This Week',
                   icon: Icons.calendar_today_rounded,
-                  accentColor: const Color(0xFFE0862E),
-                  bgColor: const Color(0xFFFFF8F0),
-                  borderColor: const Color(0xFFFFE8D1),
+                  accentColor: colors.iconOrange,
+                  bgColor: colors.surfaceSecondary,
+                  borderColor: colors.cardBorder,
                 ),
               ),
             ],
@@ -1686,6 +1719,7 @@ class _HealthCompassMetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 14 * uiScale,
@@ -1713,17 +1747,18 @@ class _HealthCompassMetricTile extends StatelessWidget {
                   fontSize: 24 * uiScale,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.4,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               Container(
                 padding: EdgeInsets.all(7 * uiScale),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.cardBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: accentColor.withOpacity(0.12),
+                      color: accentColor.withValues(alpha: 0.12),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1744,7 +1779,7 @@ class _HealthCompassMetricTile extends StatelessWidget {
               fontSize: 12.5 * uiScale,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: const Color(0xFF4A475A),
+              color: colors.textSecondary,
             ),
           ),
         ],
@@ -1757,10 +1792,12 @@ class _CompassGaugePainter extends CustomPainter {
   _CompassGaugePainter({
     required this.progress,
     required this.hasScans,
+    this.isDark = false,
   });
 
   final double progress; // 0..1
   final bool hasScans;
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1768,7 +1805,7 @@ class _CompassGaugePainter extends CustomPainter {
     final radius = size.width / 2 - 16;
 
     final bgPaint = Paint()
-      ..color = const Color(0xFFEDEAF7)
+      ..color = isDark ? const Color(0xFF28253A) : const Color(0xFFEDEAF7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12
       ..strokeCap = StrokeCap.round;
@@ -1809,7 +1846,7 @@ class _CompassGaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CompassGaugePainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.hasScans != hasScans;
+      oldDelegate.progress != progress || oldDelegate.hasScans != hasScans || oldDelegate.isDark != isDark;
 }
 
 // ---------------------------------------------------------------------------
@@ -1832,6 +1869,7 @@ class _RecentScansSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1840,7 +1878,7 @@ class _RecentScansSection extends StatelessWidget {
             Icon(
               Icons.history_rounded,
               size: 16 * uiScale,
-              color: const Color(0xFF1E8A4C),
+              color: colors.iconGreen,
             ),
             SizedBox(width: 6 * uiScale),
             Text(
@@ -1848,7 +1886,7 @@ class _RecentScansSection extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16 * uiScale,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1B1B2E),
+                color: colors.textPrimary,
               ),
             ),
             const Spacer(),
@@ -1861,13 +1899,13 @@ class _RecentScansSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12.5 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
                     size: 16 * uiScale,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ],
               ),
@@ -1883,11 +1921,12 @@ class _RecentScansSection extends StatelessWidget {
               vertical: 16 * uiScale,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.15 : 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -1898,12 +1937,12 @@ class _RecentScansSection extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.all(10 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E8A4C).withOpacity(0.08),
+                    color: colors.iconGreenBg,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.qr_code_scanner_rounded,
-                    color: const Color(0xFF1E8A4C),
+                    color: colors.iconGreen,
                     size: 20 * uiScale,
                   ),
                 ),
@@ -1917,7 +1956,7 @@ class _RecentScansSection extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13.5 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1B1B2E),
+                          color: colors.textPrimary,
                         ),
                       ),
                       SizedBox(height: 2 * uiScale),
@@ -1925,7 +1964,7 @@ class _RecentScansSection extends StatelessWidget {
                         'Scan a product to see your scan history here.',
                         style: TextStyle(
                           fontSize: 11.5 * uiScale,
-                          color: const Color(0xFF8C8CA1),
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -1934,7 +1973,7 @@ class _RecentScansSection extends StatelessWidget {
                 ElevatedButton(
                   onPressed: onScanProductTap,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E8A4C),
+                    backgroundColor: colors.iconGreen,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(
                       horizontal: 14 * uiScale,
@@ -2005,6 +2044,7 @@ class _ProductCardState extends State<_ProductCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.96),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -2015,11 +2055,12 @@ class _ProductCardState extends State<_ProductCard> {
         duration: const Duration(milliseconds: 100),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.05),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -2035,7 +2076,7 @@ class _ProductCardState extends State<_ProductCard> {
                 child: AspectRatio(
                   aspectRatio: 1.1,
                   child: Container(
-                    color: Colors.white,
+                    color: colors.surfaceSecondary,
                     padding: EdgeInsets.all(6 * widget.uiScale),
                     child: widget.scan.asset.startsWith('http')
                         ? Image.network(
@@ -2045,7 +2086,7 @@ class _ProductCardState extends State<_ProductCard> {
                               child: Icon(
                                 Icons.inventory_2_outlined,
                                 size: 32 * widget.uiScale,
-                                color: const Color(0xFFB0B0C4),
+                                color: colors.textMuted,
                               ),
                             ),
                           )
@@ -2055,7 +2096,7 @@ class _ProductCardState extends State<_ProductCard> {
                                 child: Icon(
                                   Icons.inventory_2_outlined,
                                   size: 32 * widget.uiScale,
-                                  color: const Color(0xFFB0B0C4),
+                                  color: colors.textMuted,
                                 ),
                               )),
                   ),
@@ -2078,7 +2119,7 @@ class _ProductCardState extends State<_ProductCard> {
                       style: TextStyle(
                         fontSize: 10.5 * widget.uiScale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                         height: 1.25,
                       ),
                     ),
@@ -2087,7 +2128,7 @@ class _ProductCardState extends State<_ProductCard> {
                       widget.scan.time,
                       style: TextStyle(
                         fontSize: 9 * widget.uiScale,
-                        color: const Color(0xFF9A96A8),
+                        color: colors.textSecondary,
                       ),
                     ),
                     SizedBox(height: 3 * widget.uiScale),
@@ -2139,11 +2180,13 @@ class _CoachPromptBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1ECFB),
+        color: colors.isDark ? const Color(0xFF1F1B38) : const Color(0xFFF1ECFB),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Row(
         children: [
@@ -2165,7 +2208,7 @@ class _CoachPromptBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ),
                 SizedBox(height: 2 * uiScale),
@@ -2175,7 +2218,7 @@ class _CoachPromptBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10.5 * uiScale,
                     height: 1.3,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                   ),
                 ),
               ],
@@ -2234,6 +2277,7 @@ class _ChatNowButtonState extends State<_ChatNowButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.94),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -2249,8 +2293,8 @@ class _ChatNowButtonState extends State<_ChatNowButton> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+            gradient: LinearGradient(
+              colors: [colors.iconPurple, colors.iconGreen],
             ),
           ),
           child: Row(
@@ -2302,6 +2346,7 @@ class _BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return SafeArea(
       top: false,
       child: Container(
@@ -2313,11 +2358,12 @@ class _BottomNavBar extends StatelessWidget {
         ),
         padding: EdgeInsets.symmetric(vertical: 8 * uiScale),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: colors.cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: colors.isDark ? 0.25 : 0.08),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -2340,7 +2386,7 @@ class _BottomNavBar extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? const Color(0xFFE4F5E9)
+                      ? colors.iconGreenBg
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -2351,8 +2397,8 @@ class _BottomNavBar extends StatelessWidget {
                       item.icon,
                       size: 20 * uiScale,
                       color: selected
-                          ? const Color(0xFF1E8A4C)
-                          : const Color(0xFFB0ACC2),
+                          ? colors.iconGreen
+                          : colors.textMuted,
                     ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 200),
@@ -2364,7 +2410,7 @@ class _BottomNavBar extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 9.5 * uiScale,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1E8A4C),
+                                  color: colors.iconGreen,
                                 ),
                               ),
                             )

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:diet_compass/features/personalization/lib/onboarding/onboarding_data.dart';
 import '../../core/services/personalization_service.dart';
 
@@ -158,8 +159,9 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
     final scale = (width / 390.0).clamp(0.85, 1.25);
     final noneAllergies = _data.allergies.contains('None of the above');
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         children: [
           // Ambient blurred decorative orbs
@@ -202,11 +204,12 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
                           width: 40 * scale,
                           height: 40 * scale,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14 * scale),
+                            border: Border.all(color: colors.cardBorder),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -215,7 +218,7 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
                           child: Icon(
                             Icons.arrow_back_rounded,
                             size: 20 * scale,
-                            color: const Color(0xFF1B1B2E),
+                            color: colors.textPrimary,
                           ),
                         ),
                       ),
@@ -229,14 +232,14 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
                               style: TextStyle(
                                 fontSize: 18 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                             Text(
                               'Diet type, allergies & dislikes',
                               style: TextStyle(
                                 fontSize: 12 * scale,
-                                color: const Color(0xFF6B6B7B),
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -477,15 +480,16 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
     required String subtitle,
     required Widget child,
   }) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(18 * scale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20 * scale),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.05),
+            color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.15 : 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -515,14 +519,14 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
                       style: TextStyle(
                         fontSize: 15 * scale,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontSize: 11.5 * scale,
-                        color: const Color(0xFF6B6B7B),
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -545,22 +549,25 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
     required double scale,
     required VoidCallback onTap,
   }) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 10 * scale),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEDE7FA) : const Color(0xFFF9F7FD),
+          color: selected
+              ? (colors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA))
+              : colors.surfaceSecondary,
           borderRadius: BorderRadius.circular(14 * scale),
           border: Border.all(
-            color: selected ? const Color(0xFF6C4EF5) : Colors.transparent,
+            color: selected ? colors.iconPurple : colors.cardBorder,
             width: 1.5,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                    color: colors.iconPurple.withValues(alpha: 0.12),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -573,7 +580,7 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
             Icon(
               icon,
               size: 18 * scale,
-              color: selected ? const Color(0xFF6C4EF5) : color,
+              color: selected ? colors.iconPurple : color,
             ),
             SizedBox(width: 8 * scale),
             Text(
@@ -581,7 +588,7 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
               style: TextStyle(
                 fontSize: 13 * scale,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? const Color(0xFF6C4EF5) : const Color(0xFF1B1B2E),
+                color: selected ? colors.iconPurple : colors.textPrimary,
               ),
             ),
             if (selected) ...[
@@ -589,7 +596,7 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
               Icon(
                 Icons.check_circle_rounded,
                 size: 14 * scale,
-                color: const Color(0xFF6C4EF5),
+                color: colors.iconPurple,
               ),
             ],
           ],
@@ -606,16 +613,19 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
     required Color selectedBg,
     required VoidCallback onTap,
   }) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 8 * scale),
         decoration: BoxDecoration(
-          color: selected ? selectedBg : const Color(0xFFF9F7FD),
+          color: selected
+              ? (colors.isDark ? selectedColor.withValues(alpha: 0.2) : selectedBg)
+              : colors.surfaceSecondary,
           borderRadius: BorderRadius.circular(12 * scale),
           border: Border.all(
-            color: selected ? selectedColor.withValues(alpha: 0.8) : const Color(0xFFEBE6F5),
+            color: selected ? selectedColor.withValues(alpha: 0.8) : colors.cardBorder,
             width: 1.2,
           ),
         ),
@@ -627,7 +637,7 @@ class _DietaryPreferencesScreenState extends State<DietaryPreferencesScreen>
               style: TextStyle(
                 fontSize: 12.5 * scale,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? selectedColor : const Color(0xFF4A4A5A),
+                color: selected ? selectedColor : colors.textPrimary,
               ),
             ),
             if (selected) ...[

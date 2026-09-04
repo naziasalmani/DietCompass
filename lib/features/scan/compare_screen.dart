@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/services/recommendation_service.dart';
@@ -107,9 +108,10 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final colors = context.dcColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -126,6 +128,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
 
   // ── 1. Loading State ────────────────────────────────────────────────────────
   Widget _buildLoadingState(double scale) {
+    final colors = context.dcColors;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -133,17 +136,18 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               shape: BoxShape.circle,
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.15),
+                  color: colors.iconPurple.withValues(alpha: 0.15),
                   blurRadius: 20,
                 ),
               ],
             ),
-            child: const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(Color(0xFF6C4EF5)),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(colors.iconPurple),
             ),
           ),
           SizedBox(height: 16 * scale),
@@ -152,7 +156,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
             style: TextStyle(
               fontSize: 14 * scale,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
           SizedBox(height: 4 * scale),
@@ -160,7 +164,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
             'Scanning same-category products with better nutrition profile',
             style: TextStyle(
               fontSize: 11.5 * scale,
-              color: const Color(0xFF6B6B7B),
+              color: colors.textSecondary,
             ),
           ),
         ],
@@ -170,6 +174,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
 
   // ── 2. Unavailable State ────────────────────────────────────────────────────
   Widget _buildUnavailableState(double scale) {
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.all(24 * scale),
       child: Column(
@@ -179,11 +184,12 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
           Container(
             padding: EdgeInsets.all(24 * scale),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -194,14 +200,14 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
                 Container(
                   width: 56 * scale,
                   height: 56 * scale,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF3F0FB),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceSecondary,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.compare_arrows_rounded,
                     size: 28 * scale,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ),
                 SizedBox(height: 16 * scale),
@@ -211,7 +217,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
                   style: TextStyle(
                     fontSize: 17 * scale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
                 SizedBox(height: 8 * scale),
@@ -220,7 +226,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13 * scale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -231,7 +237,7 @@ class _CompareScreenState extends State<CompareScreen> with TickerProviderStateM
                   child: ElevatedButton(
                     onPressed: widget.onBack ?? () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C4EF5),
+                      backgroundColor: colors.iconPurple,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -409,6 +415,18 @@ class _BackgroundGradient extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
+    if (colors.isDark) {
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF13111C), Color(0xFF0D0C14)],
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -432,6 +450,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         GestureDetector(
@@ -441,10 +460,11 @@ class _TopBar extends StatelessWidget {
             height: 38 * uiScale,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: colors.surface,
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -453,7 +473,7 @@ class _TopBar extends StatelessWidget {
             child: Icon(
               Icons.arrow_back,
               size: 18 * uiScale,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -464,14 +484,14 @@ class _TopBar extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.compare_arrows_rounded, size: 18 * uiScale, color: const Color(0xFF6C4EF5)),
+                  Icon(Icons.compare_arrows_rounded, size: 18 * uiScale, color: colors.iconPurple),
                   SizedBox(width: 6 * uiScale),
                   Text(
                     'Product Comparison',
                     style: TextStyle(
                       fontSize: 17 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                      color: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -482,7 +502,7 @@ class _TopBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11 * uiScale,
-                  color: const Color(0xFF6B6B7B),
+                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -523,6 +543,7 @@ class _DualProductCardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final ImageProvider? resolvedCurrentImg = currentImage ??
         (currentProduct.imageUrl.trim().isNotEmpty ? NetworkImage(currentProduct.imageUrl.trim()) : null);
 
@@ -537,7 +558,7 @@ class _DualProductCardsRow extends StatelessWidget {
           child: _ProductMiniCard(
             uiScale: uiScale,
             tag: 'Your Choice',
-            tagColor: const Color(0xFF6C4EF5),
+            tagColor: colors.iconPurple,
             name: currentProduct.name,
             brand: currentProduct.brand,
             image: resolvedCurrentImg,
@@ -555,11 +576,11 @@ class _DualProductCardsRow extends StatelessWidget {
             height: 28 * uiScale,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE4E0F2), width: 1.5),
+              color: colors.surface,
+              border: Border.all(color: colors.cardBorder, width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                  color: colors.iconPurple.withValues(alpha: 0.12),
                   blurRadius: 8,
                 ),
               ],
@@ -570,7 +591,7 @@ class _DualProductCardsRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10 * uiScale,
                   fontWeight: FontWeight.w900,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ),
             ),
@@ -582,7 +603,7 @@ class _DualProductCardsRow extends StatelessWidget {
           child: _ProductMiniCard(
             uiScale: uiScale,
             tag: '⭐ Best Alternative',
-            tagColor: const Color(0xFF1E8A4C),
+            tagColor: colors.iconGreen,
             name: altProduct.name,
             brand: altProduct.brand,
             image: resolvedAltImg,
@@ -624,20 +645,21 @@ class _ProductMiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(12 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isBestAlternative ? const Color(0xFF1E8A4C).withValues(alpha: 0.35) : const Color(0xFFE8E4F2),
+          color: isBestAlternative ? colors.iconGreen.withValues(alpha: 0.35) : colors.cardBorder,
           width: isBestAlternative ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: isBestAlternative
-                ? const Color(0xFF1E8A4C).withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.04),
+                ? colors.iconGreen.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -673,7 +695,7 @@ class _ProductMiniCard extends StatelessWidget {
               child: Container(
                 width: 70 * uiScale,
                 height: 70 * uiScale,
-                color: const Color(0xFFF7F5FC),
+                color: colors.surfaceSecondary,
                 padding: EdgeInsets.all(4 * uiScale),
                 child: image != null
                     ? Image(
@@ -681,13 +703,13 @@ class _ProductMiniCard extends StatelessWidget {
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) => Icon(
                           Icons.fastfood_rounded,
-                          color: const Color(0xFFB0ACC2),
+                          color: colors.textMuted,
                           size: 30 * uiScale,
                         ),
                       )
                     : Icon(
                         Icons.fastfood_rounded,
-                        color: const Color(0xFFB0ACC2),
+                        color: colors.textMuted,
                         size: 30 * uiScale,
                       ),
               ),
@@ -703,7 +725,7 @@ class _ProductMiniCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 12.5 * uiScale,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
               height: 1.2,
             ),
           ),
@@ -716,7 +738,7 @@ class _ProductMiniCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5 * uiScale,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF6C4EF5),
+                color: colors.iconPurple,
               ),
             ),
           ],
@@ -729,7 +751,7 @@ class _ProductMiniCard extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.symmetric(vertical: 5 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F5FC),
+                    color: colors.surfaceSecondary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -739,7 +761,7 @@ class _ProductMiniCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14 * uiScale,
                           fontWeight: FontWeight.w900,
-                          color: nutritionScore >= 75 ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                          color: nutritionScore >= 75 ? colors.iconGreen : colors.iconPurple,
                         ),
                       ),
                       Text(
@@ -747,7 +769,7 @@ class _ProductMiniCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 8.5 * uiScale,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6B6B7B),
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -759,7 +781,7 @@ class _ProductMiniCard extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.symmetric(vertical: 5 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F5FC),
+                    color: colors.surfaceSecondary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -769,7 +791,7 @@ class _ProductMiniCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14 * uiScale,
                           fontWeight: FontWeight.w900,
-                          color: compatScore >= 75 ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                          color: compatScore >= 75 ? colors.iconGreen : colors.iconPurple,
                         ),
                       ),
                       Text(
@@ -777,7 +799,7 @@ class _ProductMiniCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 8.5 * uiScale,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF6B6B7B),
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -879,25 +901,19 @@ class _WhyThisAlternativeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final reasonText = _generatePersonalizedReason();
     final differentiator = nutritionComparison?.differentiator ?? (altScore > currentScore ? '+${altScore - currentScore} pts Higher Score' : 'Cleaner Ingredients');
 
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6C4EF5).withValues(alpha: 0.08),
-            const Color(0xFF1E8A4C).withValues(alpha: 0.08),
-          ],
-        ),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF6C4EF5).withValues(alpha: 0.22)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -910,8 +926,8 @@ class _WhyThisAlternativeCard extends StatelessWidget {
             children: [
               Container(
                 padding: EdgeInsets.all(6 * uiScale),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF6C4EF5),
+                decoration: BoxDecoration(
+                  color: colors.iconPurple,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
@@ -923,14 +939,14 @@ class _WhyThisAlternativeCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E8A4C),
+                  color: colors.iconGreen,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -949,7 +965,7 @@ class _WhyThisAlternativeCard extends StatelessWidget {
             reasonText,
             style: TextStyle(
               fontSize: 12.5 * uiScale,
-              color: const Color(0xFF2E2D3E),
+              color: colors.textSecondary,
               height: 1.4,
               fontWeight: FontWeight.w500,
             ),
@@ -976,6 +992,7 @@ class _NutritionTableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     // Generate nutrient comparison rows strictly preserving nulls
     final rows = <_NutrientComparisonRowData>[];
 
@@ -988,7 +1005,7 @@ class _NutritionTableCard extends StatelessWidget {
         valB: altProduct.calories,
         isHigherBetter: false,
         icon: Icons.local_fire_department,
-        color: const Color(0xFF6C4EF5),
+        color: colors.iconPurple,
       ),
     );
 
@@ -1001,7 +1018,7 @@ class _NutritionTableCard extends StatelessWidget {
         valB: altProduct.protein,
         isHigherBetter: true,
         icon: Icons.fitness_center,
-        color: const Color(0xFF1E8A4C),
+        color: colors.iconGreen,
       ),
     );
 
@@ -1014,7 +1031,7 @@ class _NutritionTableCard extends StatelessWidget {
         valB: altProduct.carbohydrates,
         isHigherBetter: false,
         icon: Icons.grain,
-        color: const Color(0xFFE0862E),
+        color: colors.iconOrange,
       ),
     );
 
@@ -1040,7 +1057,7 @@ class _NutritionTableCard extends StatelessWidget {
         valB: altProduct.fat,
         isHigherBetter: false,
         icon: Icons.opacity,
-        color: const Color(0xFFE0862E),
+        color: colors.iconOrange,
       ),
     );
 
@@ -1053,7 +1070,7 @@ class _NutritionTableCard extends StatelessWidget {
         valB: altProduct.fiber,
         isHigherBetter: true,
         icon: Icons.eco_outlined,
-        color: const Color(0xFF1E8A4C),
+        color: colors.iconGreen,
       ),
     );
 
@@ -1071,19 +1088,19 @@ class _NutritionTableCard extends StatelessWidget {
         valB: sodB,
         isHigherBetter: false,
         icon: Icons.water_drop_outlined,
-        color: const Color(0xFF3B82F6),
+        color: colors.iconBlue,
       ),
     );
 
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E4F2)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1094,14 +1111,14 @@ class _NutritionTableCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.table_chart_rounded, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(Icons.table_chart_rounded, size: 16 * uiScale, color: colors.iconPurple),
               SizedBox(width: 6 * uiScale),
               Text(
                 'Nutrition Comparison',
                 style: TextStyle(
                   fontSize: 14 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -1109,7 +1126,7 @@ class _NutritionTableCard extends StatelessWidget {
                 'Per 100g / Serving',
                 style: TextStyle(
                   fontSize: 10 * uiScale,
-                  color: const Color(0xFF8A889A),
+                  color: colors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1121,7 +1138,7 @@ class _NutritionTableCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 8 * uiScale),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F5FC),
+              color: colors.surfaceSecondary,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -1133,7 +1150,7 @@ class _NutritionTableCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF6B6B7B),
+                      color: colors.textSecondary,
                     ),
                   ),
                 ),
@@ -1147,7 +1164,7 @@ class _NutritionTableCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                 ),
@@ -1161,7 +1178,7 @@ class _NutritionTableCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E8A4C),
+                      color: colors.iconGreen,
                     ),
                   ),
                 ),
@@ -1171,13 +1188,14 @@ class _NutritionTableCard extends StatelessWidget {
           SizedBox(height: 6 * uiScale),
 
           // Table Rows
-          ...rows.map((row) => _buildNutrientTableRow(row)),
+          ...rows.map((row) => _buildNutrientTableRow(context, row)),
         ],
       ),
     );
   }
 
-  Widget _buildNutrientTableRow(_NutrientComparisonRowData data) {
+  Widget _buildNutrientTableRow(BuildContext context, _NutrientComparisonRowData data) {
+    final colors = context.dcColors;
     final hasA = data.valA != null;
     final hasB = data.valB != null;
 
@@ -1199,9 +1217,9 @@ class _NutritionTableCard extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 9 * uiScale),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Color(0xFFF1EEF8)),
+          bottom: BorderSide(color: colors.divider),
         ),
       ),
       child: Row(
@@ -1221,7 +1239,7 @@ class _NutritionTableCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5 * uiScale,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF2D2B3D),
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -1235,14 +1253,14 @@ class _NutritionTableCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 4 * uiScale, vertical: 2 * uiScale),
               decoration: BoxDecoration(
-                color: aIsWinner ? const Color(0xFFE8F8EE) : Colors.transparent,
+                color: aIsWinner ? colors.iconGreenBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (aIsWinner) ...[
-                    const Icon(Icons.check_rounded, size: 11, color: Color(0xFF1E8A4C)),
+                    Icon(Icons.check_rounded, size: 11, color: colors.iconGreen),
                     const SizedBox(width: 2),
                   ],
                   Flexible(
@@ -1255,8 +1273,8 @@ class _NutritionTableCard extends StatelessWidget {
                         fontSize: 11 * uiScale,
                         fontWeight: hasA ? (aIsWinner ? FontWeight.w800 : FontWeight.w600) : FontWeight.w400,
                         color: hasA
-                            ? (aIsWinner ? const Color(0xFF1E8A4C) : const Color(0xFF1B1B2E))
-                            : const Color(0xFF9A96A8),
+                            ? (aIsWinner ? colors.iconGreen : colors.textPrimary)
+                            : colors.textMuted,
                         fontStyle: hasA ? FontStyle.normal : FontStyle.italic,
                       ),
                     ),
@@ -1272,14 +1290,14 @@ class _NutritionTableCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 4 * uiScale, vertical: 2 * uiScale),
               decoration: BoxDecoration(
-                color: bIsWinner ? const Color(0xFFE8F8EE) : Colors.transparent,
+                color: bIsWinner ? colors.iconGreenBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (bIsWinner) ...[
-                    const Icon(Icons.check_rounded, size: 11, color: Color(0xFF1E8A4C)),
+                    Icon(Icons.check_rounded, size: 11, color: colors.iconGreen),
                     const SizedBox(width: 2),
                   ],
                   Flexible(
@@ -1292,8 +1310,8 @@ class _NutritionTableCard extends StatelessWidget {
                         fontSize: 11 * uiScale,
                         fontWeight: hasB ? (bIsWinner ? FontWeight.w800 : FontWeight.w600) : FontWeight.w400,
                         color: hasB
-                            ? (bIsWinner ? const Color(0xFF1E8A4C) : const Color(0xFF1B1B2E))
-                            : const Color(0xFF9A96A8),
+                            ? (bIsWinner ? colors.iconGreen : colors.textPrimary)
+                            : colors.textMuted,
                         fontStyle: hasB ? FontStyle.normal : FontStyle.italic,
                       ),
                     ),
@@ -1366,6 +1384,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     const factors = [
       {'label': 'Weight Management', 'icon': Icons.monitor_weight_outlined},
       {'label': 'Heart Health', 'icon': Icons.favorite_outline},
@@ -1376,12 +1395,12 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E4F2)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1392,14 +1411,14 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.health_and_safety_outlined, size: 16 * uiScale, color: const Color(0xFF1E8A4C)),
+              Icon(Icons.health_and_safety_outlined, size: 16 * uiScale, color: colors.iconGreen),
               SizedBox(width: 6 * uiScale),
               Text(
                 'Personal Health Compatibility',
                 style: TextStyle(
                   fontSize: 14 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
             ],
@@ -1420,12 +1439,12 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 10 * uiScale, vertical: 8 * uiScale),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F5FC),
+                  color: colors.surfaceSecondary,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    Icon(icon, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                    Icon(icon, size: 14 * uiScale, color: colors.iconPurple),
                     SizedBox(width: 6 * uiScale),
                     Expanded(
                       flex: 4,
@@ -1434,7 +1453,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5 * uiScale,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1B1B2E),
+                          color: colors.textPrimary,
                         ),
                       ),
                     ),
@@ -1443,7 +1462,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
                         decoration: BoxDecoration(
-                          color: (isGoodA ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E)).withValues(alpha: 0.12),
+                          color: (isGoodA ? colors.iconGreen : colors.iconOrange).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1452,7 +1471,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 10 * uiScale,
                             fontWeight: FontWeight.w700,
-                            color: isGoodA ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E),
+                            color: isGoodA ? colors.iconGreen : colors.iconOrange,
                           ),
                         ),
                       ),
@@ -1463,7 +1482,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: 6 * uiScale, vertical: 2 * uiScale),
                         decoration: BoxDecoration(
-                          color: (isGoodB ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E)).withValues(alpha: 0.12),
+                          color: (isGoodB ? colors.iconGreen : colors.iconOrange).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1472,7 +1491,7 @@ class _HealthCompatibilityComparisonCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 10 * uiScale,
                             fontWeight: FontWeight.w700,
-                            color: isGoodB ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E),
+                            color: isGoodB ? colors.iconGreen : colors.iconOrange,
                           ),
                         ),
                       ),
@@ -1508,15 +1527,16 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E4F2)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1527,14 +1547,14 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.science_outlined, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(Icons.science_outlined, size: 16 * uiScale, color: colors.iconPurple),
               SizedBox(width: 6 * uiScale),
               Text(
                 'Ingredient Insights',
                 style: TextStyle(
                   fontSize: 14 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
             ],
@@ -1549,9 +1569,9 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.all(10 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
+                    color: colors.isDark ? const Color(0xFF2E2214) : const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFFEF3C7)),
+                    border: Border.all(color: colors.isDark ? const Color(0xFF4D381E) : const Color(0xFFFEF3C7)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1561,24 +1581,24 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFFB45309),
+                          color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFB45309),
                         ),
                       ),
                       SizedBox(height: 6 * uiScale),
                       if (currentIntel.sugarRelatedIngredients.isNotEmpty)
                         Text(
                           '• ${currentIntel.sugarRelatedIngredients.length} Sugar source(s) detected',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                       if (currentIntel.additives.isNotEmpty)
                         Text(
                           '• ${currentIntel.additives.length} Additive(s) flagged',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                       if (!currentIntel.hasSugarRelated && !currentIntel.hasAdditives)
                         Text(
                           '• Standard ingredient profile',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF92400E)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                     ],
                   ),
@@ -1591,9 +1611,9 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
                 child: Container(
                   padding: EdgeInsets.all(10 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: colors.isDark ? const Color(0xFF142E1C) : const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDCFCE7)),
+                    border: Border.all(color: colors.isDark ? const Color(0xFF1E4D2C) : const Color(0xFFDCFCE7)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1603,29 +1623,29 @@ class _IngredientInsightsComparisonCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF15803D),
+                          color: colors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D),
                         ),
                       ),
                       SizedBox(height: 6 * uiScale),
                       if (altIntel.wholeFoodIngredients.isNotEmpty)
                         Text(
                           '• Rich in whole food ingredients',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                       if (!altIntel.hasAdditives)
                         Text(
                           '• Free from controversial additives',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         )
                       else
                         Text(
                           '• ${altIntel.additives.length} Additive(s)',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                       if (!altIntel.hasSugarRelated)
                         Text(
                           '• Minimal or zero hidden sugars',
-                          style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF166534)),
+                          style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                         ),
                     ],
                   ),
@@ -1655,6 +1675,7 @@ class _SwitchToAlternativeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return SizedBox(
       width: double.infinity,
       height: 50 * uiScale,
@@ -1672,13 +1693,13 @@ class _SwitchToAlternativeButton extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E8A4C),
+          backgroundColor: colors.iconGreen,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          shadowColor: const Color(0xFF1E8A4C).withValues(alpha: 0.3),
+          shadowColor: colors.iconGreen.withValues(alpha: 0.3),
         ),
       ),
     );

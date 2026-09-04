@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../home/home_screen.dart';
 
 /// DietCompass — AI Nutrition Coach Screen
@@ -245,9 +246,10 @@ class _AiCoachScreenState extends State<AiCoachScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final colors = context.dcColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       resizeToAvoidBottomInset: true,
       body: Stack(
         fit: StackFit.expand,
@@ -279,7 +281,7 @@ class _AiCoachScreenState extends State<AiCoachScreen>
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => HomeScreen(),
+                                  builder: (_) => const HomeScreen(),
                                 ),
                               );
                             },
@@ -346,7 +348,7 @@ class _AiCoachScreenState extends State<AiCoachScreen>
                               style: TextStyle(
                                 fontSize: 15.5 * scale,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1B1B2E),
+                                color: colors.textPrimary,
                               ),
                             ),
                           ),
@@ -423,6 +425,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final isUser = message.isUser;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 6 * uiScale),
@@ -458,16 +461,17 @@ class _ChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isUser
                     ? const Color(0xFF6C4EF5)
-                    : Colors.white.withValues(alpha: 0.95),
+                    : colors.surface,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(18 * uiScale),
                   topRight: Radius.circular(18 * uiScale),
                   bottomLeft: Radius.circular(isUser ? 18 * uiScale : 4 * uiScale),
                   bottomRight: Radius.circular(isUser ? 4 * uiScale : 18 * uiScale),
                 ),
+                border: isUser ? null : Border.all(color: colors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -482,7 +486,7 @@ class _ChatBubble extends StatelessWidget {
                       fontSize: 13.5 * uiScale,
                       height: 1.4,
                       fontWeight: FontWeight.w500,
-                      color: isUser ? Colors.white : const Color(0xFF1B1B2E),
+                      color: isUser ? Colors.white : colors.textPrimary,
                     ),
                   ),
                   if (!isUser && onSpeakTap != null) ...[
@@ -494,20 +498,20 @@ class _ChatBubble extends StatelessWidget {
                         child: Container(
                           padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 4 * uiScale),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1ECFB),
+                            color: colors.iconPurpleBg,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.volume_up_rounded, size: 14 * uiScale, color: const Color(0xFF6C4EF5)),
+                              Icon(Icons.volume_up_rounded, size: 14 * uiScale, color: colors.iconPurple),
                               SizedBox(width: 4 * uiScale),
                               Text(
                                 'Listen',
                                 style: TextStyle(
                                   fontSize: 10 * uiScale,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF6C4EF5),
+                                  color: colors.iconPurple,
                                 ),
                               ),
                             ],
@@ -526,7 +530,6 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // Thinking animation bubble
 // ---------------------------------------------------------------------------
@@ -538,6 +541,7 @@ class _ThinkingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 6 * uiScale),
       child: Row(
@@ -564,8 +568,9 @@ class _ThinkingBubble extends StatelessWidget {
               vertical: 12 * uiScale,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(18 * uiScale),
+              border: Border.all(color: colors.cardBorder),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -574,7 +579,7 @@ class _ThinkingBubble extends StatelessWidget {
                   'Coach is thinking',
                   style: TextStyle(
                     fontSize: 12 * uiScale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -582,9 +587,9 @@ class _ThinkingBubble extends StatelessWidget {
                 SizedBox(
                   width: 12 * uiScale,
                   height: 12 * uiScale,
-                  child: const CircularProgressIndicator(
+                  child: CircularProgressIndicator(
                     strokeWidth: 1.8,
-                    valueColor: AlwaysStoppedAnimation(Color(0xFF6C4EF5)),
+                    valueColor: AlwaysStoppedAnimation(colors.iconPurple),
                   ),
                 ),
               ],
@@ -606,6 +611,7 @@ class _GlassBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return AnimatedBuilder(
       animation: ambientCtrl,
       builder: (context, child) {
@@ -613,7 +619,7 @@ class _GlassBackdrop extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFF3F0FB)),
+            Container(color: colors.bg),
             Positioned(
               top: 0,
               left: 0,
@@ -621,7 +627,7 @@ class _GlassBackdrop extends StatelessWidget {
                 opacity: 0.5,
                 child: CustomPaint(
                   size: Size(160 * uiScale, 160 * uiScale),
-                  painter: _DotGridPainter(color: const Color(0xFF6C4EF5)),
+                  painter: _DotGridPainter(color: colors.iconPurple),
                 ),
               ),
             ),
@@ -632,19 +638,19 @@ class _GlassBackdrop extends StatelessWidget {
                 opacity: 0.18,
                 child: Transform.rotate(
                   angle: 0.5,
-                  child: Icon(Icons.eco_rounded, size: 90 * uiScale, color: const Color(0xFF6C4EF5)),
+                  child: Icon(Icons.eco_rounded, size: 90 * uiScale, color: colors.iconPurple),
                 ),
               ),
             ),
             Positioned(
               bottom: 120 * uiScale - t * 10,
               left: -50,
-              child: _blob(200 * uiScale, const Color(0xFF6C4EF5)),
+              child: _blob(200 * uiScale, colors.iconPurple),
             ),
             Positioned(
               bottom: -60 + t * 12,
               right: -60,
-              child: _blob(170 * uiScale, const Color(0xFF1E8A4C)),
+              child: _blob(170 * uiScale, colors.iconGreen),
             ),
           ],
         );
@@ -708,32 +714,33 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return ClipRRect(
-  borderRadius: BorderRadius.circular(24),
-  child: BackdropFilter(
-    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-    child: Container(
-      padding: padding ?? EdgeInsets.all(16 * uiScale),
-      decoration: BoxDecoration(
-        color: (color ?? Colors.white)
-            .withValues(alpha: color == null ? 0.62 : 0.55),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: borderColor ?? Colors.white.withValues(alpha: 0.75),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: padding ?? EdgeInsets.all(16 * uiScale),
+          decoration: BoxDecoration(
+            color: (color ?? colors.surface)
+                .withValues(alpha: color == null ? (colors.isDark ? 0.85 : 0.62) : 0.55),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: borderColor ?? colors.cardBorder,
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.iconPurple.withValues(alpha: colors.isDark ? 0.15 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
-        ],
+          child: child,
+        ),
       ),
-      child: child,
-    ),
-  ),
-);
+    );
   }
 }
 
@@ -788,6 +795,7 @@ class _TopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         _Pressable(
@@ -796,17 +804,18 @@ class _TopHeader extends StatelessWidget {
             width: 42 * uiScale,
             height: 42 * uiScale,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: colors.surface,
               shape: BoxShape.circle,
+              border: Border.all(color: colors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
+                  color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
-            child: Icon(Icons.arrow_back_rounded, size: 19 * uiScale, color: const Color(0xFF6C4EF5)),
+            child: Icon(Icons.arrow_back_rounded, size: 19 * uiScale, color: colors.iconPurple),
           ),
         ),
         Expanded(
@@ -816,7 +825,7 @@ class _TopHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 17.5 * uiScale,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF5233D6),
+              color: colors.textPrimary,
             ),
           ),
         ),
@@ -831,11 +840,12 @@ class _TopHeader extends StatelessWidget {
                 height: 42 * uiScale,
                 padding: EdgeInsets.all(2 * uiScale),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   shape: BoxShape.circle,
+                  border: Border.all(color: colors.cardBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6C4EF5).withValues(alpha: glow),
+                      color: colors.iconPurple.withValues(alpha: glow),
                       blurRadius: 14,
                       spreadRadius: 1,
                     ),
@@ -884,214 +894,216 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return SizedBox(
-  height: 220 * uiScale,
-  child: ClipRRect(
-    borderRadius: BorderRadius.circular(26),
-    child: Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            padding: EdgeInsets.all(20 * uiScale),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF6C4EF5), Color(0xFF4A2FD1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Hello $userName! ',
-                      style: TextStyle(
-                        fontSize: 14 * uiScale,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.92),
-                      ),
-                    ),
-                    Text('👋', style: TextStyle(fontSize: 14 * uiScale)),
-                  ],
+      height: 220 * uiScale,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                padding: EdgeInsets.all(20 * uiScale),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF6C4EF5), Color(0xFF4A2FD1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                SizedBox(height: 6 * uiScale),
-                SizedBox(
-                  width: 190 * uiScale,
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(
-                        fontSize: 21 * uiScale,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                        color: Colors.white,
-                      ),
-                      children: const [
-                        TextSpan(text: "I'm your "),
-                        TextSpan(
-                          text: 'AI Nutrition Coach',
-                          style: TextStyle(color: Color(0xFF7CF2C0)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Hello $userName! ',
+                          style: TextStyle(
+                            fontSize: 14 * uiScale,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.92),
+                          ),
                         ),
+                        Text('👋', style: TextStyle(fontSize: 14 * uiScale)),
                       ],
                     ),
-                  ),
-                ),
-                SizedBox(height: 10 * uiScale),
-                SizedBox(
-                  width: 190 * uiScale,
-                  child: Text(
-                    'Ask me anything about food, nutrition, diet & your health goals.',
-                    style: TextStyle(
-                      fontSize: 11.5 * uiScale,
-                      height: 1.4,
-                      color: Colors.white70,
+                    SizedBox(height: 6 * uiScale),
+                    SizedBox(
+                      width: 190 * uiScale,
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 21 * uiScale,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                            color: Colors.white,
+                          ),
+                          children: const [
+                            TextSpan(text: "I'm your "),
+                            TextSpan(
+                              text: 'AI Nutrition Coach',
+                              style: TextStyle(color: Color(0xFF7CF2C0)),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
+                    SizedBox(height: 10 * uiScale),
+                    SizedBox(
+                      width: 190 * uiScale,
+                      child: Text(
+                        'Ask me anything about food, nutrition, diet & your health goals.',
+                        style: TextStyle(
+                          fontSize: 11.5 * uiScale,
+                          height: 1.4,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Twinkling sparkles
+            AnimatedBuilder(
+              animation: ambientCtrl,
+              builder: (context, child) {
+                final o1 = (math.sin(ambientCtrl.value * math.pi * 2) + 1) / 2;
+                final o2 = (math.cos(ambientCtrl.value * math.pi * 2) + 1) / 2;
+
+                return Stack(
+                  children: [
+                    Positioned(
+                      top: 40 * uiScale,
+                      right: 96 * uiScale,
+                      child: Opacity(
+                        opacity: 0.4 + o1 * 0.5,
+                        child: Icon(
+                          Icons.auto_awesome,
+                          size: 12 * uiScale,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 96 * uiScale,
+                      right: 60 * uiScale,
+                      child: Opacity(
+                        opacity: 0.4 + o2 * 0.5,
+                        child: Icon(
+                          Icons.auto_awesome,
+                          size: 9 * uiScale,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            Positioned(
+              right: -12 * uiScale,
+              top: -14 * uiScale,
+              child: Opacity(
+                opacity: 0.14,
+                child: Transform.rotate(
+                  angle: 0.4,
+                  child: Icon(
+                    Icons.eco_rounded,
+                    size: 120 * uiScale,
+                    color: Colors.white,
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
 
-        // Twinkling sparkles
-        AnimatedBuilder(
-          animation: ambientCtrl,
-          builder: (context, child) {
-            final o1 = (math.sin(ambientCtrl.value * math.pi * 2) + 1) / 2;
-            final o2 = (math.cos(ambientCtrl.value * math.pi * 2) + 1) / 2;
-
-            return Stack(
-              children: [
-                Positioned(
-                  top: 40 * uiScale,
-                  right: 96 * uiScale,
-                  child: Opacity(
-                    opacity: 0.4 + o1 * 0.5,
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 12 * uiScale,
+            Positioned(
+              right: 8 * uiScale,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: ambientCtrl,
+                builder: (context, child) {
+                  final bob = math.sin(ambientCtrl.value * math.pi) * 5;
+                  return Transform.translate(
+                    offset: Offset(0, -bob),
+                    child: child,
+                  );
+                },
+                child: SizedBox(
+                  width: 148 * uiScale,
+                  height: 148 * uiScale,
+                  child: Image.asset(
+                    'assets/images/ai_robot_coach.jpeg',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.smart_toy_rounded,
+                      size: 96 * uiScale,
                       color: Colors.white,
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 96 * uiScale,
-                  right: 60 * uiScale,
-                  child: Opacity(
-                    opacity: 0.4 + o2 * 0.5,
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 9 * uiScale,
-                      color: Colors.white,
-                    ),
+              ),
+            ),
+
+            Positioned(
+              left: 20 * uiScale,
+              bottom: 20 * uiScale,
+              child: _Pressable(
+                onTap: onStartConversationTap,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 18 * uiScale,
+                    vertical: 13 * uiScale,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: colors.cardBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Start a Conversation',
+                        style: TextStyle(
+                          fontSize: 12.5 * uiScale,
+                          fontWeight: FontWeight.w800,
+                          color: colors.iconPurple,
+                        ),
+                      ),
+                      SizedBox(width: 8 * uiScale),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16 * uiScale,
+                        color: colors.iconPurple,
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            );
-          },
-        ),
-
-        Positioned(
-          right: -12 * uiScale,
-          top: -14 * uiScale,
-          child: Opacity(
-            opacity: 0.14,
-            child: Transform.rotate(
-              angle: 0.4,
-              child: Icon(
-                Icons.eco_rounded,
-                size: 120 * uiScale,
-                color: Colors.white,
               ),
             ),
-          ),
-        ),
 
-        Positioned(
-          right: 8 * uiScale,
-          bottom: 0,
-          child: AnimatedBuilder(
-            animation: ambientCtrl,
-            builder: (context, child) {
-              final bob = math.sin(ambientCtrl.value * math.pi) * 5;
-              return Transform.translate(
-                offset: Offset(0, -bob),
-                child: child,
-              );
-            },
-            child: SizedBox(
-              width: 148 * uiScale,
-              height: 148 * uiScale,
-              child: Image.asset(
-                'assets/images/ai_robot_coach.jpeg',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Icon(
-                  Icons.smart_toy_rounded,
-                  size: 96 * uiScale,
-                  color: Colors.white,
-                ),
+            Positioned(
+              right: 40 * uiScale,
+              top: 60 * uiScale,
+              child: _TypingBubble(
+                uiScale: uiScale,
+                dotsCtrl: dotsCtrl,
               ),
             ),
-          ),
+          ],
         ),
-
-        Positioned(
-  left: 20 * uiScale,
-  bottom: 20 * uiScale,
-  child: _Pressable(
-    onTap: onStartConversationTap,
-    child: Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 18 * uiScale,
-        vertical: 13 * uiScale,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Start a Conversation',
-            style: TextStyle(
-              fontSize: 12.5 * uiScale,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF4A2FD1),
-            ),
-          ),
-          SizedBox(width: 8 * uiScale),
-          Icon(
-            Icons.arrow_forward_rounded,
-            size: 16 * uiScale,
-            color: const Color(0xFF4A2FD1),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-
-        Positioned(
-          right: 40 * uiScale,
-          top: 60 * uiScale,
-          child: _TypingBubble(
-            uiScale: uiScale,
-            dotsCtrl: dotsCtrl,
-          ),
-        ),
-      ],
-    ),
-  ),
-);
+    );
   }
 }
 
@@ -1102,18 +1114,20 @@ class _TypingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 9 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(16 * uiScale),
           topRight: Radius.circular(16 * uiScale),
           bottomLeft: Radius.circular(16 * uiScale),
           bottomRight: Radius.circular(3 * uiScale),
         ),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.12), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -1131,8 +1145,8 @@ class _TypingBubble extends StatelessWidget {
                   child: Container(
                     width: 5.5 * uiScale,
                     height: 5.5 * uiScale,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF6C4EF5),
+                    decoration: BoxDecoration(
+                      color: colors.iconPurple,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1164,6 +1178,7 @@ class _AskMeAboutSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1172,7 +1187,7 @@ class _AskMeAboutSection extends StatelessWidget {
           style: TextStyle(
             fontSize: 15 * uiScale,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF5233D6),
+            color: colors.textPrimary,
           ),
         ),
         SizedBox(height: 14 * uiScale),
@@ -1188,10 +1203,10 @@ class _AskMeAboutSection extends StatelessWidget {
                       width: 48 * uiScale,
                       height: 48 * uiScale,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEDE7FA),
+                        color: colors.iconPurpleBg,
                         borderRadius: BorderRadius.circular(15),
                       ),
-                      child: Icon(c.icon, size: 21 * uiScale, color: const Color(0xFF6C4EF5)),
+                      child: Icon(c.icon, size: 21 * uiScale, color: colors.iconPurple),
                     ),
                     SizedBox(height: 8 * uiScale),
                     Text(
@@ -1202,7 +1217,7 @@ class _AskMeAboutSection extends StatelessWidget {
                         fontSize: 9.5 * uiScale,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
@@ -1240,93 +1255,90 @@ class _TodaysInsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final remaining = caloriesGoal - caloriesConsumed;
     return _GlassCard(
       uiScale: uiScale,
-      color: const Color(0xFFEDE7FA),
-      borderColor: const Color(0xFFDCD0F5),
+      color: colors.surface,
+      borderColor: colors.cardBorder,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, size: 13 * uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(Icons.auto_awesome, size: 13 * uiScale, color: colors.iconPurple),
               SizedBox(width: 6 * uiScale),
               Text(
                 "Today's Insights",
                 style: TextStyle(
                   fontSize: 14.5 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
             ],
           ),
           SizedBox(height: 14 * uiScale),
           Row(
-  children: [
-    Expanded(
-      child: _InsightStat(
-        uiScale: uiScale,
-        icon: Icons.local_fire_department_rounded,
-        iconBg: const Color(0xFFEDE0FB),
-        iconColor: const Color(0xFF6C4EF5),
-        current: caloriesConsumed,
-        goal: caloriesGoal,
-        label: 'Calories',
-      ),
-    ),
-
-    SizedBox(
-      height: 36 * uiScale,
-      child: VerticalDivider(
-        color: const Color(0xFFD9D3F2),
-        thickness: 1,
-      ),
-    ),
-
-    Expanded(
-      child: _InsightStat(
-        uiScale: uiScale,
-        icon: Icons.eco_rounded,
-        iconBg: const Color(0xFFE3F5EA),
-        iconColor: const Color(0xFF1E8A4C),
-        current: fiberConsumed,
-        goal: fiberGoal,
-        label: 'Fiber',
-        unit: 'g',
-      ),
-    ),
-
-    SizedBox(
-      height: 36 * uiScale,
-      child: VerticalDivider(
-        color: const Color(0xFFD9D3F2),
-        thickness: 1,
-      ),
-    ),
-
-    Expanded(
-      child: _InsightStat(
-        uiScale: uiScale,
-        icon: Icons.water_drop_rounded,
-        iconBg: const Color(0xFFE3EEFC),
-        iconColor: const Color(0xFF3B82F6),
-        current: glassesConsumed,
-        goal: glassesGoal,
-        label: 'Glasses\nWater',
-      ),
-    ),
-  ],
-),
+            children: [
+              Expanded(
+                child: _InsightStat(
+                  uiScale: uiScale,
+                  icon: Icons.local_fire_department_rounded,
+                  iconBg: colors.iconPurpleBg,
+                  iconColor: colors.iconPurple,
+                  current: caloriesConsumed,
+                  goal: caloriesGoal,
+                  label: 'Calories',
+                ),
+              ),
+              SizedBox(
+                height: 36 * uiScale,
+                child: VerticalDivider(
+                  color: colors.divider,
+                  thickness: 1,
+                ),
+              ),
+              Expanded(
+                child: _InsightStat(
+                  uiScale: uiScale,
+                  icon: Icons.eco_rounded,
+                  iconBg: colors.iconGreenBg,
+                  iconColor: colors.iconGreen,
+                  current: fiberConsumed,
+                  goal: fiberGoal,
+                  label: 'Fiber',
+                  unit: 'g',
+                ),
+              ),
+              SizedBox(
+                height: 36 * uiScale,
+                child: VerticalDivider(
+                  color: colors.divider,
+                  thickness: 1,
+                ),
+              ),
+              Expanded(
+                child: _InsightStat(
+                  uiScale: uiScale,
+                  icon: Icons.water_drop_rounded,
+                  iconBg: colors.iconBlueBg,
+                  iconColor: colors.iconBlue,
+                  current: glassesConsumed,
+                  goal: glassesGoal,
+                  label: 'Glasses\nWater',
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: 14 * uiScale),
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: colors.surfaceSecondary,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDCD0F5)),
+              border: Border.all(color: colors.cardBorder),
             ),
             child: Text(
               remaining > 0
@@ -1337,7 +1349,7 @@ class _TodaysInsightsCard extends StatelessWidget {
                 fontSize: 11.5 * uiScale,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF3E3357),
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -1370,6 +1382,7 @@ class _InsightStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       children: [
         Container(
@@ -1394,18 +1407,18 @@ class _InsightStat extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11.5 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
               Text(
-  label,
-  textAlign: TextAlign.start,
-  style: TextStyle(
-    fontSize: 10 * uiScale,
-    color: const Color(0xFF6B6B7B),
-  ),
-),
+                label,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontSize: 10 * uiScale,
+                  color: colors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -1468,6 +1481,7 @@ class _RecommendedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return SizedBox(
       height: 190 * uiScale,
       child: ListView.separated(
@@ -1482,8 +1496,9 @@ class _RecommendedSection extends StatelessWidget {
             child: Container(
               width: 148 * uiScale,
               decoration: BoxDecoration(
-                color: item.bg,
+                color: colors.isDark ? colors.surfaceSecondary : item.bg,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.cardBorder),
               ),
               padding: EdgeInsets.all(8 * uiScale),
               child: Column(
@@ -1513,7 +1528,7 @@ class _RecommendedSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                      color: colors.textPrimary,
                     ),
                   ),
                   SizedBox(height: 3 * uiScale),
@@ -1525,7 +1540,7 @@ class _RecommendedSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 9.5 * uiScale,
                         height: 1.3,
-                        color: const Color(0xFF6B6B7B),
+                        color: colors.textSecondary,
                       ),
                     ),
                   ),
@@ -1534,7 +1549,7 @@ class _RecommendedSection extends StatelessWidget {
                     child: Container(
                       width: 24 * uiScale,
                       height: 24 * uiScale,
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: colors.surface, shape: BoxShape.circle),
                       child: Icon(Icons.arrow_forward_rounded, size: 13 * uiScale, color: item.accent),
                     ),
                   ),
@@ -1576,6 +1591,7 @@ class _ComposeBarState extends State<_ComposeBar> {
   @override
   Widget build(BuildContext context) {
     final uiScale = widget.uiScale;
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.fromLTRB(18 * uiScale, 0, 18 * uiScale, 14 * uiScale),
       child: ClipRRect(
@@ -1585,17 +1601,17 @@ class _ComposeBarState extends State<_ComposeBar> {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 8 * uiScale),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
-                color: widget.isListening ? const Color(0xFF1E8A4C) : Colors.white.withValues(alpha: 0.9),
+                color: widget.isListening ? colors.iconGreen : colors.cardBorder,
                 width: widget.isListening ? 1.8 : 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: widget.isListening
-                      ? const Color(0xFF1E8A4C).withValues(alpha: 0.25)
-                      : const Color(0xFF6C4EF5).withValues(alpha: 0.14),
+                      ? colors.iconGreen.withValues(alpha: 0.25)
+                      : colors.iconPurple.withValues(alpha: colors.isDark ? 0.20 : 0.14),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -1607,18 +1623,18 @@ class _ComposeBarState extends State<_ComposeBar> {
                 Icon(
                   widget.isListening ? Icons.mic_rounded : Icons.auto_awesome,
                   size: 15 * uiScale,
-                  color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFF6C4EF5),
+                  color: widget.isListening ? colors.iconGreen : colors.iconPurple,
                 ),
                 SizedBox(width: 8 * uiScale),
                 Expanded(
                   child: TextField(
                     controller: widget.controller,
-                    style: TextStyle(fontSize: 12.5 * uiScale, color: const Color(0xFF1B1B2E)),
+                    style: TextStyle(fontSize: 12.5 * uiScale, color: colors.textPrimary),
                     decoration: InputDecoration(
                       hintText: widget.isListening ? 'Listening... Speak your question' : 'Ask anything about nutrition...',
                       hintStyle: TextStyle(
                         fontSize: 12 * uiScale,
-                        color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFFB0ACC2),
+                        color: widget.isListening ? colors.iconGreen : colors.textMuted,
                         fontWeight: widget.isListening ? FontWeight.w600 : FontWeight.normal,
                       ),
                       border: InputBorder.none,
@@ -1641,13 +1657,13 @@ class _ComposeBarState extends State<_ComposeBar> {
                         width: 36 * uiScale,
                         height: 36 * uiScale,
                         decoration: BoxDecoration(
-                          color: widget.isListening ? const Color(0xFF1E8A4C) : const Color(0xFFF1ECFB),
+                          color: widget.isListening ? colors.iconGreen : colors.iconPurpleBg,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           widget.isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
                           size: 18 * uiScale,
-                          color: widget.isListening ? Colors.white : const Color(0xFF6C4EF5),
+                          color: widget.isListening ? Colors.white : colors.iconPurple,
                         ),
                       ),
                     ),
@@ -1685,4 +1701,3 @@ class _ComposeBarState extends State<_ComposeBar> {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/model/food_product.dart';
 import '../result_screen.dart';
 
@@ -55,6 +56,7 @@ class ProductShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final scoreColor = _getScoreColor(overallScore);
     final scoreLabel = _getScoreLabel(overallScore);
     final compatLabel = _getCompatibilityLabel(compatibilityScore);
@@ -65,11 +67,12 @@ class ProductShareCard extends StatelessWidget {
     return Container(
       width: cardWidth,
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F3FC),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.30 : 0.08),
             blurRadius: 30,
             offset: const Offset(0, 12),
           ),
@@ -174,29 +177,29 @@ class ProductShareCard extends StatelessWidget {
                 const SizedBox(height: 14),
 
                 // ── 3. Dual Scores Section (Nutrition & Compatibility) ────────
-                _buildScoresRow(scoreColor, scoreLabel, compatLabel),
+                _buildScoresRow(context, scoreColor, scoreLabel, compatLabel),
 
                 const SizedBox(height: 14),
 
                 // ── 4. Nutrition Snapshot ─────────────────────────────────────
                 if (validNutrients.isNotEmpty) ...[
-                  _buildNutritionSection(validNutrients),
+                  _buildNutritionSection(context, validNutrients),
                   const SizedBox(height: 14),
                 ],
 
                 // ── 5. Personalized Compatibility Breakdown ───────────────────
                 if (compatibility.isNotEmpty) ...[
-                  _buildCompatibilitySection(),
+                  _buildCompatibilitySection(context),
                   const SizedBox(height: 14),
                 ],
 
                 // ── 6. What's Good & Watch Out For ────────────────────────────
-                _buildProsAndConsSection(),
+                _buildProsAndConsSection(context),
 
                 // ── 7. AI Recommendation ──────────────────────────────────────
                 if (aiRecommendation != null && aiRecommendation!.trim().isNotEmpty) ...[
                   const SizedBox(height: 14),
-                  _buildAiRecommendationSection(),
+                  _buildAiRecommendationSection(context),
                 ],
               ],
             ),
@@ -206,16 +209,16 @@ class ProductShareCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: colors.surface,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(28),
                 bottomRight: Radius.circular(28),
               ),
-              border: const Border(
-                top: BorderSide(color: Color(0xFFE8E4F2)),
+              border: Border(
+                top: BorderSide(color: colors.divider),
               ),
             ),
-            child: const Wrap(
+            child: Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
@@ -224,14 +227,14 @@ class ProductShareCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.shield_outlined, size: 14, color: Color(0xFF6C4EF5)),
-                    SizedBox(width: 6),
+                    Icon(Icons.shield_outlined, size: 14, color: colors.iconPurple),
+                    const SizedBox(width: 6),
                     Text(
                       'Scanned with DietCompass',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF5B5B6B),
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -239,14 +242,14 @@ class ProductShareCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, size: 12, color: Color(0xFF1E8A4C)),
-                    SizedBox(width: 4),
+                    Icon(Icons.auto_awesome, size: 12, color: colors.iconGreen),
+                    const SizedBox(width: 4),
                     Text(
                       'Personalized for you',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E8A4C),
+                        color: colors.iconGreen,
                       ),
                     ),
                   ],
@@ -261,18 +264,19 @@ class ProductShareCard extends StatelessWidget {
 
   // ── Product Header ──────────────────────────────────────────────────────────
   Widget _buildProductHeader(BuildContext context) {
+    final colors = context.dcColors;
     final ImageProvider? resolvedImage = productImage ??
         (product.imageUrl.trim().isNotEmpty ? NetworkImage(product.imageUrl.trim()) : null);
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEBE6F5)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.15 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -286,21 +290,21 @@ class ProductShareCard extends StatelessWidget {
             child: Container(
               width: 64,
               height: 64,
-              color: const Color(0xFFF7F5FC),
+              color: colors.surface,
               padding: const EdgeInsets.all(4),
               child: resolvedImage != null
                   ? Image(
                       image: resolvedImage,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
+                      errorBuilder: (context, error, stackTrace) => Icon(
                         Icons.fastfood_rounded,
-                        color: Color(0xFF9A96A8),
+                        color: colors.textMuted,
                         size: 28,
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.fastfood_rounded,
-                      color: Color(0xFF9A96A8),
+                      color: colors.textMuted,
                       size: 28,
                     ),
             ),
@@ -315,10 +319,10 @@ class ProductShareCard extends StatelessWidget {
                   product.name.trim().isNotEmpty ? product.name : 'Scanned Food Product',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                     height: 1.2,
                   ),
                 ),
@@ -326,10 +330,10 @@ class ProductShareCard extends StatelessWidget {
                 if (product.brand.trim().isNotEmpty) ...[
                   Text(
                     product.brand.trim(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -337,9 +341,9 @@ class ProductShareCard extends StatelessWidget {
                 if (product.barcode.trim().isNotEmpty)
                   Text(
                     'Barcode: ${product.barcode.trim()}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
-                      color: Color(0xFF8A889A),
+                      color: colors.textMuted,
                     ),
                   ),
               ],
@@ -351,7 +355,8 @@ class ProductShareCard extends StatelessWidget {
   }
 
   // ── Scores Row ──────────────────────────────────────────────────────────────
-  Widget _buildScoresRow(Color scoreColor, String scoreLabel, String compatLabel) {
+  Widget _buildScoresRow(BuildContext context, Color scoreColor, String scoreLabel, String compatLabel) {
+    final colors = context.dcColors;
     return Row(
       children: [
         // Overall Nutrition Score
@@ -359,7 +364,7 @@ class ProductShareCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surfaceSecondary,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: scoreColor.withValues(alpha: 0.25)),
               boxShadow: [
@@ -385,23 +390,23 @@ class ProductShareCard extends StatelessWidget {
                         color: scoreColor,
                       ),
                     ),
-                    const Text(
+                    Text(
                       '/100',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF8A889A),
+                        color: colors.textMuted,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   'Overall Nutrition',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -431,12 +436,12 @@ class ProductShareCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surfaceSecondary,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFF6C4EF5).withValues(alpha: 0.25)),
+              border: Border.all(color: colors.iconPurple.withValues(alpha: 0.25)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6C4EF5).withValues(alpha: 0.08),
+                  color: colors.iconPurple.withValues(alpha: 0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -451,45 +456,45 @@ class ProductShareCard extends StatelessWidget {
                   children: [
                     Text(
                       '$compatibilityScore',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                       ),
                     ),
-                    const Text(
+                    Text(
                       '%',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   'Personal Match',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C4EF5).withValues(alpha: 0.12),
+                    color: colors.iconPurple.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     compatLabel,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF6C4EF5),
+                      color: colors.iconPurple,
                     ),
                   ),
                 ),
@@ -502,27 +507,28 @@ class ProductShareCard extends StatelessWidget {
   }
 
   // ── Nutrition Snapshot ──────────────────────────────────────────────────────
-  Widget _buildNutritionSection(List<NutrientStat> validNutrients) {
+  Widget _buildNutritionSection(BuildContext context, List<NutrientStat> validNutrients) {
+    final colors = context.dcColors;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEBE6F5)),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.bolt_rounded, size: 15, color: Color(0xFF6C4EF5)),
-              SizedBox(width: 6),
+              Icon(Icons.bolt_rounded, size: 15, color: colors.iconPurple),
+              const SizedBox(width: 6),
               Text(
                 'Nutrition Snapshot',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
             ],
@@ -535,9 +541,9 @@ class ProductShareCard extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F5FC),
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE8E3F2)),
+                  border: Border.all(color: colors.cardBorder),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -546,18 +552,18 @@ class ProductShareCard extends StatelessWidget {
                     const SizedBox(width: 5),
                     Text(
                       '${n.label}: ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF6B6B7B),
+                        color: colors.textSecondary,
                       ),
                     ),
                     Text(
                       '${n.value}${n.unit.isNotEmpty ? " ${n.unit}" : ""}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
@@ -571,21 +577,22 @@ class ProductShareCard extends StatelessWidget {
   }
 
   // ── Compatibility Section ───────────────────────────────────────────────────
-  Widget _buildCompatibilitySection() {
+  Widget _buildCompatibilitySection(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEBE6F5)),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.favorite_rounded, size: 15, color: Color(0xFF1E8A4C)),
-              SizedBox(width: 6),
+              Icon(Icons.favorite_rounded, size: 15, color: colors.iconGreen),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Personal Health Compatibility',
@@ -594,7 +601,7 @@ class ProductShareCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
@@ -605,7 +612,7 @@ class ProductShareCard extends StatelessWidget {
             final isGood = item.rating.toLowerCase().contains('good') ||
                 item.rating.toLowerCase().contains('excellent') ||
                 item.rating.toLowerCase().contains('safe');
-            final badgeColor = isGood ? const Color(0xFF1E8A4C) : const Color(0xFFE0862E);
+            final badgeColor = isGood ? colors.iconGreen : colors.iconOrange;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -616,10 +623,10 @@ class ProductShareCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                   ),
@@ -648,7 +655,8 @@ class ProductShareCard extends StatelessWidget {
   }
 
   // ── Pros & Cons Section ─────────────────────────────────────────────────────
-  Widget _buildProsAndConsSection() {
+  Widget _buildProsAndConsSection(BuildContext context) {
+    final colors = context.dcColors;
     final validGood = goodPoints.take(2).toList();
     final validWatch = watchPoints.take(2).toList();
 
@@ -660,17 +668,17 @@ class ProductShareCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
+              color: colors.isDark ? const Color(0xFF142E1C) : const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDCFCE7)),
+              border: Border.all(color: colors.isDark ? const Color(0xFF1E4D2C) : const Color(0xFFDCFCE7)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
-                    SizedBox(width: 5),
+                    Icon(Icons.check_circle_rounded, size: 14, color: colors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A)),
+                    const SizedBox(width: 5),
                     Expanded(
                       child: Text(
                         "What's Good",
@@ -679,7 +687,7 @@ class ProductShareCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF15803D),
+                          color: colors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D),
                         ),
                       ),
                     ),
@@ -692,16 +700,16 @@ class ProductShareCard extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('• ', style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800)),
+                            Text('• ', style: TextStyle(color: colors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF16A34A), fontWeight: FontWeight.w800)),
                             Expanded(
                               child: Text(
                                 g.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF166534),
+                                  color: colors.isDark ? const Color(0xFFBBF7D0) : const Color(0xFF166534),
                                   height: 1.25,
                                 ),
                               ),
@@ -710,9 +718,9 @@ class ProductShareCard extends StatelessWidget {
                         ),
                       ))
                 else
-                  const Text(
+                  Text(
                     'No major positive flags recorded',
-                    style: TextStyle(fontSize: 10.5, color: Color(0xFF15803D)),
+                    style: TextStyle(fontSize: 10.5, color: colors.isDark ? const Color(0xFF86EFAC) : const Color(0xFF15803D)),
                   ),
               ],
             ),
@@ -724,17 +732,17 @@ class ProductShareCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
+              color: colors.isDark ? const Color(0xFF2E2214) : const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFEF3C7)),
+              border: Border.all(color: colors.isDark ? const Color(0xFF4D381E) : const Color(0xFFFEF3C7)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFD97706)),
-                    SizedBox(width: 5),
+                    Icon(Icons.warning_amber_rounded, size: 14, color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFD97706)),
+                    const SizedBox(width: 5),
                     Expanded(
                       child: Text(
                         'Watch Out For',
@@ -743,7 +751,7 @@ class ProductShareCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFB45309),
+                          color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFB45309),
                         ),
                       ),
                     ),
@@ -756,16 +764,16 @@ class ProductShareCard extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('• ', style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.w800)),
+                            Text('• ', style: TextStyle(color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFD97706), fontWeight: FontWeight.w800)),
                             Expanded(
                               child: Text(
                                 w.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF92400E),
+                                  color: colors.isDark ? const Color(0xFFFED7AA) : const Color(0xFF92400E),
                                   height: 1.25,
                                 ),
                               ),
@@ -774,9 +782,9 @@ class ProductShareCard extends StatelessWidget {
                         ),
                       ))
                 else
-                  const Text(
+                  Text(
                     'No critical flags detected',
-                    style: TextStyle(fontSize: 10.5, color: Color(0xFFB45309)),
+                    style: TextStyle(fontSize: 10.5, color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFB45309)),
                   ),
               ],
             ),
@@ -787,34 +795,28 @@ class ProductShareCard extends StatelessWidget {
   }
 
   // ── AI Recommendation ───────────────────────────────────────────────────────
-  Widget _buildAiRecommendationSection() {
+  Widget _buildAiRecommendationSection(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6C4EF5).withValues(alpha: 0.08),
-            const Color(0xFF1E8A4C).withValues(alpha: 0.06),
-          ],
-        ),
+        color: colors.iconPurpleBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF6C4EF5).withValues(alpha: 0.2)),
+        border: Border.all(color: colors.iconPurple.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome, size: 14, color: Color(0xFF6C4EF5)),
-              SizedBox(width: 6),
+              Icon(Icons.auto_awesome, size: 14, color: colors.iconPurple),
+              const SizedBox(width: 6),
               Text(
                 'AI Recommendation',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ),
             ],
@@ -822,10 +824,10 @@ class ProductShareCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             aiRecommendation!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF2D2B3D),
+              color: colors.textPrimary,
               height: 1.35,
             ),
           ),

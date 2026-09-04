@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Notification model representing an in-app alert or reminder.
@@ -220,8 +221,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -286,20 +288,20 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               width: 42 * scale,
               height: 42 * scale,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.dcColors.surface,
                 borderRadius: BorderRadius.circular(14 * scale),
-                border: Border.all(color: const Color(0xFFE5DEFF)),
+                border: Border.all(color: context.dcColors.cardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                    color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
-                color: Color(0xFF1B1B2E),
+                color: context.dcColors.textPrimary,
               ),
             ),
           ),
@@ -318,7 +320,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                         style: TextStyle(
                           fontSize: 20 * scale,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1B1B2E),
+                          color: context.dcColors.textPrimary,
                         ),
                       ),
                     ),
@@ -330,7 +332,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           vertical: 2 * scale,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6C4EF5),
+                          color: context.dcColors.iconPurple,
                           borderRadius: BorderRadius.circular(10 * scale),
                         ),
                         child: Text(
@@ -350,7 +352,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12 * scale,
-                    color: const Color(0xFF6B6B7B),
+                    color: context.dcColors.textSecondary,
                   ),
                 ),
               ],
@@ -358,17 +360,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           ),
           if (_notifications.isNotEmpty)
             PopupMenuButton<String>(
+              color: context.dcColors.surface,
               icon: Container(
                 width: 38 * scale,
                 height: 38 * scale,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.dcColors.surface,
                   borderRadius: BorderRadius.circular(12 * scale),
-                  border: Border.all(color: const Color(0xFFE5DEFF)),
+                  border: Border.all(color: context.dcColors.cardBorder),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.more_vert_rounded,
-                  color: Color(0xFF1B1B2E),
+                  color: context.dcColors.textPrimary,
                   size: 20,
                 ),
               ),
@@ -412,25 +415,25 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       margin: EdgeInsets.symmetric(horizontal: 18 * scale),
       padding: EdgeInsets.all(4 * scale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(16 * scale),
-        border: Border.all(color: const Color(0xFFE5DEFF)),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: const Color(0xFF6C4EF5),
+          color: context.dcColors.iconPurple,
           borderRadius: BorderRadius.circular(12 * scale),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF6C4EF5).withValues(alpha: 0.3),
+              color: context.dcColors.iconPurple.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
           ],
         ),
         labelColor: Colors.white,
-        unselectedLabelColor: const Color(0xFF6B6B7B),
+        unselectedLabelColor: context.dcColors.textSecondary,
         labelStyle: TextStyle(
           fontSize: 13 * scale,
           fontWeight: FontWeight.w700,
@@ -560,19 +563,19 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             child: Container(
               padding: EdgeInsets.all(14 * scale),
               decoration: BoxDecoration(
-                color: item.isRead ? Colors.white.withValues(alpha: 0.85) : Colors.white,
+                color: context.dcColors.surface,
                 borderRadius: BorderRadius.circular(18 * scale),
                 border: Border.all(
                   color: item.isRead
-                      ? const Color(0xFFEBE7F5)
-                      : const Color(0xFF6C4EF5).withValues(alpha: 0.35),
+                      ? context.dcColors.cardBorder
+                      : context.dcColors.iconPurple.withValues(alpha: 0.35),
                   width: item.isRead ? 1.0 : 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: item.isRead
                         ? Colors.black.withValues(alpha: 0.02)
-                        : const Color(0xFF6C4EF5).withValues(alpha: 0.07),
+                        : context.dcColors.iconPurple.withValues(alpha: 0.07),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -624,7 +627,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                               item.timeAgo,
                               style: TextStyle(
                                 fontSize: 11 * scale,
-                                color: const Color(0xFF9E9EB2),
+                                color: context.dcColors.textMuted,
                               ),
                             ),
                             if (!item.isRead) ...[
@@ -632,8 +635,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                               Container(
                                 width: 8 * scale,
                                 height: 8 * scale,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF6C4EF5),
+                                decoration: BoxDecoration(
+                                  color: context.dcColors.iconPurple,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -646,7 +649,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           style: TextStyle(
                             fontSize: 14.5 * scale,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1B1B2E),
+                            color: context.dcColors.textPrimary,
                           ),
                         ),
                         SizedBox(height: 4 * scale),
@@ -654,7 +657,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           item.message,
                           style: TextStyle(
                             fontSize: 12.5 * scale,
-                            color: const Color(0xFF5A5A6E),
+                            color: context.dcColors.textSecondary,
                             height: 1.35,
                           ),
                         ),
@@ -750,14 +753,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                           style: TextStyle(
                             fontSize: 13.5 * scale,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1B1B2E),
+                            color: context.dcColors.textPrimary,
                           ),
                         ),
                         Text(
                           _reminderTime,
                           style: TextStyle(
                             fontSize: 11.5 * scale,
-                            color: const Color(0xFF6C4EF5),
+                            color: context.dcColors.iconPurple,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -862,14 +865,15 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     required String subtitle,
     required List<Widget> children,
   }) {
+    final colors = context.dcColors;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20 * scale),
-        border: Border.all(color: const Color(0xFFE5DEFF)),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C4EF5).withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -888,7 +892,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   style: TextStyle(
                     fontSize: 14 * scale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
                 SizedBox(height: 2 * scale),
@@ -896,13 +900,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   subtitle,
                   style: TextStyle(
                     fontSize: 11.5 * scale,
-                    color: const Color(0xFF6B6B7B),
+                    color: colors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFF0ECF8)),
+          Divider(height: 1, color: colors.cardBorder),
           ...children,
         ],
       ),
@@ -948,8 +952,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     fontSize: 13.5 * scale,
                     fontWeight: FontWeight.w700,
                     color: enabled
-                        ? const Color(0xFF1B1B2E)
-                        : const Color(0xFF9E9E9E),
+                        ? context.dcColors.textPrimary
+                        : context.dcColors.textMuted,
                   ),
                 ),
                 SizedBox(height: 2 * scale),
@@ -957,7 +961,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                   subtitle,
                   style: TextStyle(
                     fontSize: 11 * scale,
-                    color: const Color(0xFF6B6B7B),
+                    color: context.dcColors.textSecondary,
                   ),
                 ),
               ],

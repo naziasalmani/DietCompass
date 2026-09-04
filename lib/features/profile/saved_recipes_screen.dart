@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/model/recipe_history_item.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/recipe_history_service.dart';
@@ -232,8 +233,9 @@ class _SavedRecipesScreenState extends State<SavedRecipesScreen>
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
     final userId = AuthService.instance.currentUser?.id ?? 'guest_user';
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -437,13 +439,7 @@ class _GlassBackdropState extends State<_GlassBackdrop>
         fit: StackFit.expand,
         children: [
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF7F3FF), Color(0xFFF3F0FB), Color(0xFFF0FCF5)],
-              ),
-            ),
+            color: context.dcColors.bg,
           ),
           AnimatedBuilder(
             animation: _ctrl,
@@ -521,12 +517,12 @@ class _Glass extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.72),
+            color: context.dcColors.surface.withValues(alpha: context.dcColors.isDark ? 0.85 : 0.72),
             borderRadius: BorderRadius.circular(radius * uiScale),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 1.2),
+            border: Border.all(color: context.dcColors.cardBorder, width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6C4EF5).withValues(alpha: 0.06),
+                color: context.dcColors.iconPurple.withValues(alpha: context.dcColors.isDark ? 0.12 : 0.06),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -597,14 +593,14 @@ class _TopHeader extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.bookmark_rounded, size: 17 * uiScale, color: const Color(0xFF6C4EF5)),
+                  Icon(Icons.bookmark_rounded, size: 17 * uiScale, color: context.dcColors.iconPurple),
                   SizedBox(width: 6 * uiScale),
                   Text(
                     'Saved Recipes',
                     style: TextStyle(
                       fontSize: 18 * uiScale,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1B1B2E),
+                      color: context.dcColors.textPrimary,
                     ),
                   ),
                 ],
@@ -613,7 +609,7 @@ class _TopHeader extends StatelessWidget {
               Text(
                 'Your favorite recipes, all in one place',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(fontSize: 11.5 * uiScale, color: context.dcColors.textSecondary),
               ),
             ],
           ),
@@ -634,17 +630,19 @@ class _RoundGlassIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       width: 42 * uiScale,
       height: 42 * uiScale,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: colors.surface,
         shape: BoxShape.circle,
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: colors.isDark ? 0.2 : 0.06), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
-      child: Icon(icon, size: 19 * uiScale, color: const Color(0xFF1B1B2E)),
+      child: Icon(icon, size: 19 * uiScale, color: colors.textPrimary),
     );
   }
 }
@@ -686,8 +684,9 @@ class _CategoryTabsRow extends StatelessWidget {
                 gradient: selected
                     ? const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8467F8)])
                     : null,
-                color: selected ? null : Colors.white.withValues(alpha: 0.75),
+                color: selected ? null : context.dcColors.surface,
                 borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: selected ? Colors.transparent : context.dcColors.cardBorder),
                 boxShadow: selected
                     ? [
                         BoxShadow(
@@ -705,14 +704,14 @@ class _CategoryTabsRow extends StatelessWidget {
                   Row(
                     children: [
                       Icon(cat.icon,
-                          size: 14 * uiScale, color: selected ? Colors.white : const Color(0xFF6C4EF5)),
+                          size: 14 * uiScale, color: selected ? Colors.white : context.dcColors.iconPurple),
                       SizedBox(width: 6 * uiScale),
                       Text(
                         cat.label,
                         style: TextStyle(
                           fontSize: 12 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: selected ? Colors.white : const Color(0xFF1B1B2E),
+                          color: selected ? Colors.white : context.dcColors.textPrimary,
                         ),
                       ),
                     ],
@@ -723,7 +722,7 @@ class _CategoryTabsRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5 * uiScale,
                       fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF6B6B7B),
+                      color: selected ? Colors.white.withValues(alpha: 0.9) : context.dcColors.textSecondary,
                     ),
                   ),
                 ],
@@ -802,17 +801,17 @@ class _SortFilterRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.tune_rounded, size: 15 * uiScale, color: const Color(0xFF1B1B2E)),
+                Icon(Icons.tune_rounded, size: 15 * uiScale, color: context.dcColors.textPrimary),
                 SizedBox(width: 6 * uiScale),
                 Text(
                   'Filter',
                   style: TextStyle(
                     fontSize: 12 * uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1B1B2E),
+                    color: context.dcColors.textPrimary,
                   ),
                 ),
-                Icon(Icons.expand_more_rounded, size: 15 * uiScale, color: const Color(0xFF1B1B2E)),
+                Icon(Icons.expand_more_rounded, size: 15 * uiScale, color: context.dcColors.textPrimary),
               ],
             ),
           ),
@@ -989,11 +988,11 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                       Row(
                         children: [
                           Icon(Icons.calendar_today_rounded,
-                              size: 11 * uiScale, color: const Color(0xFFB0ACC2)),
+                              size: 11 * uiScale, color: context.dcColors.textMuted),
                           SizedBox(width: 5 * uiScale),
                           Text(
                             recipe.savedLabel,
-                            style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                            style: TextStyle(fontSize: 10.5 * uiScale, color: context.dcColors.textSecondary),
                           ),
                         ],
                       ),
@@ -1070,11 +1069,13 @@ class _MetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 5 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F0FB),
+        color: colors.surfaceSecondary,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1086,7 +1087,7 @@ class _MetaPill extends StatelessWidget {
             style: TextStyle(
               fontSize: 9.5 * uiScale,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
         ],
@@ -1133,7 +1134,7 @@ class _EmptySavedRecipesState extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16 * uiScale,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1B1B2E),
+                color: context.dcColors.textPrimary,
               ),
             ),
             SizedBox(height: 8 * uiScale),
@@ -1142,7 +1143,7 @@ class _EmptySavedRecipesState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12 * uiScale,
-                color: const Color(0xFF6B6B7B),
+                color: context.dcColors.textSecondary,
                 height: 1.4,
               ),
             ),

@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:diet_compass/features/scan/result_screen.dart';
-import '../ai/ai_recommendation_screen.dart';
-import 'manual_entry_screen.dart';
 import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/services/ai_service.dart';
@@ -414,9 +413,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
+    final colors = context.dcColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F3FC),
+      backgroundColor: colors.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -531,49 +531,50 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.fromLTRB(16 * uiScale, 8 * uiScale, 16 * uiScale, 4 * uiScale),
       child: Row(
         children: [
           _RoundIconButton(
-  uiScale: uiScale,
-  icon: Icons.arrow_back,
-  onTap: () {
-    if (onBack != null) {
-      onBack!();
-    } else {
-      Navigator.pop(context);
-    }
-  },
-),
+            uiScale: uiScale,
+            icon: Icons.arrow_back,
+            onTap: () {
+              if (onBack != null) {
+                onBack!();
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
           Expanded(
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.auto_awesome, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                    Icon(Icons.auto_awesome, size: 15 * uiScale, color: colors.iconPurple),
                     SizedBox(width: 5 * uiScale),
                     Text(
                       'AI Analysis',
                       style: TextStyle(
                         fontSize: 16 * uiScale,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                   ],
                 ),
                 RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 11 * uiScale, color: const Color(0xFF6B6B7B)),
-                    children: const [
-                      TextSpan(text: 'Our AI is '),
+                    style: TextStyle(fontSize: 11 * uiScale, color: colors.textSecondary),
+                    children: [
+                      const TextSpan(text: 'Our AI is '),
                       TextSpan(
                         text: 'analyzing',
-                        style: TextStyle(color: Color(0xFF6C4EF5), fontWeight: FontWeight.w700),
+                        style: TextStyle(color: colors.iconPurple, fontWeight: FontWeight.w700),
                       ),
-                      TextSpan(text: ' your product…'),
+                      const TextSpan(text: ' your product…'),
                     ],
                   ),
                 ),
@@ -602,6 +603,7 @@ class _RoundIconButtonState extends State<_RoundIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.9),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -615,12 +617,17 @@ class _RoundIconButtonState extends State<_RoundIconButton> {
           height: 40 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
+            color: colors.surface,
+            border: Border.all(color: colors.cardBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
-          child: Icon(widget.icon, size: 18 * widget.uiScale, color: const Color(0xFF1B1B2E)),
+          child: Icon(widget.icon, size: 18 * widget.uiScale, color: colors.textPrimary),
         ),
       ),
     );
@@ -641,6 +648,7 @@ class _CancelPillState extends State<_CancelPill> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return GestureDetector(
       onTapDown: (_) => setState(() => _scale = 0.94),
       onTapUp: (_) => setState(() => _scale = 1.0),
@@ -652,23 +660,28 @@ class _CancelPillState extends State<_CancelPill> {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 12 * widget.uiScale, vertical: 9 * widget.uiScale),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.cardBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.close, size: 14 * widget.uiScale, color: const Color(0xFF6C4EF5)),
+              Icon(Icons.close, size: 14 * widget.uiScale, color: colors.iconPurple),
               SizedBox(width: 4 * widget.uiScale),
               Text(
                 'Cancel',
                 style: TextStyle(
                   fontSize: 12.5 * widget.uiScale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF6C4EF5),
+                  color: colors.iconPurple,
                 ),
               ),
             ],
@@ -716,9 +729,10 @@ class _ProductCard extends StatelessWidget {
     return null;
   }
 
-  Widget _buildPlaceholder(double uiScale) {
+  Widget _buildPlaceholder(BuildContext context, double uiScale) {
+    final colors = context.dcColors;
     return Container(
-      color: const Color(0xFFEDE7FA),
+      color: colors.surfaceSecondary,
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -726,14 +740,14 @@ class _ProductCard extends StatelessWidget {
           Icon(
             Icons.fastfood_rounded,
             size: 26 * uiScale,
-            color: const Color(0xFF8E72F8),
+            color: colors.iconPurple,
           ),
           SizedBox(height: 4 * uiScale),
           Text(
             'No Image',
             style: TextStyle(
               fontSize: 9.5 * uiScale,
-              color: const Color(0xFF9A96A8),
+              color: colors.textMuted,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -744,15 +758,21 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final resolvedImage = _resolveImage();
 
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.cardBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 18, offset: const Offset(0, 8)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: Row(
@@ -763,14 +783,14 @@ class _ProductCard extends StatelessWidget {
             child: Container(
               width: 78 * uiScale,
               height: 96 * uiScale,
-              color: const Color(0xFFF3F0FB),
+              color: colors.surfaceSecondary,
               child: resolvedImage != null
                   ? Image(
                       image: resolvedImage,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(uiScale),
+                      errorBuilder: (_, __, ___) => _buildPlaceholder(context, uiScale),
                     )
-                  : _buildPlaceholder(uiScale),
+                  : _buildPlaceholder(context, uiScale),
             ),
           ),
           SizedBox(width: 12 * uiScale),
@@ -783,51 +803,51 @@ class _ProductCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15.5 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1B1B2E),
+                    color: colors.textPrimary,
                   ),
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 12 * uiScale, color: const Color(0xFF6B6B7B)),
+                  style: TextStyle(fontSize: 12 * uiScale, color: colors.textSecondary),
                 ),
                 SizedBox(height: 4 * uiScale),
                 Row(
-  children: [
-    Icon(
-      Icons.scale_outlined,
-      size: 12 * uiScale,
-      color: const Color(0xFF9A96A8),
-    ),
-    SizedBox(width: 4 * uiScale),
-    Expanded(
-      child: Text(
-        servingInfo,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 11 * uiScale,
-          color: const Color(0xFF9A96A8),
-        ),
-      ),
-    ),
-  ],
-),
+                  children: [
+                    Icon(
+                      Icons.scale_outlined,
+                      size: 12 * uiScale,
+                      color: colors.textMuted,
+                    ),
+                    SizedBox(width: 4 * uiScale),
+                    Expanded(
+                      child: Text(
+                        servingInfo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11 * uiScale,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 SizedBox(height: 8 * uiScale),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 5 * uiScale),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE4F5E9),
+                    color: colors.iconGreenBg,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.shield_rounded, size: 12 * uiScale, color: const Color(0xFF1E8A4C)),
+                      Icon(Icons.shield_rounded, size: 12 * uiScale, color: colors.iconGreen),
                       SizedBox(width: 5 * uiScale),
                       Text(
                         'Image Quality',
-                        style: TextStyle(fontSize: 10 * uiScale, color: const Color(0xFF3B3B4F)),
+                        style: TextStyle(fontSize: 10 * uiScale, color: colors.textPrimary),
                       ),
                       SizedBox(width: 4 * uiScale),
                       Text(
@@ -835,7 +855,7 @@ class _ProductCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1E8A4C),
+                          color: colors.iconGreen,
                         ),
                       ),
                     ],
@@ -848,20 +868,20 @@ class _ProductCard extends StatelessWidget {
             width: 1,
             height: 90 * uiScale,
             margin: EdgeInsets.symmetric(horizontal: 6 * uiScale),
-            color: const Color(0xFFEDEAF7),
+            color: colors.divider,
           ),
           Column(
             children: [
               Text(
                 'Food type',
-                style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
               ),
               SizedBox(height: 8 * uiScale),
               Container(
                 width: 44 * uiScale,
                 height: 44 * uiScale,
-                decoration: const BoxDecoration(color: Color(0xFFE4F5E9), shape: BoxShape.circle),
-                child: Icon(Icons.eco, color: const Color(0xFF1E8A4C), size: 20 * uiScale),
+                decoration: BoxDecoration(color: colors.iconGreenBg, shape: BoxShape.circle),
+                child: Icon(Icons.eco, color: colors.iconGreen, size: 20 * uiScale),
               ),
               SizedBox(height: 6 * uiScale),
               Text(
@@ -869,7 +889,7 @@ class _ProductCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10.5 * uiScale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E8A4C),
+                  color: colors.iconGreen,
                 ),
               ),
             ],
@@ -896,10 +916,11 @@ class _AnalyzingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1ECFB),
+        color: colors.iconPurpleBg,
         borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
@@ -922,7 +943,7 @@ class _AnalyzingCard extends StatelessWidget {
                       height: 76 * uiScale,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: colors.surface.withValues(alpha: 0.5),
                       ),
                     ),
                     Image.asset('assets/images/robot_pointing.png', width: 66 * uiScale),
@@ -936,14 +957,14 @@ class _AnalyzingCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.auto_awesome, size: 15 * uiScale, color: const Color(0xFF6C4EF5)),
+                        Icon(Icons.auto_awesome, size: 15 * uiScale, color: colors.iconPurple),
                         SizedBox(width: 5 * uiScale),
                         Text(
                           'Analyzing…',
                           style: TextStyle(
                             fontSize: 15.5 * uiScale,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF6C4EF5),
+                            color: colors.iconPurple,
                           ),
                         ),
                       ],
@@ -953,7 +974,7 @@ class _AnalyzingCard extends StatelessWidget {
                       'DietCompass AI is reading ingredients, checking '
                       'nutrition facts and finding healthier alternatives '
                       'for you.',
-                      style: TextStyle(fontSize: 11.5 * uiScale, height: 1.4, color: const Color(0xFF3B3B4F)),
+                      style: TextStyle(fontSize: 11.5 * uiScale, height: 1.4, color: colors.textPrimary),
                     ),
                   ],
                 ),
@@ -966,16 +987,17 @@ class _AnalyzingCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 14 * uiScale, vertical: 12 * uiScale),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.cardBorder),
             ),
             child: Row(
               children: [
                 Container(
                   width: 34 * uiScale,
                   height: 34 * uiScale,
-                  decoration: const BoxDecoration(color: Color(0xFFEDE7FA), shape: BoxShape.circle),
-                  child: Icon(Icons.timer_outlined, size: 17 * uiScale, color: const Color(0xFF6C4EF5)),
+                  decoration: BoxDecoration(color: colors.surfaceSecondary, shape: BoxShape.circle),
+                  child: Icon(Icons.timer_outlined, size: 17 * uiScale, color: colors.iconPurple),
                 ),
                 SizedBox(width: 10 * uiScale),
                 Expanded(
@@ -984,14 +1006,14 @@ class _AnalyzingCard extends StatelessWidget {
                     children: [
                       Text(
                         'Estimated time',
-                        style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                        style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                       ),
                       Text(
                         controller.estimatedTime,
                         style: TextStyle(
                           fontSize: 13 * uiScale,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1B1B2E),
+                          color: colors.textPrimary,
                         ),
                       ),
                     ],
@@ -1005,17 +1027,17 @@ class _AnalyzingCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12 * uiScale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF6C4EF5),
+                        color: colors.iconPurple,
                       ),
                     ),
                     Text(
                       'Great things take a moment!',
-                      style: TextStyle(fontSize: 9.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                      style: TextStyle(fontSize: 9.5 * uiScale, color: colors.textSecondary),
                     ),
                   ],
                 ),
                 SizedBox(width: 8 * uiScale),
-                Icon(Icons.hourglass_bottom_rounded, size: 20 * uiScale, color: const Color(0xFFE0862E)),
+                Icon(Icons.hourglass_bottom_rounded, size: 20 * uiScale, color: colors.iconOrange),
               ],
             ),
           ),
@@ -1032,6 +1054,7 @@ class _StepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(steps.length * 2 - 1, (i) {
@@ -1044,7 +1067,7 @@ class _StepRow extends StatelessWidget {
               padding: EdgeInsets.only(top: 26 * uiScale),
               child: Stack(
                 children: [
-                  Container(height: 3, width: double.infinity, color: const Color(0xFFE0D9F5)),
+                  Container(height: 3, width: double.infinity, color: colors.divider),
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: lineProgress.clamp(0.0, 1.0)),
                     duration: const Duration(milliseconds: 200),
@@ -1057,9 +1080,9 @@ class _StepRow extends StatelessWidget {
                     },
                     child: Container(
                       height: 3,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF6C4EF5), Color(0xFF1E8A4C)],
+                          colors: [colors.iconPurple, colors.iconGreen],
                         ),
                       ),
                     ),
@@ -1083,9 +1106,9 @@ class _StepBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     final t = (step.percent / 100).clamp(0.0, 1.0);
-    final bg = Color.lerp(const Color(0xFFE7E1F7), step.color, t)!;
-    final iconColor = Color.lerp(const Color(0xFFB6AEDB), Colors.white, t)!;
+    final bg = Color.lerp(colors.surfaceSecondary, step.color, t)!;
 
     return SizedBox(
       width: 58 * uiScale,
@@ -1100,7 +1123,7 @@ class _StepBadge extends StatelessWidget {
                 height: 52 * uiScale,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color.lerp(const Color(0xFFE7E1F7), step.color, value),
+                  color: Color.lerp(colors.surfaceSecondary, step.color, value),
                   boxShadow: value > 0.05
                       ? [
                           BoxShadow(
@@ -1114,7 +1137,7 @@ class _StepBadge extends StatelessWidget {
                 child: Icon(
                   step.icon,
                   size: 20 * uiScale,
-                  color: Color.lerp(const Color(0xFFB6AEDB), Colors.white, value),
+                  color: Color.lerp(colors.textMuted, Colors.white, value),
                 ),
               );
             },
@@ -1127,7 +1150,7 @@ class _StepBadge extends StatelessWidget {
               fontSize: 9.5 * uiScale,
               fontWeight: FontWeight.w700,
               height: 1.2,
-              color: const Color(0xFF1B1B2E),
+              color: colors.textPrimary,
             ),
           ),
           SizedBox(height: 3 * uiScale),
@@ -1151,6 +1174,7 @@ class _InsightsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1158,21 +1182,21 @@ class _InsightsCard extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 2 * uiScale),
           child: Row(
             children: [
-              Icon(Icons.graphic_eq_rounded, size: 15 * uiScale, color: const Color(0xFF9B7BFA)),
+              Icon(Icons.graphic_eq_rounded, size: 15 * uiScale, color: colors.iconPurple),
               SizedBox(width: 6 * uiScale),
               Text(
                 'Live Analysis Insights',
                 style: TextStyle(
                   fontSize: 14.5 * uiScale,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B1B2E),
+                  color: colors.textPrimary,
                 ),
               ),
               SizedBox(width: 8 * uiScale),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 3 * uiScale),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE4F5E9),
+                  color: colors.iconGreenBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -1180,7 +1204,7 @@ class _InsightsCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9.5 * uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1E8A4C),
+                    color: colors.iconGreen,
                   ),
                 ),
               ),
@@ -1191,10 +1215,15 @@ class _InsightsCard extends StatelessWidget {
         Container(
           padding: EdgeInsets.symmetric(vertical: 6 * uiScale),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.surface,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.cardBorder),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: colors.isDark ? 0.20 : 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
             ],
           ),
           child: Column(
@@ -1230,6 +1259,7 @@ class _InsightRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12 * uiScale, vertical: 8 * uiScale),
       child: IntrinsicHeight(
@@ -1245,14 +1275,14 @@ class _InsightRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: status == StepStatus.pending
-                        ? const Color(0xFFF1EEF9)
+                        ? colors.surfaceSecondary
                         : insight.color.withValues(alpha: 0.14),
                   ),
                   child: Icon(
                     insight.icon,
                     size: 15 * uiScale,
                     color: status == StepStatus.pending
-                        ? const Color(0xFFB0ACC2)
+                        ? colors.textMuted
                         : insight.color,
                   ),
                 ),
@@ -1261,7 +1291,7 @@ class _InsightRow extends StatelessWidget {
                     child: Container(
                       width: 1.4,
                       margin: EdgeInsets.symmetric(vertical: 4 * uiScale),
-                      color: const Color(0xFFEDEAF7),
+                      color: colors.divider,
                     ),
                   ),
               ],
@@ -1278,13 +1308,13 @@ class _InsightRow extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12.5 * uiScale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1B1B2E),
+                        color: colors.textPrimary,
                       ),
                     ),
                     SizedBox(height: 2 * uiScale),
                     Text(
                       insight.subtitle,
-                      style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF9A96A8)),
+                      style: TextStyle(fontSize: 10.5 * uiScale, color: colors.textSecondary),
                     ),
                   ],
                 ),
@@ -1305,6 +1335,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     late final Color bg;
     late final Color fg;
     late final String label;
@@ -1312,20 +1343,20 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case StepStatus.completed:
-        bg = const Color(0xFFE4F5E9);
-        fg = const Color(0xFF1E8A4C);
+        bg = colors.iconGreenBg;
+        fg = colors.iconGreen;
         label = 'Completed';
         icon = Icon(Icons.check_circle, size: 12 * uiScale, color: fg);
         break;
       case StepStatus.inProgress:
-        bg = const Color(0xFFFCEBE0);
-        fg = const Color(0xFFE0862E);
+        bg = colors.iconOrangeBg;
+        fg = colors.iconOrange;
         label = 'In Progress';
         icon = _SpinningIcon(uiScale: uiScale, color: fg);
         break;
       case StepStatus.pending:
-        bg = const Color(0xFFF1EEF9);
-        fg = const Color(0xFF9A96A8);
+        bg = colors.surfaceSecondary;
+        fg = colors.textMuted;
         label = 'Pending';
         icon = const SizedBox.shrink();
         break;
@@ -1396,10 +1427,11 @@ class _AskAiBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1ECFB),
+        color: colors.iconPurpleBg,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -1422,14 +1454,14 @@ class _AskAiBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5 * uiScale,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF6C4EF5),
+                    color: colors.iconPurple,
                   ),
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
                   'Our AI checks 50+ nutrition factors to give you the '
                   'best insights.',
-                  style: TextStyle(fontSize: 10.5 * uiScale, height: 1.3, color: const Color(0xFF6B6B7B)),
+                  style: TextStyle(fontSize: 10.5 * uiScale, height: 1.3, color: colors.textSecondary),
                 ),
               ],
             ),

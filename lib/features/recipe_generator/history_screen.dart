@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/model/recipe_history_item.dart';
 import '../../core/services/recipe_history_service.dart';
 import 'recipe_detail_screen.dart';
@@ -153,8 +154,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FB),
+      backgroundColor: colors.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -250,7 +252,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                                         style: TextStyle(
                                           fontSize: 13 * scale,
                                           fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF1B1B2E),
+                                          color: colors.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -333,7 +335,7 @@ class _GlassBackdropState extends State<_GlassBackdrop> with SingleTickerProvide
         return Stack(
           fit: StackFit.expand,
           children: [
-            Container(color: const Color(0xFFF3F0FB)),
+            Container(color: context.dcColors.bg),
             Positioned(top: -80 + t * 14, right: -60, child: _blob(210 * uiScale, const Color(0xFF6C4EF5))),
             Positioned(bottom: -60 + t * 12, left: -60, child: _blob(180 * uiScale, const Color(0xFF1E8A4C))),
           ],
@@ -382,11 +384,19 @@ class _Glass extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: (color ?? Colors.white).withOpacity(color == null ? 0.68 : 0.9),
+            color: (color ?? (context.dcColors.isDark ? context.dcColors.surface : Colors.white))
+                .withValues(alpha: color == null ? (context.dcColors.isDark ? 0.85 : 0.68) : 0.9),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: borderColor ?? Colors.white.withOpacity(0.8), width: 1.1),
+            border: Border.all(
+              color: borderColor ?? context.dcColors.cardBorder,
+              width: 1.1,
+            ),
             boxShadow: [
-              BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.07), blurRadius: 18, offset: const Offset(0, 8)),
+              BoxShadow(
+                color: context.dcColors.iconPurple.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
           child: child,
@@ -451,11 +461,11 @@ class _TopHeader extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history_rounded, size: 18 * uiScale, color: const Color(0xFF6C4EF5)),
+                  Icon(Icons.history_rounded, size: 18 * uiScale, color: context.dcColors.iconPurple),
                   SizedBox(width: 6 * uiScale),
                   Text(
                     'History',
-                    style: TextStyle(fontSize: 18 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+                    style: TextStyle(fontSize: 18 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary),
                   ),
                 ],
               ),
@@ -463,7 +473,7 @@ class _TopHeader extends StatelessWidget {
               Text(
                 'Your recently generated recipes',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                style: TextStyle(fontSize: 11.5 * uiScale, color: context.dcColors.textSecondary),
               ),
             ],
           ),
@@ -485,11 +495,12 @@ class _RoundGlassIcon extends StatelessWidget {
       width: 42 * uiScale,
       height: 42 * uiScale,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
+        color: context.dcColors.surface,
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: context.dcColors.cardBorder),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Icon(icon, size: 19 * uiScale, color: const Color(0xFF1B1B2E)),
+      child: Icon(icon, size: 19 * uiScale, color: context.dcColors.textPrimary),
     );
   }
 }
@@ -514,9 +525,9 @@ class _TabsRow extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(4 * uiScale),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: context.dcColors.surfaceSecondary,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE3DDF5)),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         children: _tabs.map((t) {
@@ -529,16 +540,16 @@ class _TabsRow extends StatelessWidget {
                 curve: Curves.easeOut,
                 padding: EdgeInsets.symmetric(vertical: 11 * uiScale),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? const LinearGradient(colors: [Color(0xFF6C4EF5), Color(0xFF8467F8)]) : null,
+                  gradient: isSelected ? LinearGradient(colors: [context.dcColors.iconPurple, const Color(0xFF8467F8)]) : null,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: const Color(0xFF6C4EF5).withOpacity(0.32), blurRadius: 12, offset: const Offset(0, 5))]
+                      ? [BoxShadow(color: context.dcColors.iconPurple.withValues(alpha: 0.32), blurRadius: 12, offset: const Offset(0, 5))]
                       : null,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(t.icon, size: 14 * uiScale, color: isSelected ? Colors.white : const Color(0xFF6C4EF5)),
+                    Icon(t.icon, size: 14 * uiScale, color: isSelected ? Colors.white : context.dcColors.iconPurple),
                     SizedBox(width: 5 * uiScale),
                     Flexible(
                       child: Text(
@@ -548,7 +559,7 @@ class _TabsRow extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11.5 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : const Color(0xFF1B1B2E),
+                          color: isSelected ? Colors.white : context.dcColors.textPrimary,
                         ),
                       ),
                     ),
@@ -656,20 +667,20 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                                     style: TextStyle(
                                       fontSize: 13.5 * uiScale,
                                       fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF1B1B2E),
+                                      color: context.dcColors.textPrimary,
                                     ),
                                   ),
                                 ),
                                 if (recipe.isVegetarian) ...[
                                   SizedBox(width: 4 * uiScale),
-                                  Icon(Icons.eco_rounded, size: 12 * uiScale, color: const Color(0xFF1E8A4C)),
+                                  Icon(Icons.eco_rounded, size: 12 * uiScale, color: context.dcColors.iconGreen),
                                 ],
                               ],
                             ),
                           ),
                           _Pressable(
                             onTap: widget.onMenuTap,
-                            child: Icon(Icons.more_vert_rounded, size: 17 * uiScale, color: const Color(0xFFB0ACC2)),
+                            child: Icon(Icons.more_vert_rounded, size: 17 * uiScale, color: context.dcColors.textMuted),
                           ),
                         ],
                       ),
@@ -681,7 +692,7 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                         style: TextStyle(
                           fontSize: 11 * uiScale,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF6C4EF5),
+                          color: context.dcColors.iconPurple,
                         ),
                       ),
                       SizedBox(height: 8 * uiScale),
@@ -689,17 +700,17 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                         spacing: 6 * uiScale,
                         runSpacing: 6 * uiScale,
                         children: [
-                          _MetaPill(uiScale: uiScale, icon: Icons.access_time_rounded, iconColor: const Color(0xFF6C4EF5), label: '${recipe.timeMinutes} min'),
+                          _MetaPill(uiScale: uiScale, icon: Icons.access_time_rounded, iconColor: context.dcColors.iconPurple, label: '${recipe.timeMinutes} min'),
                           if (recipe.calories != null)
-                            _MetaPill(uiScale: uiScale, icon: Icons.local_fire_department_rounded, iconColor: const Color(0xFFE0862E), label: '${recipe.calories!.toInt()} kcal'),
+                            _MetaPill(uiScale: uiScale, icon: Icons.local_fire_department_rounded, iconColor: context.dcColors.iconOrange, label: '${recipe.calories!.toInt()} kcal'),
                           if (recipe.protein != null)
-                            _MetaPill(uiScale: uiScale, icon: Icons.eco_rounded, iconColor: const Color(0xFF1E8A4C), label: '${recipe.protein!.toInt()}g Protein'),
+                            _MetaPill(uiScale: uiScale, icon: Icons.eco_rounded, iconColor: context.dcColors.iconGreen, label: '${recipe.protein!.toInt()}g Protein'),
                         ],
                       ),
                       SizedBox(height: 8 * uiScale),
                       Text(
                         recipe.generatedAtLabel,
-                        style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                        style: TextStyle(fontSize: 10.5 * uiScale, color: context.dcColors.textSecondary),
                       ),
                     ],
                   ),
@@ -716,14 +727,14 @@ class _RecipeCardState extends State<_RecipeCard> with TickerProviderStateMixin 
                       width: 32 * uiScale,
                       height: 32 * uiScale,
                       decoration: BoxDecoration(
-                        color: bookmarked ? const Color(0xFF6C4EF5) : Colors.white,
+                        color: bookmarked ? context.dcColors.iconPurple : context.dcColors.surfaceSecondary,
                         borderRadius: BorderRadius.circular(10),
-                        border: bookmarked ? null : Border.all(color: const Color(0xFF6C4EF5)),
+                        border: bookmarked ? null : Border.all(color: context.dcColors.iconPurple),
                       ),
                       child: Icon(
                         Icons.bookmark_rounded,
                         size: 16 * uiScale,
-                        color: bookmarked ? Colors.white : const Color(0xFF6C4EF5),
+                        color: bookmarked ? Colors.white : context.dcColors.iconPurple,
                       ),
                     ),
                   ),
@@ -786,7 +797,11 @@ class _MetaPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8 * uiScale, vertical: 5 * uiScale),
-      decoration: BoxDecoration(color: const Color(0xFFF3F0FB), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: context.dcColors.surfaceSecondary,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.dcColors.cardBorder),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -794,7 +809,7 @@ class _MetaPill extends StatelessWidget {
           SizedBox(width: 4 * uiScale),
           Text(
             label,
-            style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: const Color(0xFF1B1B2E)),
+            style: TextStyle(fontSize: 9.5 * uiScale, fontWeight: FontWeight.w700, color: context.dcColors.textPrimary),
           ),
         ],
       ),
@@ -837,17 +852,20 @@ class _EmptyState extends StatelessWidget {
           Container(
             width: 64 * uiScale,
             height: 64 * uiScale,
-            decoration: const BoxDecoration(color: Color(0xFFEDE7FA), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: context.dcColors.iconPurple.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
             child: Icon(
               tab == HistoryTab.saved ? Icons.bookmark_border_rounded : Icons.history_rounded,
               size: 30 * uiScale,
-              color: const Color(0xFF6C4EF5),
+              color: context.dcColors.iconPurple,
             ),
           ),
           SizedBox(height: 14 * uiScale),
           Text(
             title,
-            style: TextStyle(fontSize: 14 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+            style: TextStyle(fontSize: 14 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary),
           ),
           SizedBox(height: 6 * uiScale),
           Padding(
@@ -855,7 +873,7 @@ class _EmptyState extends StatelessWidget {
             child: Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5 * uiScale, color: const Color(0xFF6B6B7B), height: 1.4),
+              style: TextStyle(fontSize: 11.5 * uiScale, color: context.dcColors.textSecondary, height: 1.4),
             ),
           ),
           if (tab == HistoryTab.all && onGenerateTap != null) ...[
@@ -896,7 +914,7 @@ class _FooterNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.history_rounded, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+          Icon(Icons.history_rounded, size: 16 * uiScale, color: context.dcColors.iconPurple),
           SizedBox(width: 10 * uiScale),
           Expanded(
             child: Column(
@@ -904,12 +922,12 @@ class _FooterNote extends StatelessWidget {
               children: [
                 Text(
                   'Recipes are saved to your account',
-                  style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFF1B1B2E)),
+                  style: TextStyle(fontSize: 12 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.textPrimary),
                 ),
                 SizedBox(height: 2 * uiScale),
                 Text(
                   'You can view, save or regenerate them anytime.',
-                  style: TextStyle(fontSize: 10.5 * uiScale, color: const Color(0xFF6B6B7B)),
+                  style: TextStyle(fontSize: 10.5 * uiScale, color: context.dcColors.textSecondary),
                 ),
               ],
             ),
@@ -920,11 +938,11 @@ class _FooterNote extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.delete_outline_rounded, size: 14 * uiScale, color: const Color(0xFFE0525C)),
+                Icon(Icons.delete_outline_rounded, size: 14 * uiScale, color: context.dcColors.iconRed),
                 SizedBox(width: 4 * uiScale),
                 Text(
                   'Clear All',
-                  style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w800, color: const Color(0xFFE0525C)),
+                  style: TextStyle(fontSize: 11 * uiScale, fontWeight: FontWeight.w800, color: context.dcColors.iconRed),
                 ),
               ],
             ),

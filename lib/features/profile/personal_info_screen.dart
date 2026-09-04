@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import 'package:country_picker/country_picker.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/personalization_service.dart';
@@ -347,8 +348,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen>
     final size = MediaQuery.of(context).size;
     final scale = (size.shortestSide / 390).clamp(0.85, 1.25);
 
+    final colors = context.dcColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F3FC),
+      backgroundColor: colors.bg,
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.fromLTRB(
@@ -778,10 +780,11 @@ class _RoundButtonState extends State<_RoundButton> {
           height: 42 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
+            color: context.dcColors.surface,
+            border: Border.all(color: context.dcColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: context.dcColors.isDark ? 0.2 : 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -790,7 +793,7 @@ class _RoundButtonState extends State<_RoundButton> {
           child: Icon(
             widget.icon,
             size: 19 * widget.uiScale,
-            color: const Color(0xFF1B1B2E),
+            color: context.dcColors.textPrimary,
           ),
         ),
       ),
@@ -890,8 +893,9 @@ class _ProfileCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1ECFB),
+        color: context.dcColors.isDark ? const Color(0xFF252236) : const Color(0xFFF1ECFB),
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Stack(
         children: [
@@ -966,7 +970,7 @@ class _ProfileCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 18 * uiScale,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1B1B2E),
+                            color: context.dcColors.textPrimary,
                           ),
                         ),
                         Container(
@@ -1006,7 +1010,7 @@ class _ProfileCard extends StatelessWidget {
                         Icon(
                           Icons.mail_outline,
                           size: 14 * uiScale,
-                          color: const Color(0xFF6C4EF5),
+                          color: context.dcColors.iconPurple,
                         ),
                         SizedBox(width: 6 * uiScale),
                         Expanded(
@@ -1014,7 +1018,7 @@ class _ProfileCard extends StatelessWidget {
                             email,
                             style: TextStyle(
                               fontSize: 12 * uiScale,
-                              color: const Color(0xFF3B3B4F),
+                              color: context.dcColors.textSecondary,
                             ),
                           ),
                         ),
@@ -1026,14 +1030,14 @@ class _ProfileCard extends StatelessWidget {
                         Icon(
                           Icons.call_outlined,
                           size: 14 * uiScale,
-                          color: const Color(0xFF6C4EF5),
+                          color: context.dcColors.iconPurple,
                         ),
                         SizedBox(width: 6 * uiScale),
                         Text(
                           phone,
                           style: TextStyle(
                             fontSize: 12 * uiScale,
-                            color: const Color(0xFF3B3B4F),
+                            color: context.dcColors.textSecondary,
                           ),
                         ),
                       ],
@@ -1076,11 +1080,11 @@ class _CameraButtonState extends State<_CameraButton> {
           height: 28 * widget.uiScale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFF1ECFB), width: 2.4),
+            color: context.dcColors.surface,
+            border: Border.all(color: context.dcColors.cardBorder, width: 2.4),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -1089,7 +1093,7 @@ class _CameraButtonState extends State<_CameraButton> {
           child: Icon(
             Icons.camera_alt,
             size: 13 * widget.uiScale,
-            color: const Color(0xFF6C4EF5),
+            color: context.dcColors.iconPurple,
           ),
         ),
       ),
@@ -1117,11 +1121,11 @@ class _SectionHeader extends StatelessWidget {
         Container(
           width: 34 * uiScale,
           height: 34 * uiScale,
-          decoration: const BoxDecoration(
-            color: Color(0xFFEDE7FA),
+          decoration: BoxDecoration(
+            color: context.dcColors.isDark ? const Color(0xFF2B264A) : const Color(0xFFEDE7FA),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 16 * uiScale, color: const Color(0xFF6C4EF5)),
+          child: Icon(icon, size: 16 * uiScale, color: context.dcColors.iconPurple),
         ),
         SizedBox(width: 10 * uiScale),
         Text(
@@ -1129,7 +1133,7 @@ class _SectionHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 15 * uiScale,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF1B1B2E),
+            color: context.dcColors.textPrimary,
           ),
         ),
       ],
@@ -1186,16 +1190,16 @@ class _TextFieldState extends State<_TextField> {
         vertical: 6 * widget.uiScale,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.dcColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _focused ? const Color(0xFF6C4EF5) : const Color(0xFFE4E0F2),
+          color: _focused ? context.dcColors.iconPurple : context.dcColors.cardBorder,
           width: _focused ? 1.6 : 1.2,
         ),
         boxShadow: _focused
             ? [
                 BoxShadow(
-                  color: const Color(0xFF6C4EF5).withOpacity(0.12),
+                  color: context.dcColors.iconPurple.withValues(alpha: 0.12),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -1207,7 +1211,7 @@ class _TextFieldState extends State<_TextField> {
           Icon(
             widget.icon,
             size: 17 * widget.uiScale,
-            color: const Color(0xFF6C4EF5),
+            color: context.dcColors.iconPurple,
           ),
           SizedBox(width: 10 * widget.uiScale),
           Expanded(
@@ -1218,7 +1222,7 @@ class _TextFieldState extends State<_TextField> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 10 * widget.uiScale,
-                    color: const Color(0xFF9A96A8),
+                    color: context.dcColors.textMuted,
                   ),
                 ),
                 TextField(
@@ -1228,7 +1232,7 @@ class _TextFieldState extends State<_TextField> {
                   style: TextStyle(
                     fontSize: 13.5 * widget.uiScale,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1B1B2E),
+                    color: context.dcColors.textPrimary,
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -1286,16 +1290,16 @@ class _DropdownFieldState extends State<_DropdownField> {
             vertical: 12 * widget.uiScale,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE4E0F2), width: 1.2),
+            border: Border.all(color: context.dcColors.cardBorder, width: 1.2),
           ),
           child: Row(
             children: [
               Icon(
                 widget.icon,
                 size: 17 * widget.uiScale,
-                color: const Color(0xFF6C4EF5),
+                color: context.dcColors.iconPurple,
               ),
               SizedBox(width: 10 * widget.uiScale),
               Expanded(
@@ -1306,7 +1310,7 @@ class _DropdownFieldState extends State<_DropdownField> {
                       widget.label,
                       style: TextStyle(
                         fontSize: 10 * widget.uiScale,
-                        color: const Color(0xFF9A96A8),
+                        color: context.dcColors.textMuted,
                       ),
                     ),
                     Text(
@@ -1314,7 +1318,7 @@ class _DropdownFieldState extends State<_DropdownField> {
                       style: TextStyle(
                         fontSize: 13.5 * widget.uiScale,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1B1B2E),
+                        color: context.dcColors.textPrimary,
                       ),
                     ),
                   ],
@@ -1323,7 +1327,7 @@ class _DropdownFieldState extends State<_DropdownField> {
               Icon(
                 Icons.keyboard_arrow_down,
                 size: 18 * widget.uiScale,
-                color: const Color(0xFF9A96A8),
+                color: context.dcColors.textMuted,
               ),
             ],
           ),
@@ -1366,9 +1370,9 @@ class _CountryCodeChipState extends State<_CountryCodeChip> {
           height: 54 * widget.uiScale,
           padding: EdgeInsets.symmetric(horizontal: 10 * widget.uiScale),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE4E0F2), width: 1.2),
+            border: Border.all(color: context.dcColors.cardBorder, width: 1.2),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1383,13 +1387,13 @@ class _CountryCodeChipState extends State<_CountryCodeChip> {
                 style: TextStyle(
                   fontSize: 13.5 * widget.uiScale,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1B1B2E),
+                  color: context.dcColors.textPrimary,
                 ),
               ),
               Icon(
                 Icons.keyboard_arrow_down,
                 size: 16 * widget.uiScale,
-                color: const Color(0xFF9A96A8),
+                color: context.dcColors.textMuted,
               ),
             ],
           ),
@@ -1412,8 +1416,9 @@ class _TrustFooter extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14 * uiScale),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9F7EE),
+        color: context.dcColors.isDark ? const Color(0xFF1B2E24) : const Color(0xFFE9F7EE),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.dcColors.cardBorder),
       ),
       child: Row(
         children: [
@@ -1489,9 +1494,9 @@ class _LearnMoreButtonState extends State<_LearnMoreButton> {
             vertical: 9 * widget.uiScale,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.dcColors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF1E8A4C).withOpacity(0.4)),
+            border: Border.all(color: context.dcColors.iconGreen.withValues(alpha: 0.4)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:diet_compass/core/theme/app_colors.dart';
 import '../../core/services/personalization_service.dart';
 
 class ActivityLevelScreen extends StatefulWidget {
@@ -59,17 +60,29 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.dcColors;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F3FC),
+      backgroundColor: colors.bg,
       appBar: AppBar(
-        title: const Text('Activity Level'),
+        title: Text(
+          'Activity Level',
+          style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800),
+        ),
         backgroundColor: Colors.transparent,
+        foregroundColor: colors.textPrimary,
         elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
         children: [
           Card(
+            color: colors.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colors.cardBorder),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -77,7 +90,11 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
                 children: [
                   Text(
                     'How active are you on a regular day?',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   ..._activityLevels.map((level) {
@@ -87,29 +104,38 @@ class _ActivityLevelScreenState extends State<ActivityLevelScreen> {
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: selected
-                              ? const Color(0xFFE4F5E9)
-                              : const Color(0xFFF0EDF7),
+                              ? (colors.isDark ? const Color(0xFF1B2E24) : const Color(0xFFE4F5E9))
+                              : colors.surfaceSecondary,
                           child: Icon(
                             level.$3,
                             color: selected
-                                ? const Color(0xFF1E8A4C)
-                                : const Color(0xFF6C4EF5),
+                                ? colors.iconGreen
+                                : colors.iconPurple,
                           ),
                         ),
-                        title: Text(level.$1),
-                        subtitle: Text(level.$2),
+                        title: Text(
+                          level.$1,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          level.$2,
+                          style: TextStyle(color: colors.textSecondary),
+                        ),
                         trailing: selected
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check_circle,
-                                color: Color(0xFF1E8A4C),
+                                color: colors.iconGreen,
                               )
                             : null,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
                             color: selected
-                                ? const Color(0xFF1E8A4C)
-                                : const Color(0xFFE2DDED),
+                                ? colors.iconGreen
+                                : colors.cardBorder,
                           ),
                         ),
                         onTap: () => _select(level.$1),
