@@ -129,8 +129,8 @@ void main() {
         imageUrl: 'http://img.png',
         ingredients: 'Ingredients list',
         allergens: [],
-        calories: 100.0,
-        protein: 0.0, // Zero nutrient
+        calories: null, // Null/missing nutrient
+        protein: 0.0,
         carbohydrates: 20.0,
         fat: 5.0,
         fiber: 2.0,
@@ -141,7 +141,7 @@ void main() {
       expect(incompleteProduct.hasMissingOrZeroNutrients, isTrue);
       expect(incompleteProduct.isComplete, isFalse);
 
-      final completeProduct = incompleteProduct.copyWith(protein: 8.0);
+      final completeProduct = incompleteProduct.copyWith(calories: 100.0, protein: 8.0);
       expect(completeProduct.hasMissingOrZeroNutrients, isFalse);
       expect(completeProduct.isComplete, isTrue);
     });

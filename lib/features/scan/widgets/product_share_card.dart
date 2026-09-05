@@ -24,7 +24,7 @@ class ProductShareCard extends StatelessWidget {
 
   final FoodProduct product;
   final int overallScore;
-  final int compatibilityScore;
+  final int? compatibilityScore;
   final List<NutrientStat> nutrients;
   final List<CompatibilityItem> compatibility;
   final List<ProsConsItem> goodPoints;
@@ -47,7 +47,8 @@ class ProductShareCard extends StatelessWidget {
     return const Color(0xFFE0525C);
   }
 
-  String _getCompatibilityLabel(int percent) {
+  String _getCompatibilityLabel(int? percent) {
+    if (percent == null) return 'Calculating Match...';
     if (percent >= 80) return 'High Compatibility';
     if (percent >= 60) return 'Good Compatibility';
     if (percent >= 40) return 'Moderate Match';

@@ -47,6 +47,12 @@ class ClaimVerificationItem {
       explanation: json['explanation']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'claim': claim,
+        'status': status,
+        'explanation': explanation,
+      };
 }
 
 /// Complete AI Intelligence Analysis result
@@ -109,6 +115,20 @@ class ProductAiAnalysis {
       aiInterpretationNote: json['aiInterpretationNote']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'healthScore': healthScore,
+        'summary': summary,
+        'isSuitable': isSuitable,
+        'disguisedSugars': disguisedSugars.map((e) => {'name': e.name, 'description': e.description}).toList(),
+        'harmfulAdditives': harmfulAdditives.map((e) => {'name': e.name, 'concern': e.concern}).toList(),
+        'claimVerifications': claimVerifications.map((e) => e.toJson()).toList(),
+        'allergenWarnings': allergenWarnings,
+        'pros': pros,
+        'cons': cons,
+        'healthierAlternatives': healthierAlternatives,
+        'aiInterpretationNote': aiInterpretationNote,
+      };
 }
 
 /// Item representing dynamic compatibility factor rating
@@ -130,6 +150,12 @@ class ProductCompatibilityItem {
       detail: json['detail']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        'rating': rating,
+        'detail': detail,
+      };
 }
 
 /// Dynamic Personalized Product Compatibility Score result
@@ -147,7 +173,7 @@ class ProductCompatibility {
     required this.items,
   });
 
-  final int score;
+  final int? score;
   final String status;
   final bool isSuitable;
   final List<String> allergyAlerts;
@@ -157,6 +183,26 @@ class ProductCompatibility {
   final String summary;
   final String recommendation;
   final List<ProductCompatibilityItem> items;
+
+  bool get isCalculated => score != null;
+
+  factory ProductCompatibility.uncalculated({
+    String? summary,
+    String? recommendation,
+  }) {
+    return ProductCompatibility(
+      score: null,
+      status: 'Calculating...',
+      isSuitable: true,
+      allergyAlerts: const [],
+      dietaryAlerts: const [],
+      positiveFactors: const [],
+      concerns: const [],
+      summary: summary ?? 'Preparing your personalized analysis...',
+      recommendation: recommendation ?? 'Calculating compatibility score once your profile context is loaded.',
+      items: const [],
+    );
+  }
 
   factory ProductCompatibility.fromJson(Map<String, dynamic> json) {
     List<String> parseStringList(dynamic list) {
@@ -177,8 +223,8 @@ class ProductCompatibility {
     }
 
     return ProductCompatibility(
-      score: (json['score'] as num?)?.toInt() ?? 70,
-      status: json['status']?.toString() ?? 'Good Match',
+      score: (json['score'] as num?)?.toInt(),
+      status: json['status']?.toString() ?? 'Calculating...',
       isSuitable: json['isSuitable'] == true,
       allergyAlerts: parseStringList(json['allergyAlerts']),
       dietaryAlerts: parseStringList(json['dietaryAlerts']),
@@ -189,6 +235,19 @@ class ProductCompatibility {
       items: parseItems(json['items']),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'score': score,
+        'status': status,
+        'isSuitable': isSuitable,
+        'allergyAlerts': allergyAlerts,
+        'dietaryAlerts': dietaryAlerts,
+        'positiveFactors': positiveFactors,
+        'concerns': concerns,
+        'summary': summary,
+        'recommendation': recommendation,
+        'items': items.map((i) => i.toJson()).toList(),
+      };
 }
 
 /// Nutrition difference comparison between candidate and scanned product
@@ -232,6 +291,17 @@ class ProductNutritionComparison {
       matchReason: json['matchReason']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'sugarDiff': sugarDiff,
+        'proteinDiff': proteinDiff,
+        'fiberDiff': fiberDiff,
+        'calorieDiff': calorieDiff,
+        'sodiumDiff': sodiumDiff,
+        'highlights': highlights,
+        'differentiator': differentiator,
+        'matchReason': matchReason,
+      };
 }
 
 /// Personalized Similar Product Recommendation result
@@ -280,6 +350,14 @@ class PersonalizedRecommendation {
       nutritionComparison: compObj != null ? ProductNutritionComparison.fromJson(compObj) : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'product': product.toJson(),
+        'compatibility': compatibility.toJson(),
+        'matchReason': matchReason,
+        'differentiator': differentiator,
+        'nutritionComparison': nutritionComparison?.toJson(),
+      };
 }
 
 /// Combined Factual Product Data + AI Intelligence Result
@@ -365,6 +443,22 @@ class IngredientCategoryItem {
   final String category; // e.g. 'Sugar-Related', 'Artificial Sweetener', 'Additive', 'Whole Food'
   final String explanation;
   final String badge;
+
+  factory IngredientCategoryItem.fromJson(Map<String, dynamic> json) {
+    return IngredientCategoryItem(
+      name: json['name']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      explanation: json['explanation']?.toString() ?? '',
+      badge: json['badge']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'category': category,
+        'explanation': explanation,
+        'badge': badge,
+      };
 }
 
 /// Complete Ingredient Intelligence analysis result
@@ -395,4 +489,43 @@ class IngredientIntelligenceResult {
   bool get hasDiscrepancies => discrepancies.isNotEmpty;
   bool get hasMeaningfulInsights =>
       hasSugarRelated || hasAdditives || hasSweeteners || hasWholeFoods || hasClaimChecks || hasDiscrepancies;
+
+  factory IngredientIntelligenceResult.fromJson(Map<String, dynamic> json) {
+    List<T> parseList<T>(dynamic list, T Function(Map<String, dynamic>) mapper) {
+      if (list is List) {
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map((e) => mapper(e))
+            .toList();
+      }
+      return [];
+    }
+
+    List<String> parseStringList(dynamic list) {
+      if (list is List) {
+        return list.map((e) => e.toString()).toList();
+      }
+      return [];
+    }
+
+    return IngredientIntelligenceResult(
+      sugarRelatedIngredients: parseList(json['sugarRelatedIngredients'], IngredientCategoryItem.fromJson),
+      artificialSweeteners: parseList(json['artificialSweeteners'], IngredientCategoryItem.fromJson),
+      additives: parseList(json['additives'], IngredientCategoryItem.fromJson),
+      wholeFoodIngredients: parseList(json['wholeFoodIngredients'], IngredientCategoryItem.fromJson),
+      claimChecks: parseList(json['claimChecks'], ClaimVerificationItem.fromJson),
+      discrepancies: parseStringList(json['discrepancies']),
+      summary: json['summary']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'sugarRelatedIngredients': sugarRelatedIngredients.map((i) => i.toJson()).toList(),
+        'artificialSweeteners': artificialSweeteners.map((i) => i.toJson()).toList(),
+        'additives': additives.map((i) => i.toJson()).toList(),
+        'wholeFoodIngredients': wholeFoodIngredients.map((i) => i.toJson()).toList(),
+        'claimChecks': claimChecks.map((i) => i.toJson()).toList(),
+        'discrepancies': discrepancies,
+        'summary': summary,
+      };
 }

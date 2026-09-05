@@ -33,6 +33,7 @@ import '../home/home_screen.dart';
 ///     - assets/images/img_protein_snacks.png
 /// ```
 import '../../core/services/ai_service.dart';
+import '../../core/services/api_service.dart';
 import '../../core/services/voice_assistant_service.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/model/food_product.dart';
@@ -186,26 +187,29 @@ class _AiCoachScreenState extends State<AiCoachScreen>
     }
   }
 
-  Future<void> _handleSend([String? presetText]) async {
-
+  Future<void> _handleSend([String? presetText, bool isRetry = false]) async {
     final text = (presetText ?? _inputCtrl.text).trim();
     if (text.isEmpty) return;
-    _inputCtrl.clear();
 
-    if (widget.onSend != null) {
-      widget.onSend!(text);
+    if (!isRetry) {
+      _inputCtrl.clear();
+      if (widget.onSend != null) {
+        widget.onSend!(text);
+      }
+      final userMsg = AiCoachChatMessage(
+        text: text,
+        isUser: true,
+        timestamp: DateTime.now(),
+      );
+      setState(() {
+        _messages.add(userMsg);
+        _isThinking = true;
+      });
+    } else {
+      setState(() {
+        _isThinking = true;
+      });
     }
-
-    final userMsg = AiCoachChatMessage(
-      text: text,
-      isUser: true,
-      timestamp: DateTime.now(),
-    );
-
-    setState(() {
-      _messages.add(userMsg);
-      _isThinking = true;
-    });
 
     _scrollToBottom();
 
@@ -228,10 +232,27 @@ class _AiCoachScreenState extends State<AiCoachScreen>
         _scrollToBottom();
       }
     } catch (e) {
+      String errorMessage = "I couldn't reach the AI nutrition service right now. Please check your connection and try again.";
+      if (e is ApiException) {
+        if (e.statusCode == 401) {
+          errorMessage = "Your session has expired. Please log in again to continue using the AI Coach.";
+        } else if (e.statusCode == 408) {
+          errorMessage = "The AI service timed out while generating a response. Please try asking again.";
+        } else if (e.statusCode == 429) {
+          errorMessage = "Request limit reached. Please wait a moment before asking another question.";
+        } else if (e.statusCode == 0) {
+          errorMessage = "Unable to connect to the internet. Please check your network connection.";
+        } else if (e.statusCode != null && e.statusCode! >= 500) {
+          errorMessage = "The AI service is temporarily busy. Please try again in a few moments.";
+        } else if (e.message.isNotEmpty) {
+          errorMessage = e.message;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _messages.add(AiCoachChatMessage(
-            text: "I couldn't reach the AI nutrition service right now. Please check your connection and try again.",
+            text: errorMessage,
             isUser: false,
             timestamp: DateTime.now(),
           ));
@@ -239,6 +260,21 @@ class _AiCoachScreenState extends State<AiCoachScreen>
         });
         _scrollToBottom();
       }
+    }
+  }
+
+  Future<void> _retryLastQuestion() async {
+    final lastUserMsg = _messages.lastWhere(
+      (m) => m.isUser,
+      orElse: () => AiCoachChatMessage(text: '', isUser: true, timestamp: DateTime.now()),
+    );
+    if (lastUserMsg.text.isNotEmpty) {
+      if (_messages.isNotEmpty && !_messages.last.isUser) {
+        setState(() {
+          _messages.removeLast();
+        });
+      }
+      await _handleSend(lastUserMsg.text, true);
     }
   }
 

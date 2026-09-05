@@ -106,8 +106,13 @@ class _AppFlowState extends State<AppFlow> {
     if (!mounted) return;
 
     final user = AuthService.instance.currentUser;
+    debugPrint(
+      '[LOGOUT] auth state observed by root gate: isAuthenticated = '
+      '${AuthService.instance.isAuthenticated}',
+    );
 
     if (user != null && _state == _AppState.auth) {
+      _authenticatedNavigatorKey.currentState?.popUntil((r) => r.isFirst);
       setState(() {
         _user = AuthUser(
           id: user.id,
@@ -126,6 +131,8 @@ class _AppFlowState extends State<AppFlow> {
     if (user == null &&
         _state != _AppState.splash &&
         _state != _AppState.auth) {
+      _authenticatedNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+      _unauthenticatedNavigatorKey.currentState?.popUntil((r) => r.isFirst);
       setState(() {
         _user = null;
         _initialPersonalizationData = null;
@@ -187,33 +194,21 @@ class _AppFlowState extends State<AppFlow> {
 
   // ── Startup Initialization ─────────────────────────────────────────────────
 
-  /// Runs background initialization while SplashScreen is smoothly animated.
-  /// Determines session status and navigates to the exact target screen.
+  /// Restores local session and immediately routes without waiting for remote API requests.
   Future<void> _initializeStartup() async {
     if (_splashError != null) {
       setState(() => _splashError = null);
     }
 
     try {
-      // Ensure smooth splash entrance without artificial long wait (~1.4s minimum)
-      final minSplashDuration = Future.delayed(
-        const Duration(milliseconds: 1400),
-      );
-
-      // 1. Check intro onboarding state
-      final introSeenFuture =
-          StorageService.instance.hasSeenIntroOnboarding();
-
-      // 2. Restore session
-      final userFuture = AuthService.instance.tryRestoreSession();
-
-      final introSeen = await introSeenFuture;
+      // 1. Check intro onboarding state from local secure storage
+      final introSeen = await StorageService.instance.hasSeenIntroOnboarding();
       _hasSeenIntroOnboarding = introSeen;
 
-      final user = await userFuture;
+      // 2. Restore local authentication session (NO REMOTE API CALLS)
+      final user = await AuthService.instance.restoreLocalSession();
 
       if (user == null) {
-        await minSplashDuration;
         if (!mounted) return;
         setState(() => _state = _AppState.auth);
         return;
@@ -221,55 +216,19 @@ class _AppFlowState extends State<AppFlow> {
 
       _user = user;
 
-      // 3. Authenticated user: verify personalization / cloud profile
-      try {
-        final profile = await ProfileService.instance.getProfile(
-          forceRefresh: true,
-        );
+      // 3. Immediately transition to Home UI without waiting for remote data
+      if (!mounted) return;
+      setState(() => _state = _AppState.home);
 
-        if (profile.isPersonalizationComplete) {
-          await PersonalizationService.instance.getPersonalization(
-            forceRefresh: true,
-          );
-
-          await minSplashDuration;
-          if (!mounted) return;
-          setState(() => _state = _AppState.home);
-          return;
-        } else {
-          final pers =
-              await PersonalizationService.instance.getPersonalization(
-                forceRefresh: true,
-              );
-
-          _initialPersonalizationData =
-              pers?.toOnboardingData() ??
-              (OnboardingData()..fullName = profile.fullName);
-
-          await minSplashDuration;
-          if (!mounted) return;
-          setState(() => _state = _AppState.personalization);
-          return;
-        }
-      } catch (e) {
-        // Fallback: If offline or cloud profile fetch fails, default to home
-        // for returning user.
-        debugPrint('Cloud profile check warning (fallback to home): $e');
-
-        await minSplashDuration;
-        if (!mounted) return;
-        setState(() => _state = _AppState.home);
-        return;
-      }
+      // 4. Trigger non-blocking background user data synchronization
+      AuthService.instance.loadUserDataInBackground(forceRefresh: true);
     } catch (e) {
       debugPrint('Startup initialization error: $e');
 
       if (!mounted) return;
 
-      setState(() {
-        _splashError =
-            'Please check your internet connection and try again.';
-      });
+      // Fallback: If local restoration encounters an error, route to auth
+      setState(() => _state = _AppState.auth);
     }
   }
 
@@ -471,6 +430,11 @@ class _AppFlowState extends State<AppFlow> {
 
   /// Logs out the current device session and returns to the auth flow.
   Future<void> _handleLogout() async {
+    debugPrint('[LOGOUT] button pressed');
+
+    _authenticatedNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+    _unauthenticatedNavigatorKey.currentState?.popUntil((r) => r.isFirst);
+
     await AuthService.instance.logout();
 
     if (!mounted) return;
@@ -480,6 +444,8 @@ class _AppFlowState extends State<AppFlow> {
       _initialPersonalizationData = null;
       _state = _AppState.auth;
     });
+
+    debugPrint('[LOGOUT] root gate updated: _state = _AppState.auth');
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

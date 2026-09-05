@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:diet_compass/core/model/food_product.dart';
+import 'package:diet_compass/core/model/personalization_profile.dart';
 import 'package:diet_compass/core/services/recommendation_service.dart';
 import 'package:diet_compass/features/scan/result_screen.dart';
 
@@ -30,10 +31,11 @@ void main() {
 
     test('Single Source of Truth: Compatibility calculation is 100% deterministic & cached', () {
       RecommendationService.instance.clearCompatibilityCache();
+      final profile = PersonalizationProfile(id: 'u1', userId: 'u1', dietType: 'Vegetarian');
 
-      final firstEval = RecommendationService.instance.evaluateCompatibility(testProduct);
-      final secondEval = RecommendationService.instance.evaluateCompatibility(testProduct);
-      final scoreViaCalc = RecommendationService.instance.calculateCompatibilityScore(testProduct);
+      final firstEval = RecommendationService.instance.evaluateCompatibility(testProduct, personalization: profile);
+      final secondEval = RecommendationService.instance.evaluateCompatibility(testProduct, personalization: profile);
+      final scoreViaCalc = RecommendationService.instance.calculateCompatibilityScore(testProduct, personalization: profile);
 
       expect(firstEval.score, equals(secondEval.score));
       expect(firstEval.score, equals(scoreViaCalc));
@@ -45,7 +47,8 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      final initialEval = RecommendationService.instance.evaluateCompatibility(testProduct);
+      final profile = PersonalizationProfile(id: 'u1', userId: 'u1', dietType: 'Vegetarian');
+      final initialEval = RecommendationService.instance.evaluateCompatibility(testProduct, personalization: profile);
 
       await tester.pumpWidget(
         MaterialApp(

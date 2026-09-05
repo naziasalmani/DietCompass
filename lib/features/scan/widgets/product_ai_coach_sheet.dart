@@ -195,12 +195,16 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
     final height = size.height * 0.85;
     final colors = context.dcColors;
 
-    final score = widget.compatibility?.score ?? widget.overallScore ?? 75;
+    final score = widget.compatibility?.score ?? widget.overallScore;
     Color scoreColor = colors.iconGreen;
-    if (score < 50) {
-      scoreColor = colors.iconRed;
-    } else if (score < 70) {
-      scoreColor = colors.iconOrange;
+    if (score != null) {
+      if (score < 50) {
+        scoreColor = colors.iconRed;
+      } else if (score < 70) {
+        scoreColor = colors.iconOrange;
+      }
+    } else {
+      scoreColor = colors.iconPurple;
     }
 
     return Container(
@@ -353,7 +357,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                     padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
                     decoration: BoxDecoration(
                       color: scoreColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
@@ -362,7 +366,7 @@ class _ProductAiCoachSheetState extends State<ProductAiCoachSheet>
                         Icon(Icons.verified_rounded, size: 13 * scale, color: scoreColor),
                         SizedBox(width: 4 * scale),
                         Text(
-                          '$score%',
+                          score != null ? '$score%' : 'Calculating...',
                           style: TextStyle(
                             fontSize: 12 * scale,
                             fontWeight: FontWeight.w800,

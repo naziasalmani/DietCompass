@@ -55,6 +55,9 @@ abstract final class AppConfig {
     return 'https://dietcompass.onrender.com/api';
   }
 
-  /// Default HTTP timeout duration.
+  /// Default HTTP timeout duration for standard REST calls.
   static const Duration timeoutDuration = Duration(seconds: 15);
+
+  /// Extended HTTP timeout duration for AI intelligence & chatbot generation.
+  static const Duration aiTimeoutDuration = Duration(seconds: 60);
 }

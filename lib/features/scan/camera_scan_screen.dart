@@ -131,335 +131,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  Future<String?> _extractProductName(XFile image) async {
-    try {
-      final inputImage = InputImage.fromFilePath(image.path);
-
-      final RecognizedText recognizedText = await _textRecognizer.processImage(
-        inputImage,
-      );
-
-      if (recognizedText.text.trim().isEmpty) {
-        debugPrint('OCR: No text detected');
-        return null;
-      }
-
-      debugPrint('========== OCR TEXT ==========');
-      debugPrint(recognizedText.text);
-      debugPrint('==============================');
-
-      final List<String> candidates = [];
-
-      // Words/phrases that are very unlikely to be the product name.
-      final ignoredWords = <String>[
-        'nutrition',
-        'nutritional',
-        'nutrition facts',
-        'ingredients',
-        'ingredient',
-        'energy',
-        'calories',
-        'protein',
-        'carbohydrate',
-        'carbohydrates',
-        'total fat',
-        'saturated fat',
-        'trans fat',
-        'sugar',
-        'sugars',
-        'sodium',
-        'cholesterol',
-        'dietary fibre',
-        'dietary fiber',
-        'serving',
-        'servings',
-        'serving size',
-        'per 100g',
-        'per 100ml',
-        'net weight',
-        'net wt',
-        'net quantity',
-        'manufactured',
-        'manufactured by',
-        'marketed by',
-        'packed by',
-        'customer care',
-        'expiry',
-        'expiry date',
-        'best before',
-        'use by',
-        'mrp',
-        'm.r.p',
-        'batch',
-        'batch no',
-        'barcode',
-        'fssai',
-        'license',
-        'licence',
-        'email',
-        'website',
-        'www.',
-        'http',
-        '₹',
-        'rs.',
-      ];
-
-      // Read OCR lines and also combine consecutive lines.
-      // This allows products such as:
-      //
-      // THUMS
-      // UP
-      //
-      // to become:
-      //
-      // THUMS UP
-
-      final List<String> ocrLines = [];
-
-      for (final block in recognizedText.blocks) {
-        for (final line in block.lines) {
-          final String text = line.text.trim();
-
-          if (text.isEmpty) continue;
-
-          final String lower = text.toLowerCase();
-
-          // Ignore common packaging / nutrition information.
-          if (ignoredWords.any((word) => lower.contains(word))) {
-            continue;
-          }
-
-          final int letterCount = RegExp(r'[A-Za-z]').allMatches(text).length;
-
-          if (letterCount < 2) {
-            continue;
-          }
-
-          if (letterCount / text.length < 0.45) {
-            continue;
-          }
-
-          if (text.length > 60) {
-            continue;
-          }
-
-          if (text.length < 2) {
-            continue;
-          }
-
-          ocrLines.add(text);
-        }
-      }
-
-      // Add individual lines as candidates.
-      candidates.addAll(ocrLines);
-
-      // Also combine consecutive OCR lines.
-      // Example:
-      // THUMS
-      // UP
-      // → THUMS UP
-      //
-      // We try 2-line and 3-line combinations because some
-      // product names may be split across multiple lines.
-
-      for (int i = 0; i < ocrLines.length; i++) {
-        // Two consecutive lines
-        if (i + 1 < ocrLines.length) {
-          final combined = '${ocrLines[i]} ${ocrLines[i + 1]}';
-
-          if (combined.length <= 40) {
-            candidates.add(combined);
-          }
-        }
-
-        // Three consecutive lines
-        if (i + 2 < ocrLines.length) {
-          final combined =
-              '${ocrLines[i]} ${ocrLines[i + 1]} ${ocrLines[i + 2]}';
-
-          if (combined.length <= 50) {
-            candidates.add(combined);
-          }
-        }
-      }
-
-      if (candidates.isEmpty) {
-        debugPrint('OCR: No suitable product-name candidates');
-        return null;
-      }
-
-      debugPrint('OCR candidates: $candidates');
-
-      // ---------------------------------------------------------
-      // SCORE EACH CANDIDATE
-      // ---------------------------------------------------------
-      //
-      // We DO NOT simply choose the longest line.
-      //
-      // Product/brand names usually:
-      // - contain mostly letters
-      // - contain relatively few words
-      // - are not sentences
-      // - do not contain nutrition measurements
-      // ---------------------------------------------------------
-
-      String? bestCandidate;
-      double bestScore = double.negativeInfinity;
-
-      for (int i = 0; i < candidates.length; i++) {
-        final String candidate = candidates[i];
-        final String lower = candidate.toLowerCase();
-
-        double score = 0;
-
-        final words = candidate
-            .split(RegExp(r'\s+'))
-            .where((word) => word.isNotEmpty)
-            .toList();
-
-        final int letterCount = RegExp(
-          r'[A-Za-z]',
-        ).allMatches(candidate).length;
-
-        final int digitCount = RegExp(r'[0-9]').allMatches(candidate).length;
-
-        // ---------------------------------------
-        // 1. Prefer text near the beginning.
-        // Front-of-pack brand/product names are
-        // commonly detected before smaller text.
-        // ---------------------------------------
-
-        if (i == 0) {
-          score += 8;
-        } else if (i == 1) {
-          score += 6;
-        } else if (i == 2) {
-          score += 4;
-        } else if (i == 3) {
-          score += 2;
-        }
-
-        // ---------------------------------------
-        // 2. Prefer sensible product-name lengths
-        // ---------------------------------------
-
-        if (candidate.length >= 4 && candidate.length <= 30) {
-          score += 5;
-        }
-
-        if (candidate.length >= 5 && candidate.length <= 20) {
-          score += 3;
-        }
-
-        // ---------------------------------------
-        // 3. Prefer 1-4 word names
-        // ---------------------------------------
-
-        if (words.length == 1) {
-          score += 5;
-        } else if (words.length == 2) {
-          score += 7;
-        } else if (words.length == 3) {
-          score += 6;
-        } else if (words.length == 4) {
-          score += 3;
-        } else if (words.length > 6) {
-          score -= 8;
-        }
-
-        // ---------------------------------------
-        // 4. Prefer mostly alphabetic text
-        // ---------------------------------------
-
-        if (letterCount > 0) {
-          final letterRatio = letterCount / candidate.length;
-
-          if (letterRatio >= 0.80) {
-            score += 5;
-          } else if (letterRatio >= 0.65) {
-            score += 3;
-          }
-        }
-
-        // ---------------------------------------
-        // 5. Penalize numbers
-        // ---------------------------------------
-
-        if (digitCount == 0) {
-          score += 3;
-        } else {
-          score -= digitCount * 2;
-        }
-
-        // ---------------------------------------
-        // 6. Penalize measurements
-        // ---------------------------------------
-
-        if (RegExp(
-          r'\b\d+(\.\d+)?\s*(g|kg|mg|ml|l|kcal|cal)\b',
-          caseSensitive: false,
-        ).hasMatch(candidate)) {
-          score -= 12;
-        }
-
-        // ---------------------------------------
-        // 7. Penalize sentence-like text
-        // ---------------------------------------
-
-        if (candidate.contains('.') ||
-            candidate.contains(':') ||
-            candidate.contains(';')) {
-          score -= 4;
-        }
-
-        // Common marketing/descriptive wording
-        final marketingWords = [
-          'with',
-          'made with',
-          'contains',
-          'source of',
-          'rich in',
-          'goodness',
-          'delicious',
-          'healthy',
-          'natural',
-          'new',
-        ];
-
-        if (marketingWords.any((word) => lower.contains(word))) {
-          score -= 3;
-        }
-
-        debugPrint('OCR candidate: "$candidate" | score: $score');
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestCandidate = candidate;
-        }
-      }
-
-      if (bestCandidate == null || bestCandidate.trim().isEmpty) {
-        return null;
-      }
-
-      final String productName = bestCandidate.trim();
-
-      debugPrint(
-        '========== OCR RESULT ==========\n'
-        'Selected product name: $productName\n'
-        'Score: $bestScore\n'
-        '================================',
-      );
-
-      return productName;
-    } catch (e, stackTrace) {
-      debugPrint('OCR error: $e');
-      debugPrint('$stackTrace');
-      return null;
-    }
-  }
-
   // ============================================================
   // OCR TEXT PROCESSING & PRODUCT RESOLUTION PIPELINE
   // ============================================================
@@ -694,311 +365,17 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     return candidates;
   }
 
-  /// Main OCR-based product resolution pipeline
-  /// Returns a product with confidence score, or null if no match found
+  /// Main OCR-based product resolution pipeline with food evidence validation.
+  /// Returns a validated product, or null if non-food image / no match found.
   Future<FoodProduct?> resolveProductFromOcr(XFile image) async {
+    final analyzer = ProductImageAnalyzer();
     try {
-      final inputImage = InputImage.fromFilePath(image.path);
-
-      final RecognizedText recognizedText = await _textRecognizer.processImage(
-        inputImage,
-      );
-
-      if (recognizedText.text.trim().isEmpty) {
-        debugPrint('OCR: No text detected');
-        return null;
-      }
-
-      debugPrint('========== OCR RESOLUTION STARTED ==========');
-
-      debugPrint('RAW OCR:\n${recognizedText.text}');
-
-      // ----------------------------------------------------------
-      // STEP 1: Extract candidates
-      // ----------------------------------------------------------
-
-      final candidates = extractOcrCandidates(recognizedText);
-
-      if (candidates.isEmpty) {
-        debugPrint('OCR: No candidates found');
-        return null;
-      }
-
-      debugPrint('OCR candidates: $candidates');
-
-      // ----------------------------------------------------------
-      // STEP 2: Normalize + deduplicate
-      // ----------------------------------------------------------
-
-      final normalized = <String>{};
-
-      for (final candidate in candidates) {
-        final value = normalizeOcrText(candidate);
-
-        if (value.isNotEmpty) {
-          normalized.add(value);
-        }
-      }
-
-      // ----------------------------------------------------------
-      // STEP 3:
-      //
-      // PRIORITIZE MULTI-WORD CANDIDATES
-      //
-      // Example:
-      //
-      // Dairy
-      // Milk
-      // Chocolate
-      //
-      // becomes:
-      //
-      // Dairy Milk Chocolate
-      // Dairy Milk
-      // Milk Chocolate
-      // Dairy
-      // Milk
-      // Chocolate
-      // ----------------------------------------------------------
-
-      final sortedCandidates = normalized.toList()
-        ..sort((a, b) {
-          final aWords = a.split(RegExp(r'\s+')).length;
-
-          final bWords = b.split(RegExp(r'\s+')).length;
-
-          // More words first
-          if (aWords != bWords) {
-            return bWords.compareTo(aWords);
-          }
-
-          // If same word count, longer text first
-          return b.length.compareTo(a.length);
-        });
-
-      debugPrint('Prioritized candidates: $sortedCandidates');
-
-      // ----------------------------------------------------------
-      // STEP 4: Search all candidates
-      // ----------------------------------------------------------
-
-      FoodProduct? bestMatch;
-      double bestScore = 0.0;
-      String bestQuery = '';
-
-      // Keep track of whether we have meaningful multi-word
-      // OCR candidates.
-      final hasMultiWordCandidate = sortedCandidates.any(
-        (candidate) => candidate.split(RegExp(r'\s+')).length >= 2,
-      );
-
-      for (final candidate in sortedCandidates) {
-        final candidateWords = candidate.split(RegExp(r'\s+'));
-
-        final isSingleWord = candidateWords.length == 1;
-
-        // --------------------------------------------------------
-        // VERY IMPORTANT:
-        //
-        // If OCR found multiple words, don't allow a random
-        // single word like "Dairy" to become the final product.
-        //
-        // We'll only use single-word candidates if NO
-        // multi-word candidate produces a valid match.
-        // --------------------------------------------------------
-
-        if (isSingleWord && hasMultiWordCandidate) {
-          debugPrint(
-            'Skipping single-word candidate for now: '
-            '"$candidate"',
-          );
-
-          continue;
-        }
-
-        debugPrint('Searching: "$candidate"');
-
-        final products = await _foodService.getFoodsByName(candidate);
-
-        if (products.isEmpty) {
-          continue;
-        }
-
-        debugPrint(
-          'Found ${products.length} products for '
-          '"$candidate"',
-        );
-
-        // --------------------------------------------------------
-        // Compare against every returned product
-        // --------------------------------------------------------
-
-        for (final product in products) {
-          final productName = normalizeOcrText(product.name);
-
-          if (productName.isEmpty) {
-            continue;
-          }
-
-          final similarity = calculateStringSimilarity(candidate, productName);
-
-          debugPrint(
-            '"$candidate" → '
-            '"${product.name}" '
-            'score=${similarity.toStringAsFixed(2)}',
-          );
-
-          if (similarity <= 0.5) {
-            continue;
-          }
-
-          // ------------------------------------------------------
-          // Candidate-length bonus
-          //
-          // Prefer:
-          //
-          // Dairy Milk
-          //
-          // over:
-          //
-          // Dairy
-          //
-          // when both are valid.
-          // ------------------------------------------------------
-
-          final candidateWordCount = candidateWords.length;
-
-          double adjustedScore = similarity;
-
-          if (candidateWordCount >= 3) {
-            adjustedScore += 0.15;
-          } else if (candidateWordCount == 2) {
-            adjustedScore += 0.10;
-          }
-
-          // Don't allow score above 1.0
-          adjustedScore = math.min(adjustedScore, 1.0);
-
-          if (adjustedScore > bestScore) {
-            bestScore = adjustedScore;
-            bestMatch = product;
-            bestQuery = candidate;
-
-            debugPrint(
-              '⭐ NEW BEST MATCH: '
-              '"${product.name}" '
-              'from "$candidate" '
-              'score=${adjustedScore.toStringAsFixed(2)}',
-            );
-          }
-        }
-      }
-
-      // ----------------------------------------------------------
-      // STEP 5: If no multi-word result worked,
-      // THEN try single-word candidates as fallback.
-      // ----------------------------------------------------------
-
-      if (bestMatch == null && hasMultiWordCandidate) {
-        debugPrint(
-          'No multi-word match found. '
-          'Trying single-word fallback...',
-        );
-
-        for (final candidate in sortedCandidates) {
-          final words = candidate.split(RegExp(r'\s+'));
-
-          if (words.length != 1) {
-            continue;
-          }
-
-          // Generic words that should never identify
-          // a packaged food by themselves.
-          const genericWords = {
-            'dairy',
-            'milk',
-            'chocolate',
-            'drink',
-            'juice',
-            'food',
-            'fresh',
-            'natural',
-            'original',
-            'classic',
-            'cream',
-            'snack',
-          };
-
-          if (genericWords.contains(candidate)) {
-            debugPrint('Skipping generic single word: "$candidate"');
-
-            continue;
-          }
-
-          final products = await _foodService.getFoodsByName(candidate);
-
-          for (final product in products) {
-            final productName = normalizeOcrText(product.name);
-
-            final similarity = calculateStringSimilarity(
-              candidate,
-              productName,
-            );
-
-            if (similarity > 0.75 && similarity > bestScore) {
-              bestScore = similarity;
-              bestMatch = product;
-              bestQuery = candidate;
-            }
-          }
-        }
-      }
-
-      // ----------------------------------------------------------
-      // STEP 6: Final result
-      // ----------------------------------------------------------
-
-      if (bestMatch != null) {
-        debugPrint(
-          '========== OCR SUCCESS ==========\n'
-          'Query: "$bestQuery"\n'
-          'Product: "${bestMatch.name}"\n'
-          'Brand: "${bestMatch.brand}"\n'
-          'Score: ${bestScore.toStringAsFixed(2)}\n'
-          '=================================',
-        );
-
-        return await _foodService.enrichProduct(bestMatch);
-      }
-
-      // ----------------------------------------------------------
-      // STEP 6: Gemini AI Fallback on raw OCR text
-      // ----------------------------------------------------------
-      if (recognizedText.text.trim().isNotEmpty) {
-        debugPrint('🤖 OCR fallback: Identifying product with Gemini AI...');
-        try {
-          final geminiProduct = await AiService.instance
-              .lookupProductWithGemini(ocrText: recognizedText.text);
-          if (geminiProduct != null) {
-            debugPrint(
-              '✅ OCR Gemini AI resolution success: ${geminiProduct.name}',
-            );
-            return geminiProduct;
-          }
-        } catch (e) {
-          debugPrint('Gemini OCR resolution error: $e');
-        }
-      }
-
-      debugPrint('❌ OCR could not confidently identify product.');
-
+      return await analyzer.analyze(image);
+    } catch (e) {
+      debugPrint('OCR product resolution error: $e');
       return null;
-    } catch (e, stackTrace) {
-      debugPrint('OCR resolution error: $e');
-
-      debugPrint('$stackTrace');
-
-      return null;
+    } finally {
+      await analyzer.dispose();
     }
   }
 
@@ -1111,12 +488,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not identify nutrition label. Please take a clearer photo.',
-            ),
-          ),
+        _showFoodProductRejectedSheet(
+          context: context,
+          onTryAgain: () {},
+          onChooseAnotherImage: _handlePickGalleryImage,
         );
         return;
       } else {
@@ -1142,14 +517,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         if (!mounted) return;
 
         if (product == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Could not identify the product. Please take a clearer photo.',
-              ),
-            ),
+          _showFoodProductRejectedSheet(
+            context: context,
+            onTryAgain: () {},
+            onChooseAnotherImage: _handlePickGalleryImage,
           );
-
           return;
         }
 
@@ -1882,6 +1254,187 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         ],
       ),
     );
+  }
+
+  void _showFoodProductRejectedSheet({
+    required BuildContext context,
+    required VoidCallback onTryAgain,
+    required VoidCallback onChooseAnotherImage,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2638) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.no_food_outlined,
+                  size: 44,
+                  color: Colors.amber,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No Food Product Detected',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "We couldn't find a recognizable food product, ingredients list, or nutrition facts label in this image.",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF283248) : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tips for a successful scan:',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '• Capture the food package, label, or ingredients list\n'
+                      '• Ensure text and nutrition facts are clear and well-lit\n'
+                      '• Or scan the barcode directly on the package',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onChooseAnotherImage();
+                      },
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Choose Photo'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onTryAgain();
+                      },
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Try Again'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handlePickGalleryImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null || !mounted) return;
+
+    final analyzer = ProductImageAnalyzer();
+    try {
+      final product = await analyzer.analyze(image);
+      if (!mounted) return;
+
+      if (product == null) {
+        _showFoodProductRejectedSheet(
+          context: context,
+          onTryAgain: () {},
+          onChooseAnotherImage: _handlePickGalleryImage,
+        );
+        return;
+      }
+
+      ScanHistoryService.instance.saveScan(product);
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiAnalysisScreen(
+            capturedImage: FileImage(File(image.path)),
+            product: product,
+            productName: product.name,
+            productSubtitle: product.brand ?? 'Food Product',
+            servingInfo: 'Serving information unavailable',
+            foodTypeLabel: 'Food Product',
+          ),
+        ),
+      );
+    } finally {
+      await analyzer.dispose();
+    }
   }
 }
 

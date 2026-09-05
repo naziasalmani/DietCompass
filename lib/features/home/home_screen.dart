@@ -20,6 +20,8 @@ import '../../core/model/food_product.dart';
 import '../../core/model/health_compass_data.dart';
 import '../../core/model/scan_history_item.dart';
 import '../../core/services/scan_history_service.dart';
+import '../../core/services/product_analysis_engine.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -75,6 +77,7 @@ class RecentScan {
     this.barcode = '',
     this.brand = '',
     this.product,
+    this.canonicalAnalysis,
   });
 
   final String name;
@@ -84,6 +87,7 @@ class RecentScan {
   final String barcode;
   final String brand;
   final FoodProduct? product;
+  final CanonicalProductAnalysis? canonicalAnalysis;
 
   factory RecentScan.fromHistoryItem(ScanHistoryItem item) {
     return RecentScan(
@@ -94,6 +98,7 @@ class RecentScan {
       barcode: item.barcode,
       brand: item.brand,
       product: item.toFoodProduct(),
+      canonicalAnalysis: item.toCanonicalAnalysis(),
     );
   }
 
@@ -116,6 +121,7 @@ class RecentScan {
     );
   }
 }
+
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _entranceCtrl;
@@ -503,7 +509,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             MaterialPageRoute(
                               builder: (_) => ResultScreen(
                                 product: list[index].toFoodProduct(),
+                                canonicalAnalysis: list[index].canonicalAnalysis,
                               ),
+
                             ),
                           ).then((_) => _loadRecentScans());
                         }

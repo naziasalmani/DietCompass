@@ -130,6 +130,18 @@ class IngredientIntelligenceService {
       'name': 'Tertiary Butylhydroquinone (TBHQ)',
       'concern': 'Synthetic antioxidant preservative used to extend the shelf life of unsaturated vegetable oils.',
     },
+    'e442': {
+      'name': 'Ammonium Phosphatides (E442)',
+      'concern': 'Emulsifier used to maintain uniform texture in chocolate and confectionery.',
+    },
+    'e476': {
+      'name': 'Polyglycerol Polyricinoleate (E476)',
+      'concern': 'Emulsifier derived from castor bean oil used to improve chocolate viscosity.',
+    },
+    'e322': {
+      'name': 'Lecithin (E322)',
+      'concern': 'Emulsifier used to stabilize fat and water mixtures in processed foods.',
+    },
   };
 
   // Whole foods & wholesome ingredients
@@ -209,6 +221,22 @@ class IngredientIntelligenceService {
           }
         }
       });
+
+      // 3b. Generic E-Number pattern match (e.g. E442, E476, E330)
+      final eMatches = RegExp(r'\b(e\d{3,4}[a-z]?)\b', caseSensitive: false).allMatches(ingredientsText);
+      for (final match in eMatches) {
+        final eCode = match.group(1)!.toUpperCase();
+        if (seenNames.add(eCode.toLowerCase())) {
+          detectedAdditives.add(
+            IngredientCategoryItem(
+              name: 'Food Additive ($eCode)',
+              category: 'Food Additive',
+              explanation: 'Emulsifier, stabilizer, or preservative designated under international food additive numbering.',
+              badge: 'Additive',
+            ),
+          );
+        }
+      }
 
       // 4. Scan for whole food ingredients
       _wholeFoodsMap.forEach((key, explanation) {

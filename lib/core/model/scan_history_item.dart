@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'food_product.dart';
 import '../services/nutrition_normalization_service.dart';
+import '../services/product_analysis_engine.dart';
 
 /// Represents a single product scan recorded for the authenticated user.
 class ScanHistoryItem {
@@ -13,6 +15,7 @@ class ScanHistoryItem {
   final String ingredients;
   final List<String> allergens;
   final Map<String, dynamic> nutrients;
+  final Map<String, dynamic>? canonicalAnalysisJson;
   final DateTime scannedAt;
 
   ScanHistoryItem({
@@ -26,6 +29,7 @@ class ScanHistoryItem {
     this.ingredients = '',
     this.allergens = const [],
     this.nutrients = const {},
+    this.canonicalAnalysisJson,
     required this.scannedAt,
   });
 
@@ -56,6 +60,12 @@ class ScanHistoryItem {
       });
     }
 
+    final rawAnalysis = json['canonicalAnalysis'];
+    Map<String, dynamic>? analysisMap;
+    if (rawAnalysis is Map) {
+      analysisMap = Map<String, dynamic>.from(rawAnalysis);
+    }
+
     return ScanHistoryItem(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       userId: (json['userId'] ?? '').toString(),
@@ -67,6 +77,7 @@ class ScanHistoryItem {
       ingredients: (json['ingredients'] ?? '').toString(),
       allergens: allergensList,
       nutrients: nutrientsMap,
+      canonicalAnalysisJson: analysisMap,
       scannedAt: parsedDate,
     );
   }
@@ -82,12 +93,31 @@ class ScanHistoryItem {
         'ingredients': ingredients,
         'allergens': allergens,
         'nutrients': nutrients,
+        if (canonicalAnalysisJson != null) 'canonicalAnalysis': canonicalAnalysisJson,
         'scannedAt': scannedAt.toIso8601String(),
       };
+
+  /// Returns the stored [CanonicalProductAnalysis] if present, or constructs a deterministic analysis.
+  CanonicalProductAnalysis toCanonicalAnalysis() {
+    if (canonicalAnalysisJson != null && canonicalAnalysisJson!.isNotEmpty) {
+      try {
+        final analysis = CanonicalProductAnalysis.fromJson(canonicalAnalysisJson!);
+        ProductAnalysisEngine.instance.cacheAnalysis(analysis);
+        return analysis;
+      } catch (e) {
+        debugPrint('[ScanHistoryItem] Error deserializing stored canonical analysis: $e');
+      }
+    }
+
+    final product = toFoodProduct();
+    final analysis = ProductAnalysisEngine.instance.analyzeProduct(product);
+    return analysis;
+  }
 
   /// Converts this scan history record back into a full [FoodProduct]
   /// so tapping it opens the real [ResultScreen].
   FoodProduct toFoodProduct() {
+
     double? doubleOrNull(dynamic v) {
       if (v == null) return null;
       if (v is double) return v;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
+import '../../core/services/auth_service.dart';
 import 'notifications_screen.dart';
+
 import 'privacy_security_screen.dart';
 import 'help_support_screen.dart';
 import 'about_screen.dart';
@@ -314,6 +316,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               Navigator.pop(ctx);
               if (widget.onLogout != null) {
                 await widget.onLogout!();
+              } else {
+                await AuthService.instance.logout();
               }
             },
             child: const Text('Log Out'),

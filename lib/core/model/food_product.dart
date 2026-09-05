@@ -58,6 +58,8 @@ class FoodProduct {
 
   final String? nutriScore;
   final int? novaGroup;
+  final DateTime? cachedAt;
+  final String? completenessStatus;
 
   FoodProduct({
     required this.barcode,
@@ -83,6 +85,8 @@ class FoodProduct {
     this.discrepancies = const [],
     this.nutriScore,
     this.novaGroup,
+    this.cachedAt,
+    this.completenessStatus,
   });
 
   /// True if the product is liquid / beverage.
@@ -509,6 +513,8 @@ class FoodProduct {
     List<String>? discrepancies,
     String? nutriScore,
     int? novaGroup,
+    DateTime? cachedAt,
+    String? completenessStatus,
   }) {
     return FoodProduct(
       barcode: barcode ?? this.barcode,
@@ -534,12 +540,13 @@ class FoodProduct {
       discrepancies: discrepancies ?? this.discrepancies,
       nutriScore: nutriScore ?? this.nutriScore,
       novaGroup: novaGroup ?? this.novaGroup,
+      cachedAt: cachedAt ?? this.cachedAt,
+      completenessStatus: completenessStatus ?? this.completenessStatus,
     );
   }
 
   /// Calculates the product data confidence based on field completeness and verification.
   DataConfidence get dataConfidence {
-    int total = 7;
     int filled = 0;
 
     if (calories != null) filled++;
@@ -573,31 +580,89 @@ class FoodProduct {
       sugar != null ||
       sodium != null;
 
-  /// Returns true if any major nutrient value is null or <= 0, or if ingredients are missing.
+  /// Returns true if essential required nutrient values are missing (null), invalid (<0), or suspicious.
+  /// Smartly distinguishes between null/missing/suspicious values vs legitimate zero nutrition values
+  /// (e.g. 0g sugar in plain water or meat or diet drinks, 0g fiber in pure oil or dairy).
   bool get hasMissingOrZeroNutrients {
-    if (calories == null || calories! <= 0) return true;
-    if (protein == null || protein! <= 0) return true;
-    if (carbohydrates == null || carbohydrates! <= 0) return true;
-    if (fat == null || fat! <= 0) return true;
-    if (fiber == null || fiber! <= 0) return true;
-    if (sugar == null || sugar! <= 0) return true;
-    if (sodium == null || sodium! <= 0) return true;
-    if (ingredients.trim().isEmpty) return true;
+    if (!_isValidText(name)) return true;
+    if (calories == null || calories! < 0) return true;
+    if (protein == null || protein! < 0) return true;
+    if (carbohydrates == null || carbohydrates! < 0) return true;
+    if (fat == null || fat! < 0) return true;
+
+    // Ingredients check (unless product is plain water)
+    if (ingredients.trim().isEmpty && !name.toLowerCase().contains('water')) {
+      return true;
+    }
+
+    // Suspicious zero calories when macros indicate high density
+    if (calories == 0 && (protein! > 3 || carbohydrates! > 3 || fat! > 3)) {
+      return true;
+    }
+
+    // Suspicious non-zero calories with all zero primary macros
+    if (calories! > 50 && protein == 0 && carbohydrates == 0 && fat == 0) {
+      return true;
+    }
+
+    // Suspicious zero sugar if carbohydrates are high and sugar ingredients are present
+    if (carbohydrates! > 15 && sugar == 0 && _hasSugarInIngredients(ingredients)) {
+      return true;
+    }
+
     return false;
   }
 
-  /// Returns true when all primary nutrient fields and metadata are present and non-zero.
+  static bool _hasSugarInIngredients(String text) {
+    if (text.isEmpty) return false;
+    final lower = text.toLowerCase();
+    return lower.contains('sugar') ||
+        lower.contains('syrup') ||
+        lower.contains('dextrose') ||
+        lower.contains('fructose') ||
+        lower.contains('honey') ||
+        lower.contains('chocolate');
+  }
+
+  /// Returns true when all primary nutrient fields and metadata are present and valid.
   bool get isComplete {
     return !hasMissingOrZeroNutrients &&
         _isValidText(name) &&
-        _isValidBrand(brand) &&
-        imageUrl.trim().isNotEmpty;
+        _isValidBrand(brand);
   }
 
+  Map<String, dynamic> toJson() => {
+        'barcode': barcode,
+        'name': name,
+        'brand': brand,
+        'imageUrl': imageUrl,
+        'ingredients': ingredients,
+        'allergens': allergens,
+        'calories': calories,
+        'protein': protein,
+        'carbohydrates': carbohydrates,
+        'fat': fat,
+        'saturatedFat': saturatedFat,
+        'fiber': fiber,
+        'sugar': sugar,
+        'sodium': sodium,
+        'salt': salt,
+        'servingSize': servingSize,
+        'packageSize': packageSize,
+        'nutritionBasis': nutritionBasis,
+        'claims': claims,
+        'source': source,
+        'discrepancies': discrepancies,
+        'nutriScore': nutriScore,
+        'novaGroup': novaGroup,
+      };
+
   static void _checkDiscrepancy(
+
     String nutrientName,
     double? valA,
     double? valB,
+
     List<String> discrepancies,
     String? sourceA,
     String? sourceB,

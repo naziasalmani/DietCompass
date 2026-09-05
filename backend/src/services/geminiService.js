@@ -812,11 +812,16 @@ const callGeminiChatAPI = async (contents, systemInstruction = '') => {
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -828,7 +833,7 @@ const callGeminiChatAPI = async (contents, systemInstruction = '') => {
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     return text ? text.trim() : null;
   } catch (error) {
-    console.warn(`[Gemini Chat API Error] ${error.message}`);
+    console.warn(`[Gemini Chat API Error] ${error.name === 'AbortError' ? 'Gemini API call timed out after 20s' : error.message}`);
     return null;
   }
 };
@@ -1159,40 +1164,50 @@ const lookupProductWithGemini = async ({ barcode, name, ingredients, nutrition, 
   const cleanName = (name || '').trim();
   const cleanOcr = (ocrText || '').trim();
 
-  const fallbackProduct = {
-    barcode: cleanBarcode,
-    name: cleanName || (cleanOcr ? cleanOcr.split('\n')[0].substring(0, 40) : 'Scanned Food Product'),
-    brand: 'Standard Brand',
-    imageUrl: '',
-    ingredients: ingredients || (cleanOcr ? cleanOcr : 'Whole grain, vegetable or natural ingredients'),
-    allergens: [],
-    nutrition: {
-      calories: typeof nutrition?.calories === 'number' && nutrition.calories > 0 ? nutrition.calories : 150,
-      protein: typeof nutrition?.protein === 'number' && nutrition.protein > 0 ? nutrition.protein : 4.0,
-      carbohydrates: typeof nutrition?.carbohydrates === 'number' && nutrition.carbohydrates > 0 ? nutrition.carbohydrates : 20.0,
-      fat: typeof nutrition?.fat === 'number' && nutrition.fat > 0 ? nutrition.fat : 5.0,
-      fiber: typeof nutrition?.fiber === 'number' && nutrition.fiber > 0 ? nutrition.fiber : 2.0,
-      sugar: typeof nutrition?.sugar === 'number' && nutrition.sugar > 0 ? nutrition.sugar : 3.0,
-      sodium: typeof nutrition?.sodium === 'number' && nutrition.sodium > 0 ? nutrition.sodium : 0.25,
-    },
-    nutriScore: 'b',
-    novaGroup: 2,
-  };
-
   if (!geminiConfig.apiKey) {
-    return { product: fallbackProduct, source: 'fallback' };
+    if (cleanBarcode.length >= 8 || cleanName.length >= 3) {
+      return {
+        isFoodProduct: true,
+        product: {
+          barcode: cleanBarcode,
+          name: cleanName || 'Scanned Food Product',
+          brand: 'Standard Brand',
+          imageUrl: '',
+          ingredients: ingredients || 'Natural ingredients',
+          allergens: [],
+          nutrition: {
+            calories: typeof nutrition?.calories === 'number' && nutrition.calories > 0 ? nutrition.calories : 150,
+            protein: typeof nutrition?.protein === 'number' && nutrition.protein > 0 ? nutrition.protein : 4.0,
+            carbohydrates: typeof nutrition?.carbohydrates === 'number' && nutrition.carbohydrates > 0 ? nutrition.carbohydrates : 20.0,
+            fat: typeof nutrition?.fat === 'number' && nutrition.fat > 0 ? nutrition.fat : 5.0,
+            fiber: typeof nutrition?.fiber === 'number' && nutrition.fiber > 0 ? nutrition.fiber : 2.0,
+            sugar: typeof nutrition?.sugar === 'number' && nutrition.sugar > 0 ? nutrition.sugar : 3.0,
+            sodium: typeof nutrition?.sodium === 'number' && nutrition.sodium > 0 ? nutrition.sodium : 0.25,
+          },
+          nutriScore: 'b',
+          novaGroup: 2,
+        },
+        source: 'fallback',
+      };
+    }
+    return { isFoodProduct: false, product: null, source: 'fallback' };
   }
 
-  const systemInstruction = `You are DietCompass AI Food Intelligence Specialist.
-A user scanned a food product that is missing from traditional barcode databases or has missing/zero nutrition values.
-Analyze the provided barcode, product name clue, OCR text, or partial ingredients.
-Identify the product name, brand, authentic ingredients, and a realistic nutritional breakdown per 100g.
-All numeric nutrition values must be realistic positive numbers.
-Return ONLY a valid JSON object matching the requested schema.`;
+  const systemInstruction = `You are DietCompass AI Food & Product Validation Specialist.
+Examine the provided barcode, product name clue, OCR text, or partial ingredients.
 
-  const prompt = `Identify and complete the nutritional profile for this food product:
-Barcode: ${cleanBarcode || 'Unknown'}
-Product Name Clue: ${cleanName || 'Unknown'}
+CRITICAL SAFETY DIRECTIVE:
+You MUST determine if the input represents a real FOOD or BEVERAGE product, food package, ingredients list, or nutrition facts label.
+
+If the text originates from NON-FOOD items (e.g. computer hardware, laptops, keyboards, Intel Core processors, Windows OS text, "CTRL + ALT DELETE", office supplies, electronics, books, furniture, or non-food text):
+Set "is_food_product": false, "confidence": 0, and "product": null.
+Do NOT invent or hallucinate a food product or nutrition breakdown for non-food items!
+
+ONLY if the input genuinely represents a food or beverage product, set "is_food_product": true and complete the product JSON structure.`;
+
+  const prompt = `Validate and identify the food product:
+Barcode: ${cleanBarcode || 'None'}
+Product Name Clue: ${cleanName || 'None'}
 Scanned Label OCR Text:
 """
 ${cleanOcr || 'None'}
@@ -1200,48 +1215,53 @@ ${cleanOcr || 'None'}
 Known partial ingredients: ${ingredients || 'None'}
 Known partial nutrition: ${JSON.stringify(nutrition || {})}
 
-Respond with this JSON structure:
+Respond with EXACTLY this JSON structure:
 {
+  "is_food_product": true | false,
+  "confidence": <number 0-100>,
+  "evidence": "<description of food packaging, ingredients, or nutrition label evidence>",
   "product": {
     "barcode": "${cleanBarcode}",
     "name": "<Product Name>",
     "brand": "<Brand Name>",
     "imageUrl": "",
     "ingredients": "<clean comma-separated ingredients list>",
-    "allergens": ["<allergen1>", "<allergen2>"],
-    "calories": <number in kcal per 100g, e.g. 180>,
-    "protein": <number in grams per 100g, e.g. 6.5>,
-    "carbohydrates": <number in grams per 100g, e.g. 24.0>,
-    "fat": <number in grams per 100g, e.g. 5.0>,
-    "fiber": <number in grams per 100g, e.g. 3.2>,
-    "sugar": <number in grams per 100g, e.g. 4.0>,
-    "sodium": <number in grams per 100g, e.g. 0.35>,
+    "allergens": ["<allergen1>"],
+    "calories": <kcal per 100g>,
+    "protein": <g per 100g>,
+    "carbohydrates": <g per 100g>,
+    "fat": <g per 100g>,
+    "fiber": <g per 100g>,
+    "sugar": <g per 100g>,
+    "sodium": <g per 100g>,
     "nutriScore": "a" | "b" | "c" | "d" | "e",
     "novaGroup": 1 | 2 | 3 | 4
   }
-}`;
+}
+If is_food_product is false, set product to null.`;
 
   try {
     const rawJson = await callGeminiAPI(prompt, systemInstruction, true);
     if (rawJson) {
       const parsed = JSON.parse(rawJson);
-      if (parsed && parsed.product) {
+      if (parsed && parsed.is_food_product === true && parsed.product && parsed.product.name) {
         const prod = parsed.product;
         return {
+          isFoodProduct: true,
           product: {
             barcode: prod.barcode || cleanBarcode,
-            name: prod.name || fallbackProduct.name,
-            brand: prod.brand || fallbackProduct.brand,
+            name: prod.name,
+            brand: prod.brand || 'Food Brand',
             imageUrl: prod.imageUrl || '',
-            ingredients: prod.ingredients || fallbackProduct.ingredients,
+            ingredients: prod.ingredients || 'Natural food ingredients',
             allergens: Array.isArray(prod.allergens) ? prod.allergens : [],
-            calories: typeof prod.calories === 'number' ? prod.calories : (prod.nutrition?.calories || fallbackProduct.nutrition.calories),
-            protein: typeof prod.protein === 'number' ? prod.protein : (prod.nutrition?.protein || fallbackProduct.nutrition.protein),
-            carbohydrates: typeof prod.carbohydrates === 'number' ? prod.carbohydrates : (prod.nutrition?.carbohydrates || fallbackProduct.nutrition.carbohydrates),
-            fat: typeof prod.fat === 'number' ? prod.fat : (prod.nutrition?.fat || fallbackProduct.nutrition.fat),
-            fiber: typeof prod.fiber === 'number' ? prod.fiber : (prod.nutrition?.fiber || fallbackProduct.nutrition.fiber),
-            sugar: typeof prod.sugar === 'number' ? prod.sugar : (prod.nutrition?.sugar || fallbackProduct.nutrition.sugar),
-            sodium: typeof prod.sodium === 'number' ? prod.sodium : (prod.nutrition?.sodium || fallbackProduct.nutrition.sodium),
+            calories: typeof prod.calories === 'number' ? prod.calories : (prod.nutrition?.calories || 150),
+            protein: typeof prod.protein === 'number' ? prod.protein : (prod.nutrition?.protein || 4.0),
+            carbohydrates: typeof prod.carbohydrates === 'number' ? prod.carbohydrates : (prod.nutrition?.carbohydrates || 20.0),
+            fat: typeof prod.fat === 'number' ? prod.fat : (prod.nutrition?.fat || 5.0),
+            fiber: typeof prod.fiber === 'number' ? prod.fiber : (prod.nutrition?.fiber || 2.0),
+            sugar: typeof prod.sugar === 'number' ? prod.sugar : (prod.nutrition?.sugar || 3.0),
+            sodium: typeof prod.sodium === 'number' ? prod.sodium : (prod.nutrition?.sodium || 0.25),
             nutriScore: prod.nutriScore || 'b',
             novaGroup: typeof prod.novaGroup === 'number' ? prod.novaGroup : 2,
           },
@@ -1253,7 +1273,7 @@ Respond with this JSON structure:
     console.warn(`[Gemini Product Lookup Error] ${error.message}`);
   }
 
-  return { product: fallbackProduct, source: 'fallback' };
+  return { isFoodProduct: false, product: null, source: 'validation_failed' };
 };
 
 module.exports = {

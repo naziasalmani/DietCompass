@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../ai/ai_recommendation_screen.dart';
 import 'package:diet_compass/features/scan/compare_screen.dart';
+import 'scan_screen.dart';
 import '../recipe_generator/recipe_generator_screen.dart';
 import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
@@ -12,12 +13,15 @@ import '../../core/services/ai_service.dart';
 import '../../core/services/pantry_storage_service.dart';
 import '../../core/services/recommendation_service.dart';
 import '../../core/services/scan_history_service.dart';
+import '../../core/services/product_analysis_engine.dart';
 
 import '../../core/services/ingredient_intelligence_service.dart';
 import '../../core/services/product_category_service.dart';
 import 'services/product_share_service.dart';
 import 'widgets/product_share_card.dart';
 import 'widgets/product_ai_coach_sheet.dart';
+import 'ingredients_detail_screen.dart';
+import 'full_nutrition_detail_screen.dart';
 
 /// DietCompass — AI Result Screen
 /// -----------------------------------------------------------------------
@@ -90,7 +94,7 @@ int _calculateScore(FoodProduct product) {
 }
 
 int _calculateCompatibility(FoodProduct product) {
-  return RecommendationService.instance.calculateCompatibilityScore(product);
+  return RecommendationService.instance.calculateCompatibilityScore(product) ?? 75;
 }
 
 class ResultScreen extends StatefulWidget {
@@ -101,6 +105,7 @@ class ResultScreen extends StatefulWidget {
     required this.product,
     this.productImage,
     this.initialCompatibility,
+    this.canonicalAnalysis,
 
     // Existing result-screen data
     this.productName = '',
@@ -135,6 +140,7 @@ class ResultScreen extends StatefulWidget {
   final FoodProduct product;
   final ImageProvider? productImage;
   final ProductCompatibility? initialCompatibility;
+  final CanonicalProductAnalysis? canonicalAnalysis;
 
   final String productName;
   final String productSubtitle;
@@ -178,6 +184,8 @@ class _ResultScreenState extends State<ResultScreen> with TickerProviderStateMix
   ProductCompatibility? _compatibility;
   List<PersonalizedRecommendation> _recommendations = [];
   final GlobalKey _shareCardKey = GlobalKey();
+  final GlobalKey _nutritionSectionKey = GlobalKey();
+  final GlobalKey _ingredientsSectionKey = GlobalKey();
   bool _isSharing = false;
 
   @override
@@ -857,6 +865,463 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
   return points;
 }
 
+  void _showMoreMenu(BuildContext context) {
+    final colors = context.dcColors;
+    final scale = (MediaQuery.of(context).size.shortestSide / 390).clamp(0.85, 1.25).toDouble();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: colors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 16 * scale),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38 * scale,
+                      height: 4 * scale,
+                      decoration: BoxDecoration(
+                        color: colors.textMuted.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16 * scale),
+                  Row(
+                    children: [
+                      Text(
+                        'More',
+                        style: TextStyle(
+                          fontSize: 17 * scale,
+                          fontWeight: FontWeight.w800,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(Icons.close, size: 20 * scale, color: colors.textSecondary),
+                        onPressed: () => Navigator.pop(sheetContext),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12 * scale),
+                  Divider(height: 1, color: colors.cardBorder),
+                  SizedBox(height: 8 * scale),
+                  _buildMoreMenuItemTile(
+                    scale: scale,
+                    colors: colors,
+                    icon: Icons.receipt_long_outlined,
+                    iconColor: colors.iconPurple,
+                    label: 'View Ingredients',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleViewIngredients();
+                    },
+                  ),
+                  _buildMoreMenuItemTile(
+                    scale: scale,
+                    colors: colors,
+                    icon: Icons.bar_chart_rounded,
+                    iconColor: colors.iconBlue,
+                    label: 'View Full Nutrition',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleViewFullNutrition();
+                    },
+                  ),
+                  _buildMoreMenuItemTile(
+                    scale: scale,
+                    colors: colors,
+                    icon: Icons.warning_amber_rounded,
+                    iconColor: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFEA580C),
+                    label: 'Report Incorrect Information',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleReportIncorrectInfo();
+                    },
+                  ),
+                  _buildMoreMenuItemTile(
+                    scale: scale,
+                    colors: colors,
+                    icon: Icons.qr_code_scanner_rounded,
+                    iconColor: colors.iconGreen,
+                    label: 'Scan Another Product',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleScanAnotherProduct();
+                    },
+                  ),
+                  _buildMoreMenuItemTile(
+                    scale: scale,
+                    colors: colors,
+                    icon: Icons.delete_outline_rounded,
+                    iconColor: const Color(0xFFE0525C),
+                    label: 'Remove from Scan History',
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _handleRemoveFromScanHistory();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMoreMenuItemTile({
+    required double scale,
+    required DietCompassThemeColors colors,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 12 * scale, horizontal: 8 * scale),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8 * scale),
+                decoration: BoxDecoration(
+                  color: isDestructive
+                      ? const Color(0xFFE0525C).withValues(alpha: 0.12)
+                      : iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 19 * scale,
+                  color: isDestructive ? const Color(0xFFE0525C) : iconColor,
+                ),
+              ),
+              SizedBox(width: 14 * scale),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14.5 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: isDestructive ? const Color(0xFFE0525C) : colors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18 * scale,
+                color: colors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleViewIngredients() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => IngredientsDetailScreen(
+          product: widget.product,
+          canonicalAnalysis: widget.canonicalAnalysis,
+        ),
+      ),
+    );
+  }
+
+  void _handleViewFullNutrition() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullNutritionDetailScreen(
+          product: widget.product,
+          canonicalAnalysis: widget.canonicalAnalysis,
+        ),
+      ),
+    );
+  }
+
+  void _handleReportIncorrectInfo() {
+    final colors = context.dcColors;
+    final scale = (MediaQuery.of(context).size.shortestSide / 390).clamp(0.85, 1.25).toDouble();
+    String selectedOption = 'Product name is incorrect';
+    final commentCtrl = TextEditingController();
+
+    final reportOptions = [
+      'Product name is incorrect',
+      'Nutrition information is incorrect',
+      'Ingredients are incorrect',
+      'Product image is incorrect',
+      'Other',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border.all(color: colors.cardBorder),
+                ),
+                padding: EdgeInsets.fromLTRB(20 * scale, 16 * scale, 20 * scale, 24 * scale),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 38 * scale,
+                          height: 4 * scale,
+                          decoration: BoxDecoration(
+                            color: colors.textMuted.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 16 * scale),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            size: 22 * scale,
+                            color: colors.isDark ? const Color(0xFFFDBA74) : const Color(0xFFEA580C),
+                          ),
+                          SizedBox(width: 8 * scale),
+                          Expanded(
+                            child: Text(
+                              'Report Incorrect Information',
+                              style: TextStyle(
+                                fontSize: 16.5 * scale,
+                                fontWeight: FontWeight.w800,
+                                color: colors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, size: 20 * scale, color: colors.textSecondary),
+                            onPressed: () => Navigator.pop(ctx),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12 * scale),
+                      Text(
+                        'Help us keep product data accurate. Select the issue with ${widget.product.name}:',
+                        style: TextStyle(fontSize: 12 * scale, color: colors.textSecondary),
+                      ),
+                      SizedBox(height: 12 * scale),
+                      ...reportOptions.map((opt) {
+                        final isSelected = selectedOption == opt;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => setModalState(() => selectedOption = opt),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 4 * scale, horizontal: 4 * scale),
+                              child: Row(
+                                children: [
+                                  Radio<String>(
+                                    value: opt,
+                                    groupValue: selectedOption,
+                                    activeColor: colors.iconPurple,
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setModalState(() => selectedOption = val);
+                                      }
+                                    },
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  SizedBox(width: 8 * scale),
+                                  Expanded(
+                                    child: Text(
+                                      opt,
+                                      style: TextStyle(
+                                        fontSize: 13.5 * scale,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        color: colors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      SizedBox(height: 8 * scale),
+                      TextField(
+                        controller: commentCtrl,
+                        maxLines: 2,
+                        style: TextStyle(fontSize: 13 * scale, color: colors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Additional details (optional)...',
+                          hintStyle: TextStyle(fontSize: 12 * scale, color: colors.textMuted),
+                          filled: true,
+                          fillColor: colors.surfaceSecondary,
+                          contentPadding: EdgeInsets.all(12 * scale),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: colors.cardBorder),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: colors.iconPurple),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 16 * scale),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46 * scale,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.iconPurple,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Report submitted. Thank you for your feedback!'),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Submit Report',
+                            style: TextStyle(
+                              fontSize: 14.5 * scale,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _handleScanAnotherProduct() {
+    if (widget.onBack != null) {
+      widget.onBack!();
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ScanScreen()),
+      );
+    }
+  }
+
+  void _handleRemoveFromScanHistory() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        final colors = context.dcColors;
+        final scale = (MediaQuery.of(context).size.shortestSide / 390).clamp(0.85, 1.25).toDouble();
+        return AlertDialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Remove from scan history?',
+            style: TextStyle(
+              fontSize: 16.5 * scale,
+              fontWeight: FontWeight.w800,
+              color: colors.textPrimary,
+            ),
+          ),
+          content: Text(
+            'This scan will be removed from your history.',
+            style: TextStyle(
+              fontSize: 13 * scale,
+              color: colors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: colors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE0525C),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                await ScanHistoryService.instance.deleteScan(widget.product);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Scan removed from history')),
+                  );
+                  if (widget.onBack != null) {
+                    widget.onBack!();
+                  } else if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                }
+              },
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Animation<double> _fade(double s, double e) => CurvedAnimation(
         parent: _entranceCtrl,
         curve: Interval(s, e, curve: Curves.easeOut),
@@ -929,7 +1394,7 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                       setState(() => _favorited = !_favorited);
                       widget.onFavoriteTap?.call();
                     },
-                    onMoreTap: widget.onMoreTap,
+                    onMoreTap: widget.onMoreTap ?? () => _showMoreMenu(context),
                   ),
                 ),
                 SizedBox(height: 14 * scale),
@@ -967,10 +1432,13 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                   opacity: _fade(0.16, 0.52),
                   child: SlideTransition(
                     position: _slide(0.16, 0.54),
-                    child: _NutritionSnapshot(
-                      uiScale: scale,
-                      nutrients: _buildNutrients(widget.product),
-                      basisLabel: widget.product.normalizedBasisLabel,
+                    child: KeyedSubtree(
+                      key: _nutritionSectionKey,
+                      child: _NutritionSnapshot(
+                        uiScale: scale,
+                        nutrients: _buildNutrients(widget.product),
+                        basisLabel: widget.product.normalizedBasisLabel,
+                      ),
                     ),
                   ),
                 ),
@@ -996,9 +1464,12 @@ List<ProsConsItem> _buildWatchPoints(FoodProduct product) {
                     opacity: _fade(0.26, 0.63),
                     child: SlideTransition(
                       position: _slide(0.26, 0.65),
-                      child: _IngredientIntelligenceSection(
-                        uiScale: scale,
-                        intelligence: intel,
+                      child: KeyedSubtree(
+                        key: _ingredientsSectionKey,
+                        child: _IngredientIntelligenceSection(
+                          uiScale: scale,
+                          intelligence: intel,
+                        ),
                       ),
                     ),
                   ),
@@ -1427,12 +1898,15 @@ class _ProductSummaryCard extends StatelessWidget {
                           color: colors.iconGreen,
                         ),
                         SizedBox(width: 4 * uiScale),
-                        Text(
-                          'Scanned Product',
-                          style: TextStyle(
-                            fontSize: 10.5 * uiScale,
-                            fontWeight: FontWeight.w700,
-                            color: colors.iconGreen,
+                        Flexible(
+                          child: Text(
+                            'Scanned Product',
+                            style: TextStyle(
+                              fontSize: 10.5 * uiScale,
+                              fontWeight: FontWeight.w700,
+                              color: colors.iconGreen,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -1463,16 +1937,19 @@ class _ProductSummaryCard extends StatelessWidget {
                             ),
                           ),
                           SizedBox(width: 3.5 * uiScale),
-                          Text(
-                            '${product.dataConfidence.label} Confidence',
-                            style: TextStyle(
-                              fontSize: 8.5 * uiScale,
-                              fontWeight: FontWeight.w700,
-                              color: product.dataConfidence == DataConfidence.high
-                                  ? const Color(0xFF1E8A4C)
-                                  : (product.dataConfidence == DataConfidence.moderate
-                                      ? const Color(0xFFD97706)
-                                      : const Color(0xFFE0525C)),
+                          Flexible(
+                            child: Text(
+                              '${product.dataConfidence.label} Confidence',
+                              style: TextStyle(
+                                fontSize: 8.5 * uiScale,
+                                fontWeight: FontWeight.w700,
+                                color: product.dataConfidence == DataConfidence.high
+                                    ? const Color(0xFF1E8A4C)
+                                    : (product.dataConfidence == DataConfidence.moderate
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFFE0525C)),
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -1727,12 +2204,15 @@ class _GreatChoiceBanner extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13.5 * uiScale,
-                        fontWeight: FontWeight.w800,
-                        color: isAlert ? const Color(0xFFE0525C) : colors.iconPurple,
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 13.5 * uiScale,
+                          fontWeight: FontWeight.w800,
+                          color: isAlert ? const Color(0xFFE0525C) : colors.iconPurple,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -1849,7 +2329,9 @@ class _NutritionSnapshotState extends State<_NutritionSnapshot> {
           children: [
             Icon(Icons.graphic_eq_rounded, size: 15 * widget.uiScale, color: colors.iconPurple),
             SizedBox(width: 6 * widget.uiScale),
-            Text('Nutrition Snapshot', style: TextStyle(fontSize: 14.5 * widget.uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary)),
+            Flexible(
+              child: Text('Nutrition Snapshot', style: TextStyle(fontSize: 14.5 * widget.uiScale, fontWeight: FontWeight.w800, color: colors.textPrimary), overflow: TextOverflow.ellipsis),
+            ),
             SizedBox(width: 4 * widget.uiScale),
             Icon(Icons.info_outline, size: 13 * widget.uiScale, color: colors.textMuted),
             const Spacer(),
@@ -2049,12 +2531,14 @@ class _HealthCompatibilityCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                'Personalized Compatibility',
-                style: TextStyle(
-                  fontSize: 14.5 * uiScale,
-                  fontWeight: FontWeight.w800,
-                  color: colors.textPrimary,
+              Flexible(
+                child: Text(
+                  'Personalized Compatibility',
+                  style: TextStyle(
+                    fontSize: 14.5 * uiScale,
+                    fontWeight: FontWeight.w800,
+                    color: colors.textPrimary,
+                  ),
                 ),
               ),
               SizedBox(width: 4 * uiScale),

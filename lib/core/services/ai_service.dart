@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../config/app_config.dart';
 import '../model/ai_analysis_model.dart';
 import '../model/food_product.dart';
 import 'api_service.dart';
@@ -87,6 +88,10 @@ class AiService {
     debugPrint('product = ${product?.name ?? 'General'}');
     debugPrint('question = $message');
 
+    final startTime = DateTime.now();
+    debugPrint('\n[AI COACH TIMING]');
+    debugPrint('requestStarted = ${startTime.toIso8601String()}');
+
     final historyPayload = history.map((m) => {
       'role': m.isUser ? 'user' : 'model',
       'content': m.text,
@@ -125,11 +130,33 @@ class AiService {
       };
     }
 
+    final targetUrl = '${AppConfig.apiBaseUrl}/ai/coach';
+
     final response = await ApiService.instance.post(
       '/ai/coach',
       body: body,
       requiresAuth: true,
+      timeout: AppConfig.aiTimeoutDuration,
     );
+
+    final endTime = DateTime.now();
+    final durationMs = endTime.difference(startTime).inMilliseconds;
+
+    debugPrint('\n[AI COACH TIMING]');
+    debugPrint('requestFinished = ${endTime.toIso8601String()}');
+    debugPrint('duration = $durationMs ms');
+
+    debugPrint('\n[AI COACH HTTP]');
+    debugPrint('url = $targetUrl');
+    debugPrint('method = POST');
+    debugPrint('statusCode = ${response.statusCode}');
+    debugPrint('responseTime = $durationMs ms');
+    if (response.rawBody != null && response.rawBody!.isNotEmpty) {
+      final bodySnippet = response.rawBody!.length > 300 
+          ? '${response.rawBody!.substring(0, 300)}...' 
+          : response.rawBody!;
+      debugPrint('responseBody = $bodySnippet');
+    }
 
     if (response.success && response.data != null) {
       final data = response.data!['data'] as Map<String, dynamic>? ?? response.data!;
@@ -143,6 +170,12 @@ class AiService {
 
       return reply;
     }
+
+    debugPrint('\n[AI COACH ERROR]');
+    debugPrint('type = ${response.statusCode == 408 ? 'TIMEOUT' : (response.statusCode == 401 ? 'AUTH_ERROR' : 'BACKEND_ERROR')}');
+    debugPrint('message = ${response.message}');
+    debugPrint('statusCode = ${response.statusCode}');
+    debugPrint('responseTime = $durationMs ms');
 
     throw ApiException(
       response.message ?? 'AI Nutrition Coach is temporarily unavailable.',

@@ -1,27 +1,53 @@
 import 'package:flutter/foundation.dart';
-import '../../features/personalization/lib/onboarding/onboarding_data.dart';
+import 'package:diet_compass/features/personalization/lib/onboarding/onboarding_data.dart';
 import '../model/personalization_profile.dart';
+
+
 import 'api_service.dart';
 import 'recommendation_service.dart';
+import 'storage_service.dart';
 
 /// DietCompass — Personalization Service
 ///
 /// Cloud synchronization layer for dietary and health preferences.
 /// Communicates with backend `/api/personalization` using authenticated JWT bearer tokens.
-class PersonalizationService {
+class PersonalizationService extends ChangeNotifier {
   PersonalizationService._();
 
   static final PersonalizationService instance = PersonalizationService._();
 
   PersonalizationProfile? _cachedPersonalization;
+  int _profileVersion = 1;
+
+  /// Tracks personalization profile version to invalidate personalized analysis cache when preferences change.
+  int get profileVersion => _profileVersion;
+
+  void incrementProfileVersion() {
+    _profileVersion++;
+    RecommendationService.instance.clearCompatibilityCache();
+  }
+
 
   /// In-memory cached personalization profile for fast UI lookup.
   PersonalizationProfile? get currentPersonalization => _cachedPersonalization;
 
+  /// Loads locally cached PersonalizationProfile from encrypted secure storage if available.
+  Future<PersonalizationProfile?> loadLocalPersonalization() async {
+    if (_cachedPersonalization != null) return _cachedPersonalization;
+    final stored = await StorageService.instance.getPersonalizationProfile();
+    if (stored != null) {
+      _cachedPersonalization = stored;
+      notifyListeners();
+    }
+    return _cachedPersonalization;
+  }
+
   /// Fetches the authenticated user's personalization profile from MongoDB.
   Future<PersonalizationProfile?> getPersonalization({bool forceRefresh = false}) async {
-    if (!forceRefresh && _cachedPersonalization != null) {
-      return _cachedPersonalization;
+    if (!forceRefresh) {
+      if (_cachedPersonalization != null) return _cachedPersonalization;
+      final local = await loadLocalPersonalization();
+      if (local != null) return local;
     }
 
     final response = await ApiService.instance.get(
@@ -35,7 +61,14 @@ class PersonalizationService {
 
       if (persJson != null) {
         final profile = PersonalizationProfile.fromJson(persJson);
+        final token = await StorageService.instance.getAccessToken();
+        if (token == null || token.isEmpty) {
+          debugPrint('[PERSONALIZATION] User logged out during fetch — ignoring response.');
+          return profile;
+        }
         _cachedPersonalization = profile;
+        await StorageService.instance.savePersonalizationProfile(profile);
+        notifyListeners();
         return profile;
       }
       return null;
@@ -66,7 +99,10 @@ class PersonalizationService {
       final persJson = resData['personalization'] as Map<String, dynamic>? ?? profile.toJson();
       final saved = PersonalizationProfile.fromJson(persJson);
       _cachedPersonalization = saved;
-      RecommendationService.instance.clearCompatibilityCache();
+      await StorageService.instance.savePersonalizationProfile(saved);
+      incrementProfileVersion();
+      notifyListeners();
+
 
       debugPrint('\n==============================================');
       debugPrint('[CURRENT PROFILE]');
@@ -98,7 +134,10 @@ class PersonalizationService {
       final persJson = resData['personalization'] as Map<String, dynamic>? ?? {};
       final saved = PersonalizationProfile.fromJson(persJson);
       _cachedPersonalization = saved;
-      RecommendationService.instance.clearCompatibilityCache();
+      await StorageService.instance.savePersonalizationProfile(saved);
+      incrementProfileVersion();
+      notifyListeners();
+
 
       debugPrint('\n==============================================');
       debugPrint('[CURRENT PROFILE]');
@@ -120,6 +159,7 @@ class PersonalizationService {
   /// Clears in-memory cache upon user logout.
   void clearCache() {
     _cachedPersonalization = null;
+    notifyListeners();
   }
 }
 

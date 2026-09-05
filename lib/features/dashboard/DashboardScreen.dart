@@ -87,7 +87,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
 
+    ProfileService.instance.addListener(_onDataChanged);
+    ScanHistoryService.instance.addListener(_onDataChanged);
     _loadDashboardData();
+  }
+
+  void _onDataChanged() {
+    if (mounted) {
+      _loadDashboardData();
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -134,6 +142,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    ProfileService.instance.removeListener(_onDataChanged);
+    ScanHistoryService.instance.removeListener(_onDataChanged);
     _entranceCtrl.dispose();
     _ambientCtrl.dispose();
     super.dispose();

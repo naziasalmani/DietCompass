@@ -4,6 +4,7 @@ import 'package:diet_compass/core/theme/app_colors.dart';
 
 import '../../core/services/voice_assistant_service.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/services/api_service.dart';
 import '../../core/model/ai_analysis_model.dart';
 import 'ai_coach_screen.dart';
 
@@ -183,7 +184,18 @@ class _VoiceAssistantModalState extends State<VoiceAssistantModal>
       }
     } catch (e) {
       if (!mounted) return;
-      final fallback = "I'm here to help with your nutrition! Focus on whole foods and your personalization goals.";
+      String fallback = "I'm here to help with your nutrition! Focus on whole foods and your personalization goals.";
+      if (e is ApiException) {
+        if (e.statusCode == 401) {
+          fallback = "Your session has expired. Please log in again to continue.";
+        } else if (e.statusCode == 408) {
+          fallback = "The AI service took longer than expected to respond. Please try asking again.";
+        } else if (e.statusCode == 0) {
+          fallback = "Unable to connect to the internet. Please check your network connection.";
+        } else if (e.message.isNotEmpty) {
+          fallback = e.message;
+        }
+      }
       setState(() {
         _aiResponse = fallback;
         _state = VoiceAssistantState.speaking;

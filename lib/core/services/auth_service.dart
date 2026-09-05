@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../model/auth_user.dart';
 import '../model/user_model.dart';
+import '../model/user_profile.dart';
 import '../config/app_config.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
@@ -39,7 +40,7 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clears any previous session data and loads fresh profile & personalization for [user].
+  /// Clears any previous session data and loads fresh profile & personalization for [user] asynchronously in background.
   Future<void> syncUserSessionData(UserModel user) async {
     // 1. Clear old user's caches first
     ProfileService.instance.clearCache();
@@ -48,39 +49,149 @@ class AuthService extends ChangeNotifier {
     ScanHistoryService.instance.clearCache();
     RecipeHistoryService.instance.clearCache();
 
-    // 2. Fetch fresh profile, personalization and scan history for the newly authenticated user
-    try {
-      final profile = await ProfileService.instance.getProfile(
-        forceRefresh: true,
-      );
-      final pers = await PersonalizationService.instance.getPersonalization(
-        forceRefresh: true,
-      );
-      await ScanHistoryService.instance.getScanHistory(forceRefresh: true);
-      await RecipeHistoryService.instance.getRecipeHistory(forceRefresh: true);
+    // 2. Load fresh user data asynchronously in background (non-blocking)
+    loadUserDataInBackground(forceRefresh: true);
+  }
 
-      final diet = pers?.dietType?.isNotEmpty == true
-          ? pers!.dietType!
-          : (profile.dietType.isNotEmpty ? profile.dietType : 'Balanced');
-      final goal = pers?.goals.isNotEmpty == true
-          ? pers!.goals.join(', ')
-          : 'Maintain Weight';
-      final allergies = pers?.allergies.toList() ?? [];
+  /// Fetches profile, personalization, scan history, and recipe history asynchronously in the background.
+  /// Executed concurrently via Future.wait without blocking Splash Screen or main UI.
+  Future<void> loadUserDataInBackground({bool forceRefresh = true}) async {
+    final user = _currentUser;
+    if (user == null) return;
+
+    final totalStopwatch = Stopwatch()..start();
+
+    try {
+      int profileMs = 0;
+      int personalizationMs = 0;
+      int scanHistoryMs = 0;
+      int recipeHistoryMs = 0;
+
+      final profileFuture = () async {
+        final sw = Stopwatch()..start();
+        final res = await ProfileService.instance.getProfile(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('[BACKGROUND USER DATA] Profile fetch error: $e');
+          return ProfileService.instance.currentProfile ??
+              UserProfile(
+                id: user.id,
+                fullName: user.fullName,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                countryCode: user.countryCode,
+                accountType: user.accountType,
+              );
+        });
+        profileMs = sw.elapsedMilliseconds;
+        debugPrint('[STARTUP] profile: $profileMs ms');
+        return res;
+      }();
+
+      final personalizationFuture = () async {
+        final sw = Stopwatch()..start();
+        final res = await PersonalizationService.instance.getPersonalization(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('[BACKGROUND USER DATA] Personalization fetch error: $e');
+          return PersonalizationService.instance.currentPersonalization;
+        });
+        personalizationMs = sw.elapsedMilliseconds;
+        debugPrint('[STARTUP] personalization: $personalizationMs ms');
+        return res;
+      }();
+
+      final scanHistoryFuture = () async {
+        final sw = Stopwatch()..start();
+        final res = await ScanHistoryService.instance.getScanHistory(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('[BACKGROUND USER DATA] Scan history fetch error: $e');
+          return ScanHistoryService.instance.currentHistory;
+        });
+        scanHistoryMs = sw.elapsedMilliseconds;
+        debugPrint('[STARTUP] scan history: $scanHistoryMs ms');
+        return res;
+      }();
+
+      final recipeHistoryFuture = () async {
+        final sw = Stopwatch()..start();
+        final res = await RecipeHistoryService.instance.getRecipeHistory(forceRefresh: forceRefresh).catchError((e) {
+          debugPrint('[BACKGROUND USER DATA] Recipe history fetch error: $e');
+          return RecipeHistoryService.instance.currentHistory;
+        });
+        recipeHistoryMs = sw.elapsedMilliseconds;
+        debugPrint('[STARTUP] recipe history: $recipeHistoryMs ms');
+        return res;
+      }();
+
+
+      await Future.wait([
+        profileFuture,
+        personalizationFuture,
+        scanHistoryFuture,
+        recipeHistoryFuture,
+      ]);
+
+      if (_currentUser == null || _currentUser!.id != user.id) {
+        debugPrint('[BACKGROUND USER DATA] User logged out during background sync — ignoring stale responses.');
+        return;
+      }
+
+      totalStopwatch.stop();
 
       debugPrint('\n==============================================');
-      debugPrint('[AUTH USER]');
+      debugPrint('[STARTUP] total background initialization: ${totalStopwatch.elapsedMilliseconds} ms');
+      debugPrint('[BACKGROUND USER DATA SYNC COMPLETE]');
       debugPrint('userId = ${user.id}');
-      debugPrint('profileLoaded = true\n');
-      debugPrint('[CURRENT PROFILE]');
-      debugPrint('diet = $diet');
-      debugPrint('goal = $goal');
-      debugPrint('allergies = [${allergies.join(', ')}]');
       debugPrint('==============================================\n');
     } catch (e) {
-      debugPrint(
-        '[AUTH USER] Warning: Failed to sync personalization on auth: $e',
-      );
+      debugPrint('[BACKGROUND USER DATA] Error syncing session data: $e');
     }
+  }
+
+  /// Restores local authentication session state and cached profiles from encrypted on-device storage ONLY.
+  /// Does NOT wait for remote API network calls or splash-blocking requests.
+  Future<AuthUser?> restoreLocalSession() async {
+    final sw = Stopwatch()..start();
+
+    final hasCredentials = await StorageService.instance.hasStoredCredentials();
+    if (!hasCredentials) {
+      _currentUser = null;
+      _isInitialized = true;
+      sw.stop();
+      debugPrint('[STARTUP] restore auth: ${sw.elapsedMilliseconds} ms');
+      debugPrint('[STARTUP] total critical startup: ${sw.elapsedMilliseconds} ms');
+      return null;
+    }
+
+    final storedUser = await StorageService.instance.getUser();
+    if (storedUser == null) {
+      _currentUser = null;
+      _isInitialized = true;
+      sw.stop();
+      debugPrint('[STARTUP] restore auth: ${sw.elapsedMilliseconds} ms');
+      debugPrint('[STARTUP] total critical startup: ${sw.elapsedMilliseconds} ms');
+      return null;
+    }
+
+    _currentUser = storedUser;
+    _isInitialized = true;
+
+    // Fast local profile loading from secure storage
+    await ProfileService.instance.loadLocalProfile();
+    await PersonalizationService.instance.loadLocalPersonalization();
+
+    notifyListeners();
+
+    sw.stop();
+    debugPrint('[STARTUP] restore auth: ${sw.elapsedMilliseconds} ms');
+    debugPrint('[STARTUP] total critical startup: ${sw.elapsedMilliseconds} ms');
+
+    return AuthUser(
+      id: storedUser.id,
+      fullName: storedUser.fullName,
+      username: storedUser.username,
+      email: storedUser.email,
+      phone: storedUser.phone,
+      countryCode: storedUser.countryCode,
+      accountType: storedUser.accountType,
+    );
   }
 
   /// Initialize and verify authentication state on app startup
@@ -439,6 +550,7 @@ debugPrint('==========================================');
       );
 
       if (response.success && response.data != null) {
+        if (_currentUser == null) return null;
         final data = response.data!['data'] as Map<String, dynamic>?;
         if (data != null && data['user'] != null) {
           final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
@@ -506,38 +618,56 @@ debugPrint('==========================================');
 
   /// Logout the current device session
   Future<void> logout() async {
+    debugPrint('[LOGOUT] button pressed');
+    debugPrint('[LOGOUT] clearing token');
+
+    final refreshToken = await StorageService.instance.getRefreshToken();
+
+    // 1. Instantly clear local secure storage and memory state
+    await StorageService.instance.clearAuth();
+    _currentUser = null;
+
+    debugPrint('[LOGOUT] token cleared');
+    debugPrint('[LOGOUT] clearing in-memory user state');
+
+    // 2. Clear all user-specific in-memory caches
+    ProfileService.instance.clearCache();
+    PersonalizationService.instance.clearCache();
+    RecommendationService.instance.clearCompatibilityCache();
+    ScanHistoryService.instance.clearCache();
+    RecipeHistoryService.instance.clearCache();
+
+    // 3. Notify listeners immediately so root gate reacts to UNAUTHENTICATED state
+    debugPrint('[LOGOUT] auth state changed to UNAUTHENTICATED');
+    notifyListeners();
+
+    debugPrint('[LOGOUT] navigating to LOGIN');
+
+    // 4. Asynchronously perform Google Sign-Out & backend session revocation without blocking UI transition
     try {
-      final refreshToken = await StorageService.instance.getRefreshToken();
-      // Notify backend to revoke session
-      await ApiService.instance.post(
-        '/auth/logout',
-        requiresAuth: true,
-        retryOn401: false,
-        body: {
-          ...?(refreshToken == null
-              ? null
-              : <String, dynamic>{'refreshToken': refreshToken}),
-        },
-      );
-    } catch (_) {
-      // Continue local cleanup even if network fails
-    } finally {
-      await StorageService.instance.clearAuth();
-      _currentUser = null;
-      ProfileService.instance.clearCache();
-      PersonalizationService.instance.clearCache();
-      RecommendationService.instance.clearCompatibilityCache();
-      ScanHistoryService.instance.clearCache();
-      RecipeHistoryService.instance.clearCache();
-      notifyListeners();
-      debugPrint('[AUTH LOGOUT]');
-      debugPrint('logoutStarted = true');
-      debugPrint('tokensCleared = true');
-      debugPrint(
-        'tokenStillPresent = ${(await StorageService.instance.getAccessToken())?.isNotEmpty == true}',
-      );
-      debugPrint('authState = UNAUTHENTICATED');
-      debugPrint('navigationTarget = LOGIN');
+      await _googleSignIn.signOut();
+    } catch (e) {
+      debugPrint('[LOGOUT] Google sign-out notice: $e');
+    }
+
+    try {
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        ApiService.instance.post(
+          '/auth/logout',
+          requiresAuth: false,
+          retryOn401: false,
+          body: {'refreshToken': refreshToken},
+        ).catchError((e) {
+          debugPrint('[LOGOUT] Backend session revocation notice: $e');
+          return const ApiResponse<Map<String, dynamic>>(
+            success: false,
+            message: 'Revocation unneeded',
+          );
+        });
+
+      }
+    } catch (e) {
+      debugPrint('[LOGOUT] Backend session revocation error: $e');
     }
   }
 

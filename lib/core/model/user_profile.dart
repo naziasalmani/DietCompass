@@ -87,9 +87,13 @@ class UserProfile {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'fullName': fullName,
+      'username': username,
+      'email': email,
       'phone': phone,
       'countryCode': countryCode,
+      'accountType': accountType,
       'avatarUrl': avatarUrl,
       'badgeLabel': badgeLabel,
       'dateOfBirth': dateOfBirth,
@@ -103,6 +107,7 @@ class UserProfile {
       'weight': weight,
       'healthScore': healthScore,
       'streakDays': streakDays,
+      'isPersonalizationComplete': isPersonalizationComplete,
     };
   }
 

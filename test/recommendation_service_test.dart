@@ -104,7 +104,8 @@ void main() {
 
     test('Nutrition Score is distinct from Personal Compatibility Score', () {
       final nutritionScore = recommendationService.calculateNutritionScore(baseProduct);
-      final compatibilityScore = recommendationService.calculateCompatibilityScore(baseProduct);
+      final personalization = PersonalizationProfile(id: 'u1', userId: 'u1', dietType: 'Vegetarian');
+      final compatibilityScore = recommendationService.calculateCompatibilityScore(baseProduct, personalization: personalization);
 
       expect(nutritionScore, isA<int>());
       expect(compatibilityScore, isA<int>());

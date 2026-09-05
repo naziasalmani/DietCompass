@@ -8,6 +8,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import '../../core/services/food_service.dart';
 import '../../core/model/food_product.dart';
 import '../../core/services/ai_service.dart';
+import '../../core/services/food_image_validator.dart';
 
 class ProductImageAnalyzer {
   final FoodService _foodService = FoodService();
@@ -22,6 +23,9 @@ class ProductImageAnalyzer {
   // ============================================================
 
   Future<FoodProduct?> analyze(XFile image) async {
+    debugPrint('[IMAGE] Image selected: ${image.path}');
+    debugPrint('[IMAGE VALIDATION] Starting food-product validation');
+
     // ----------------------------------------------------------
     // STEP 1: BARCODE
     // ----------------------------------------------------------
@@ -47,18 +51,11 @@ class ProductImageAnalyzer {
               await _foodService.getFoodByBarcode(code);
 
           if (product != null) {
-            debugPrint(
-              '=== BARCODE LOOKUP SUCCESS ===',
-            );
-
-            debugPrint(
-              'Product: ${product.name}',
-            );
-
-            debugPrint(
-              'Brand: ${product.brand}',
-            );
-
+            debugPrint('[IMAGE VALIDATION] isFoodProduct = true');
+            debugPrint('[IMAGE VALIDATION] evidence = valid barcode ($code)');
+            debugPrint('[IMAGE VALIDATION] Product identity accepted: ${product.name}');
+            debugPrint('[PRODUCT] Candidate product: ${product.name}');
+            debugPrint('[PRODUCT] Verification result: PASSED');
             return product;
           }
         }
@@ -74,11 +71,11 @@ class ProductImageAnalyzer {
     }
 
     // ----------------------------------------------------------
-    // STEP 2: OCR FALLBACK
+    // STEP 2: OCR FALLBACK WITH EVIDENCE VALIDATION
     // ----------------------------------------------------------
 
     debugPrint(
-      '=== STARTING OCR FALLBACK ===',
+      '=== STARTING OCR FALLBACK WITH EVIDENCE VALIDATION ===',
     );
 
     return await resolveProductFromOcr(image);
@@ -99,10 +96,10 @@ class ProductImageAnalyzer {
           await _textRecognizer.processImage(inputImage);
 
       if (recognizedText.text.trim().isEmpty) {
-        debugPrint(
-          'OCR resolution: No text detected',
-        );
-
+        debugPrint('[IMAGE VALIDATION] isFoodProduct = false');
+        debugPrint('[IMAGE VALIDATION] confidence = 0.00');
+        debugPrint('[IMAGE VALIDATION] evidence = none');
+        debugPrint('[IMAGE VALIDATION] REJECTED: no food evidence in image');
         return null;
       }
 
@@ -122,10 +119,10 @@ class ProductImageAnalyzer {
           extractOcrCandidates(recognizedText);
 
       if (candidates.isEmpty) {
-        debugPrint(
-          'OCR resolution: No suitable candidates extracted',
-        );
-
+        debugPrint('[IMAGE VALIDATION] isFoodProduct = false');
+        debugPrint('[IMAGE VALIDATION] confidence = 0.00');
+        debugPrint('[IMAGE VALIDATION] evidence = none');
+        debugPrint('[IMAGE VALIDATION] REJECTED: no food evidence in image');
         return null;
       }
 
@@ -156,40 +153,19 @@ class ProductImageAnalyzer {
         }
       }
 
-      debugPrint(
-        'Normalized candidates: $normalized',
-      );
-
       final meaningfulCandidates =
           normalized.where(_isMeaningfulOcrCandidate).toList();
 
       if (meaningfulCandidates.isEmpty) {
-        debugPrint(
-          'OCR resolution: No meaningful product candidates found after filtering noisy OCR fragments.',
-        );
+        debugPrint('[IMAGE VALIDATION] isFoodProduct = false');
+        debugPrint('[IMAGE VALIDATION] confidence = 0.00');
+        debugPrint('[IMAGE VALIDATION] evidence = none');
+        debugPrint('[IMAGE VALIDATION] REJECTED: no meaningful food candidates');
         return null;
       }
 
       // --------------------------------------------------------
-      // STEP 3:
-      // Search candidates from MOST SPECIFIC to LEAST SPECIFIC
-      //
-      // Example:
-      //
-      // dairy
-      // milk
-      // chogolate
-      //
-      // becomes:
-      //
-      // dairy milk chogolate
-      // dairy milk
-      // milk chogolate
-      // dairy
-      // milk
-      // chocolate
-      //
-      // Longer phrases are more important.
+      // STEP 3: Prioritize candidates by specificity
       // --------------------------------------------------------
 
       final orderedCandidates =
@@ -206,39 +182,16 @@ class ProductImageAnalyzer {
       // --------------------------------------------------------
 
       FoodProduct? bestMatch;
-
       double bestScore = 0.0;
-
       String bestMatchQuery = '';
 
       for (final candidate in orderedCandidates) {
-        debugPrint(
-          '================================================',
-        );
-
-        debugPrint(
-          'Searching product candidates for: "$candidate"',
-        );
-
         final products =
             await _foodService.getFoodsByName(candidate);
 
         if (products.isEmpty) {
-          debugPrint(
-            'No products found for "$candidate"',
-          );
-
           continue;
         }
-
-        debugPrint(
-          'Found ${products.length} products '
-          'for "$candidate"',
-        );
-
-        // ------------------------------------------------------
-        // Compare candidate against every returned product
-        // ------------------------------------------------------
 
         for (final product in products) {
           final score =
@@ -251,53 +204,42 @@ class ProductImageAnalyzer {
             continue;
           }
 
-          debugPrint(
-            'Candidate: "$candidate"'
-            ' → Product: "${product.name}"'
-            ' → Brand: "${product.brand}"'
-            ' → Final Score: '
-            '${score.toStringAsFixed(3)}',
-          );
-
-          // ----------------------------------------------------
-          // Keep BEST MATCH
-          // ----------------------------------------------------
-
           if (score > bestScore) {
             bestScore = score;
             bestMatch = product;
             bestMatchQuery = candidate;
-
-            debugPrint(
-              '⭐ NEW BEST MATCH',
-            );
           }
         }
       }
 
       // --------------------------------------------------------
-      // STEP 5: Final confidence validation
+      // STEP 5: Final evidence-grounded validation
       // --------------------------------------------------------
 
       const minimumConfidence = 0.62;
 
-      if (bestMatch != null &&
-          bestScore >= minimumConfidence) {
-        debugPrint(
-          '========== OCR RESOLUTION SUCCESS ==========\n'
-          'Query: "$bestMatchQuery"\n'
-          'Product: "${bestMatch.name}"\n'
-          'Brand: "${bestMatch.brand}"\n'
-          'Confidence: '
-          '${bestScore.toStringAsFixed(3)}\n'
-          '============================================',
+      if (bestMatch != null && bestScore >= minimumConfidence) {
+        final validationResult = FoodImageValidator.instance.validateCandidateProduct(
+          product: bestMatch,
+          recognizedText: recognizedText,
+          matchConfidence: bestScore,
         );
 
-        return await _foodService.enrichProduct(bestMatch);
+        if (validationResult.isFoodProduct) {
+          debugPrint(
+            '========== OCR RESOLUTION SUCCESS ==========\n'
+            'Query: "$bestMatchQuery"\n'
+            'Product: "${bestMatch.name}"\n'
+            'Brand: "${bestMatch.brand}"\n'
+            'Confidence: ${bestScore.toStringAsFixed(3)}\n'
+            '============================================',
+          );
+          return await _foodService.enrichProduct(bestMatch);
+        }
       }
 
       // --------------------------------------------------------
-      // STEP 6: Gemini AI OCR Fallback (when standard DBs cannot match)
+      // STEP 6: Gemini AI OCR Vision Fallback (Validate before return)
       // --------------------------------------------------------
       if (recognizedText.text.trim().isNotEmpty) {
         debugPrint('🤖 OCR fallback: Resolving product label with Gemini AI...');
@@ -306,29 +248,30 @@ class ProductImageAnalyzer {
             ocrText: recognizedText.text,
           );
           if (geminiProduct != null) {
-            debugPrint('✅ OCR Gemini AI resolution success: ${geminiProduct.name}');
-            return geminiProduct;
+            final validationResult = FoodImageValidator.instance.validateCandidateProduct(
+              product: geminiProduct,
+              recognizedText: recognizedText,
+              matchConfidence: 0.85,
+            );
+
+            if (validationResult.isFoodProduct) {
+              debugPrint('✅ OCR Gemini AI resolution success: ${geminiProduct.name}');
+              return geminiProduct;
+            }
           }
         } catch (e) {
           debugPrint('Gemini OCR resolution error: $e');
         }
       }
 
-      debugPrint(
-        'OCR resolution: No confident match found '
-        '(best: ${bestScore.toStringAsFixed(3)})',
-      );
-
+      debugPrint('[IMAGE VALIDATION] isFoodProduct = false');
+      debugPrint('[IMAGE VALIDATION] confidence = ${bestScore.toStringAsFixed(2)}');
+      debugPrint('[IMAGE VALIDATION] evidence = none');
+      debugPrint('[IMAGE VALIDATION] REJECTED: no food evidence in image');
       return null;
     } catch (e, stackTrace) {
-      debugPrint(
-        'OCR resolution error: $e',
-      );
-
-      debugPrint(
-        '$stackTrace',
-      );
-
+      debugPrint('OCR resolution error: $e');
+      debugPrint('$stackTrace');
       return null;
     }
   }

@@ -9,6 +9,7 @@ import '../../core/services/storage_service.dart';
 import '../../core/model/user_profile.dart';
 import '../../core/model/personalization_profile.dart';
 import '../../core/services/profile_service.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/services/personalization_service.dart';
 import 'saved_recipes_screen.dart';
 import 'personal_info_screen.dart';
@@ -146,8 +147,22 @@ class _ProfileScreenState extends State<ProfileScreen>
       duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
 
+    _profile = ProfileService.instance.currentProfile;
+    _personalization = PersonalizationService.instance.currentPersonalization;
+
+    ProfileService.instance.addListener(_onProfileDataChanged);
+    PersonalizationService.instance.addListener(_onProfileDataChanged);
+
     _loadCloudProfile();
     _loadLocalProfileImage();
+  }
+
+  void _onProfileDataChanged() {
+    if (!mounted) return;
+    setState(() {
+      _profile = ProfileService.instance.currentProfile;
+      _personalization = PersonalizationService.instance.currentPersonalization;
+    });
   }
 
   Future<void> _loadLocalProfileImage() async {
@@ -464,6 +479,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
+    ProfileService.instance.removeListener(_onProfileDataChanged);
+    PersonalizationService.instance.removeListener(_onProfileDataChanged);
     _entranceCtrl.dispose();
     _ambientCtrl.dispose();
     super.dispose();
@@ -2153,11 +2170,14 @@ class _LogoutTileState extends State<_LogoutTile> {
     );
 
     if (confirmed != true || !mounted) return;
-    if (widget.onLogout == null) return;
 
     setState(() => _loading = true);
     try {
-      await widget.onLogout!();
+      if (widget.onLogout != null) {
+        await widget.onLogout!();
+      } else {
+        await AuthService.instance.logout();
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

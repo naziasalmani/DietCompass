@@ -8,6 +8,8 @@ import '../../core/model/food_product.dart';
 import '../../core/model/ai_analysis_model.dart';
 import '../../core/services/ai_service.dart';
 import '../../core/services/recommendation_service.dart';
+import '../../core/services/product_analysis_engine.dart';
+
 
 /// DietCompass — AI Analysis Screen
 /// -----------------------------------------------------------------------
@@ -258,6 +260,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   bool _completionHandled = false;
   ProductAiAnalysisResult? _analysisResult;
   ProductCompatibility? _compatibility;
+  CanonicalProductAnalysis? _canonicalAnalysis;
 
   // Each step's [start, end] fraction of the simulation timeline —
   // overlapping like a real pipeline, matching the reference snapshot.
@@ -313,26 +316,24 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
     debugPrint('==============================================\n');
 
     if (product != null) {
-      _compatibility = RecommendationService.instance.evaluateCompatibility(product);
+      _canonicalAnalysis = ProductAnalysisEngine.instance.analyzeProduct(product);
+      _compatibility = _canonicalAnalysis!.compatibility;
+      
       AiService.instance.analyzeProduct(product).then((res) {
         _analysisResult = res;
-        if (mounted) {
-          setState(() {
-            _compatibility = res.compatibility;
-          });
-        }
       }).catchError((e) {
-        debugPrint('[AiAnalysisScreen] Background AI analysis error: $e');
+        debugPrint('[AiAnalysisScreen] Background AI analysis notice: $e');
       }).whenComplete(() {
         debugPrint('\n==============================================');
         debugPrint('[AI ANALYSIS RESULT]');
         debugPrint('productName = ${widget.productName}');
         debugPrint('compatibilityScore = ${_compatibility?.score ?? 0}');
-        debugPrint('analysisSource = ${_analysisResult != null ? "gemini" : "deterministic"}');
+        debugPrint('analysisSource = deterministic');
         debugPrint('==============================================\n');
       });
     }
   }
+
 
   void _runSimulation() {
     final sim = AnimationController(
@@ -384,17 +385,20 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
         if (!mounted) return;
 
         if (widget.product != null) {
+          final canonical = _canonicalAnalysis ?? ProductAnalysisEngine.instance.analyzeProduct(widget.product!);
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => ResultScreen(
                 product: widget.product!,
                 productImage: widget.capturedImage,
-                initialCompatibility: _compatibility,
+                initialCompatibility: canonical.compatibility,
+                canonicalAnalysis: canonical,
               ),
             ),
           );
         }
+
       });
     }
   }

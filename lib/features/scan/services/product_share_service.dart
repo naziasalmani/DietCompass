@@ -21,7 +21,7 @@ class ProductShareService {
   String generateShareText({
     required FoodProduct product,
     required int overallScore,
-    required int compatibilityScore,
+    required int? compatibilityScore,
     required List<NutrientStat> nutrients,
     required List<CompatibilityItem> compatibility,
     required List<ProsConsItem> goodPoints,
@@ -54,8 +54,9 @@ class ProductShareService {
       scoreStatus = 'Consider Alternatives';
     }
 
+    final compatText = compatibilityScore != null ? '$compatibilityScore% Match' : 'Calculating...';
     buffer.writeln('⭐ Overall Nutrition: $overallScore/100 ($scoreStatus)');
-    buffer.writeln('🎯 Personal Compatibility: $compatibilityScore% Match');
+    buffer.writeln('🎯 Personal Compatibility: $compatText');
     buffer.writeln();
 
     // 4. Nutrition Snapshot (only valid nutrients)
@@ -117,7 +118,7 @@ class ProductShareService {
     required BuildContext context,
     required FoodProduct product,
     required int overallScore,
-    required int compatibilityScore,
+    required int? compatibilityScore,
     required List<NutrientStat> nutrients,
     required List<CompatibilityItem> compatibility,
     required List<ProsConsItem> goodPoints,

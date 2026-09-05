@@ -114,6 +114,7 @@ class ApiService {
     bool requireAuth = true,
     Map<String, String>? headers,
     bool retryOn401 = true,
+    Duration? timeout,
   }) async {
     final auth = requiresAuth && requireAuth;
     return _sendRequest(
@@ -125,7 +126,7 @@ class ApiService {
           endpoint: endpoint,
           method: 'GET',
         );
-        return await _client.get(uri, headers: reqHeaders).timeout(AppConfig.timeoutDuration);
+        return await _client.get(uri, headers: reqHeaders).timeout(timeout ?? AppConfig.timeoutDuration);
       },
       endpoint: endpoint,
       retryOn401: retryOn401,
@@ -140,6 +141,7 @@ class ApiService {
     bool requireAuth = true,
     Map<String, String>? headers,
     bool retryOn401 = true,
+    Duration? timeout,
   }) async {
     final auth = requiresAuth && requireAuth;
     return _sendRequest(
@@ -154,7 +156,7 @@ class ApiService {
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
             .post(uri, headers: reqHeaders, body: encodedBody)
-            .timeout(AppConfig.timeoutDuration);
+            .timeout(timeout ?? AppConfig.timeoutDuration);
       },
       endpoint: endpoint,
       retryOn401: retryOn401,
@@ -169,6 +171,7 @@ class ApiService {
     bool requireAuth = true,
     Map<String, String>? headers,
     bool retryOn401 = true,
+    Duration? timeout,
   }) async {
     final auth = requiresAuth && requireAuth;
     return _sendRequest(
@@ -183,7 +186,7 @@ class ApiService {
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
             .put(uri, headers: reqHeaders, body: encodedBody)
-            .timeout(AppConfig.timeoutDuration);
+            .timeout(timeout ?? AppConfig.timeoutDuration);
       },
       endpoint: endpoint,
       retryOn401: retryOn401,
@@ -198,6 +201,7 @@ class ApiService {
     bool requireAuth = true,
     Map<String, String>? headers,
     bool retryOn401 = true,
+    Duration? timeout,
   }) async {
     final auth = requiresAuth && requireAuth;
     return _sendRequest(
@@ -212,7 +216,7 @@ class ApiService {
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
             .patch(uri, headers: reqHeaders, body: encodedBody)
-            .timeout(AppConfig.timeoutDuration);
+            .timeout(timeout ?? AppConfig.timeoutDuration);
       },
       endpoint: endpoint,
       retryOn401: retryOn401,
@@ -227,6 +231,7 @@ class ApiService {
     bool requireAuth = true,
     Map<String, String>? headers,
     bool retryOn401 = true,
+    Duration? timeout,
   }) async {
     final auth = requiresAuth && requireAuth;
     return _sendRequest(
@@ -241,7 +246,7 @@ class ApiService {
         final encodedBody = body != null ? jsonEncode(body) : null;
         return await _client
             .delete(uri, headers: reqHeaders, body: encodedBody)
-            .timeout(AppConfig.timeoutDuration);
+            .timeout(timeout ?? AppConfig.timeoutDuration);
       },
       endpoint: endpoint,
       retryOn401: retryOn401,

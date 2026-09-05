@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../model/user_model.dart';
+import '../model/user_profile.dart';
+import '../model/personalization_profile.dart';
 
 /// DietCompass — Secure Storage Service
 /// Manages encrypted on-device persistence for JWT Access Tokens, Refresh Tokens,
@@ -18,7 +20,15 @@ class StorageService {
   static const String _keyAccessToken = 'dc_access_token';
   static const String _keyRefreshToken = 'dc_refresh_token';
   static const String _keyUserData = 'dc_user_profile';
+  static const String _keyCloudProfile = 'dc_cloud_profile';
+  static const String _keyPersonalization = 'dc_personalization_profile';
   static const String _keyIntroOnboardingSeen = 'dc_intro_onboarding_seen';
+
+  String? _cachedAccessToken;
+  String? _cachedRefreshToken;
+  UserModel? _cachedUser;
+  UserProfile? _cachedUserProfile;
+  PersonalizationProfile? _cachedPersonalizationProfile;
 
   /// Check whether the device-level introductory onboarding has been completed
   Future<bool> hasSeenIntroOnboarding() async {
@@ -36,6 +46,9 @@ class StorageService {
     required String accessToken,
     required String refreshToken,
   }) async {
+    _cachedAccessToken = accessToken;
+    _cachedRefreshToken = refreshToken;
+
     await Future.wait([
       _storage.write(key: _keyAccessToken, value: accessToken),
       _storage.write(key: _keyRefreshToken, value: refreshToken),
@@ -55,27 +68,86 @@ class StorageService {
 
   /// Retrieve the stored Access Token
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: _keyAccessToken);
+    if (_cachedAccessToken != null && _cachedAccessToken!.isNotEmpty) {
+      return _cachedAccessToken;
+    }
+    _cachedAccessToken = await _storage.read(key: _keyAccessToken);
+    return _cachedAccessToken;
   }
 
   /// Retrieve the stored Refresh Token
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _keyRefreshToken);
+    if (_cachedRefreshToken != null && _cachedRefreshToken!.isNotEmpty) {
+      return _cachedRefreshToken;
+    }
+    _cachedRefreshToken = await _storage.read(key: _keyRefreshToken);
+    return _cachedRefreshToken;
   }
 
   /// Save serialized User Profile
   Future<void> saveUser(UserModel user) async {
+    _cachedUser = user;
     final jsonStr = jsonEncode(user.toJson());
     await _storage.write(key: _keyUserData, value: jsonStr);
   }
 
   /// Retrieve cached User Profile
   Future<UserModel?> getUser() async {
+    if (_cachedUser != null) {
+      return _cachedUser;
+    }
     try {
       final jsonStr = await _storage.read(key: _keyUserData);
       if (jsonStr == null || jsonStr.isEmpty) return null;
       final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-      return UserModel.fromJson(jsonMap);
+      _cachedUser = UserModel.fromJson(jsonMap);
+      return _cachedUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Save serialized User Profile domain model
+  Future<void> saveUserProfile(UserProfile profile) async {
+    _cachedUserProfile = profile;
+    final jsonStr = jsonEncode(profile.toJson());
+    await _storage.write(key: _keyCloudProfile, value: jsonStr);
+  }
+
+  /// Retrieve cached User Profile domain model
+  Future<UserProfile?> getUserProfile() async {
+    if (_cachedUserProfile != null) {
+      return _cachedUserProfile;
+    }
+    try {
+      final jsonStr = await _storage.read(key: _keyCloudProfile);
+      if (jsonStr == null || jsonStr.isEmpty) return null;
+      final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+      _cachedUserProfile = UserProfile.fromJson(jsonMap);
+      return _cachedUserProfile;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Save serialized Personalization Profile domain model
+  Future<void> savePersonalizationProfile(PersonalizationProfile profile) async {
+    _cachedPersonalizationProfile = profile;
+    final jsonStr = jsonEncode(profile.toJson());
+    await _storage.write(key: _keyPersonalization, value: jsonStr);
+  }
+
+  /// Retrieve cached Personalization Profile domain model
+  Future<PersonalizationProfile?> getPersonalizationProfile() async {
+    if (_cachedPersonalizationProfile != null) {
+      return _cachedPersonalizationProfile;
+    }
+    try {
+      final jsonStr = await _storage.read(key: _keyPersonalization);
+      if (jsonStr == null || jsonStr.isEmpty) return null;
+      final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+      _cachedPersonalizationProfile = PersonalizationProfile.fromJson(jsonMap);
+      return _cachedPersonalizationProfile;
     } catch (_) {
       return null;
     }
@@ -89,10 +161,17 @@ class StorageService {
 
   /// Clear all stored authentication tokens and user profile
   Future<void> clearAuth() async {
+    _cachedAccessToken = null;
+    _cachedRefreshToken = null;
+    _cachedUser = null;
+    _cachedUserProfile = null;
+    _cachedPersonalizationProfile = null;
     await Future.wait([
       _storage.delete(key: _keyAccessToken),
       _storage.delete(key: _keyRefreshToken),
       _storage.delete(key: _keyUserData),
+      _storage.delete(key: _keyCloudProfile),
+      _storage.delete(key: _keyPersonalization),
     ]);
   }
 

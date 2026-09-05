@@ -6,6 +6,7 @@ import '../model/scan_history_item.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 import 'ingredient_intelligence_service.dart';
+import 'product_analysis_engine.dart';
 import 'product_category_service.dart';
 import 'recommendation_service.dart';
 import 'storage_service.dart';
@@ -160,11 +161,15 @@ class ScanHistoryService extends ChangeNotifier {
   Future<ScanHistoryItem?> saveScan(
     FoodProduct product, {
     int? score,
+    CanonicalProductAnalysis? analysis,
   }) async {
     if (product.name.trim().isEmpty) return null;
 
     final userId = _getCurrentUserId();
     final now = DateTime.now();
+
+    final canonicalAnalysis = analysis ?? ProductAnalysisEngine.instance.analyzeProduct(product);
+    final effectiveScore = score ?? canonicalAnalysis.overallScore;
 
     final nutrients = <String, dynamic>{
       if (product.calories != null) 'calories': product.calories,
@@ -185,10 +190,11 @@ class ScanHistoryService extends ChangeNotifier {
       productName: product.name.trim(),
       brand: product.brand.trim(),
       imageUrl: product.imageUrl.trim(),
-      score: score ?? 85,
+      score: effectiveScore,
       ingredients: product.ingredients.trim(),
       allergens: List.from(product.allergens),
       nutrients: nutrients,
+      canonicalAnalysisJson: canonicalAnalysis.toJson(),
       scannedAt: now,
     );
 
@@ -213,6 +219,7 @@ class ScanHistoryService extends ChangeNotifier {
         'productId/barcode = ${localItem.barcode.isNotEmpty ? localItem.barcode : 'N/A'}');
     debugPrint('timestamp = ${localItem.scannedAt.toIso8601String()}');
     debugPrint('==============================================\n');
+
 
     // 5. Cloud sync in background
     try {
@@ -253,6 +260,46 @@ class ScanHistoryService extends ChangeNotifier {
     }
 
     return localItem;
+  }
+
+  /// Removes a single scanned product entry from the authenticated user's scan history.
+  Future<bool> deleteScan(FoodProduct product) async {
+    try {
+      final targetIdx = _cachedHistory.indexWhere((item) =>
+          (product.barcode.isNotEmpty && item.barcode.trim() == product.barcode.trim()) ||
+          (item.productName.trim().toLowerCase() == product.name.trim().toLowerCase() &&
+              item.brand.trim().toLowerCase() == product.brand.trim().toLowerCase()));
+
+      ScanHistoryItem? targetItem;
+      if (targetIdx >= 0) {
+        targetItem = _cachedHistory.removeAt(targetIdx);
+      } else {
+        // Fallback: remove any matching items
+        _cachedHistory.removeWhere((item) =>
+            (product.barcode.isNotEmpty && item.barcode.trim() == product.barcode.trim()) ||
+            (item.productName.trim().toLowerCase() == product.name.trim().toLowerCase() &&
+                item.brand.trim().toLowerCase() == product.brand.trim().toLowerCase()));
+      }
+
+      await _saveToLocalStorage();
+      notifyListeners();
+
+      if (targetItem != null && targetItem.id.isNotEmpty && !targetItem.id.startsWith('local_')) {
+        try {
+          await ApiService.instance.delete(
+            '/scan-history/${targetItem.id}',
+            requiresAuth: true,
+          );
+        } catch (e) {
+          debugPrint('[ScanHistoryService] Backend delete sync warning: $e');
+        }
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('[ScanHistoryService] Error deleting scan: $e');
+      return false;
+    }
   }
 
   /// Dynamically computes the 5 "Your Health Compass" metrics strictly from the authenticated user's scan history.
@@ -337,7 +384,7 @@ class ScanHistoryService extends ChangeNotifier {
           limit: 6,
         );
         for (final alt in alts) {
-          final isHigherScore = alt.compatibility.score > currentScore;
+          final isHigherScore = (alt.compatibility.score ?? 0) > (currentScore ?? 0);
           final hasNutrImprovement = alt.nutritionComparison != null &&
               (alt.nutritionComparison!.sugarDiff > 0 ||
                   alt.nutritionComparison!.proteinDiff > 0 ||
@@ -376,4 +423,5 @@ class ScanHistoryService extends ChangeNotifier {
     );
   }
 }
+
 

@@ -537,8 +537,8 @@ class _DualProductCardsRow extends StatelessWidget {
   final ImageProvider? altImage;
   final int currentScore;
   final int altScore;
-  final int currentCompat;
-  final int altCompat;
+  final int? currentCompat;
+  final int? altCompat;
   final VoidCallback onViewAltDetails;
 
   @override
@@ -639,7 +639,7 @@ class _ProductMiniCard extends StatelessWidget {
   final String brand;
   final ImageProvider? image;
   final int nutritionScore;
-  final int compatScore;
+  final int? compatScore;
   final bool isBestAlternative;
   final VoidCallback? onTapDetails;
 
@@ -787,11 +787,11 @@ class _ProductMiniCard extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        '$compatScore%',
+                        compatScore != null ? '$compatScore%' : '--',
                         style: TextStyle(
                           fontSize: 14 * uiScale,
                           fontWeight: FontWeight.w900,
-                          color: compatScore >= 75 ? colors.iconGreen : colors.iconPurple,
+                          color: (compatScore ?? 0) >= 75 ? colors.iconGreen : colors.iconPurple,
                         ),
                       ),
                       Text(

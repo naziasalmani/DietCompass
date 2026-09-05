@@ -1,5 +1,5 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+
 import '../model/ai_analysis_model.dart';
 import '../model/food_product.dart';
 import '../model/personalization_profile.dart';
@@ -49,6 +49,15 @@ class RecommendationService {
         PersonalizationService.instance.currentPersonalization;
     final activeProfile = profile ?? ProfileService.instance.currentProfile;
 
+    // CORE RULE: If NO user profile/personalization context is loaded yet,
+    // NEVER calculate using fake/default values or return a hardcoded 75 score!
+    if (activePersonalization == null && activeProfile == null) {
+      return ProductCompatibility.uncalculated(
+        summary: 'Preparing your personalized analysis...',
+        recommendation: 'Compatibility score will be calculated once your profile context is loaded.',
+      );
+    }
+
     final userDiet = (activePersonalization?.dietType ?? activeProfile?.dietType ?? 'Balanced').trim();
     final userAllergies = activePersonalization?.allergies ?? {};
     final userGoals = activePersonalization?.goals ?? {};
@@ -91,7 +100,7 @@ class RecommendationService {
     final dietaryAlerts = <String>[];
     final compatibilityItems = <ProductCompatibilityItem>[];
 
-    int score = 75; // Baseline starting score
+    int score = 80; // Baseline starting score for valid profile context
 
     // 1. ALLERGEN CHECKS (Critical Priority)
     const allergenMap = {
@@ -296,7 +305,8 @@ class RecommendationService {
     }
 
     // 4. USER GOALS & NUTRITION FOCUS
-    final combinedGoals = {...userGoals, ...userFocus, if (goalFilter != null) goalFilter}.map((g) => g.toLowerCase()).toSet();
+    final combinedGoals = {...userGoals, ...userFocus, ?goalFilter}.map((g) => g.toLowerCase()).toSet();
+
 
     if (combinedGoals.any((g) => g.contains('weight loss') || g.contains('weight management') || g.contains('calorie'))) {
       if (calories > 350 || sugarGrams > 15) {
@@ -448,8 +458,8 @@ class RecommendationService {
     return result;
   }
 
-  /// Calculates the single compatibility score percentage (e.g. 52).
-  int calculateCompatibilityScore(
+  /// Calculates the single compatibility score percentage (e.g. 52), or null if user context is loading.
+  int? calculateCompatibilityScore(
     FoodProduct product, {
     PersonalizationProfile? personalization,
     UserProfile? profile,
@@ -542,7 +552,7 @@ class RecommendationService {
       return MapEntry(p, comp.score);
     }).toList();
 
-    scored.sort((a, b) => b.value.compareTo(a.value));
+    scored.sort((a, b) => (b.value ?? 0).compareTo(a.value ?? 0));
     return scored.map((e) => e.key).toList();
   }
 
@@ -782,8 +792,8 @@ class RecommendationService {
       } else if (calorieDiff > 60) {
         differentiator = '↓ Fewer Calories';
         matchReason = 'Fewer calories per serving (${candidate.calories?.toStringAsFixed(0) ?? ''} kcal vs ${currentProduct.calories?.toStringAsFixed(0) ?? ''} kcal).';
-      } else if (comp.score > currentScore) {
-        differentiator = 'Better Match (+${comp.score - currentScore}%)';
+      } else if (comp.score != null && currentScore != null && comp.score! > currentScore) {
+        differentiator = 'Better Match (+${comp.score! - currentScore}%)';
         matchReason = 'Higher overall nutritional compatibility with your health profile.';
       } else {
         differentiator = 'Clean Ingredients';
@@ -813,7 +823,7 @@ class RecommendationService {
     // 4. RANKING
     // Sort by: higher compatibility score, then by higher sugar reduction if current product is high sugar
     recommendations.sort((a, b) {
-      final scoreCmp = b.compatibility.score.compareTo(a.compatibility.score);
+      final scoreCmp = (b.compatibility.score ?? 0).compareTo(a.compatibility.score ?? 0);
       if (scoreCmp != 0) return scoreCmp;
       return (b.nutritionComparison?.sugarDiff ?? 0).compareTo(a.nutritionComparison?.sugarDiff ?? 0);
     });
@@ -1307,7 +1317,7 @@ class RecommendationService {
     }
 
     if (tags.length < 2) {
-      if (comp.score >= 80) tags.add('Top Match');
+      if (comp.score != null && comp.score! >= 80) tags.add('Top Match');
       tags.add('Heart Friendly');
     }
 
@@ -1318,17 +1328,6 @@ class RecommendationService {
   // 7. HELPER METHODS
   // =========================================================================
 
-  double _calculateDataCompleteness(FoodProduct product) {
-    int total = 6;
-    int filled = 0;
-    if (product.calories != null) filled++;
-    if (product.protein != null) filled++;
-    if (product.fiber != null) filled++;
-    if (product.sugar != null) filled++;
-    if (product.fat != null) filled++;
-    if (product.sodium != null) filled++;
-    return filled / total;
-  }
 
   List<String> _determineSearchKeywords({
     String? categoryOrGoal,

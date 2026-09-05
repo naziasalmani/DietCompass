@@ -4,6 +4,7 @@ import 'usda_food_service.dart';
 import 'upc_food_service.dart';
 import 'local_food_database_service.dart';
 import 'ai_service.dart';
+import 'product_cache_service.dart';
 
 class FoodService {
   final OpenFoodFactsService _openFoodFactsService =
@@ -20,8 +21,9 @@ class FoodService {
 
   // ============================================================
   // BARCODE SEARCH
-  // Cascading Multi-API: Open Food Facts → USDA → UPC → Local Database → Gemini AI
+  // Cascading Multi-API: Product Cache → Open Food Facts → USDA → UPC → Local Database → Gemini AI
   // Keeps non-null & non-zero values from API 1 and enriches zero/missing values from subsequent APIs.
+  // Saves the final canonical merged product to the Product Cache.
   // ============================================================
 
   Future<FoodProduct?> getFoodByBarcode(
@@ -33,10 +35,17 @@ class FoodService {
       return null;
     }
 
+    // 0. DietCompass Product Cache (Check persistent local cache before any network calls)
+    final cachedProduct = await ProductCacheService.instance.getProduct(cleanBarcode);
+    if (cachedProduct != null) {
+      return cachedProduct;
+    }
+
     FoodProduct? mergedProduct;
 
     // 1. Open Food Facts (Primary API)
     try {
+      print('[FOOD API] Querying Open Food Facts...');
       final product =
           await _openFoodFactsService.getProductByBarcode(
         cleanBarcode,
@@ -49,8 +58,9 @@ class FoodService {
 
         mergedProduct = product;
 
-        // If product already has all positive nutrients and is complete, return early
+        // If product already has all positive nutrients and is complete, save to cache and return early
         if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+          await ProductCacheService.instance.saveProduct(mergedProduct);
           return mergedProduct;
         }
 
@@ -67,6 +77,7 @@ class FoodService {
     // 2. USDA FoodData Central (Enrich missing/zero fields)
     if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
       try {
+        print('[FOOD API] Querying USDA for enrichment...');
         var usdaProduct =
             await _usdaFoodService.getProductByBarcode(
           cleanBarcode,
@@ -92,6 +103,7 @@ class FoodService {
               : mergedProduct.mergeWith(usdaProduct);
 
           if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            await ProductCacheService.instance.saveProduct(mergedProduct);
             return mergedProduct;
           }
         }
@@ -105,6 +117,7 @@ class FoodService {
     // 3. UPC.dev (Enrich remaining zero/missing fields)
     if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
       try {
+        print('[FOOD API] Querying UPC for enrichment...');
         var upcProduct =
             await _upcFoodService.getProductByBarcode(
           cleanBarcode,
@@ -130,6 +143,7 @@ class FoodService {
               : mergedProduct.mergeWith(upcProduct);
 
           if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            await ProductCacheService.instance.saveProduct(mergedProduct);
             return mergedProduct;
           }
         }
@@ -143,6 +157,7 @@ class FoodService {
     // 4. Local Database (Final local database fallback / enrichment)
     if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
       try {
+        print('[LOCAL DB] Querying local food database...');
         var localProduct =
             await _localDatabaseService.getProductByBarcode(
           cleanBarcode,
@@ -168,6 +183,7 @@ class FoodService {
               : mergedProduct.mergeWith(localProduct);
 
           if (mergedProduct.isComplete && !mergedProduct.hasMissingOrZeroNutrients) {
+            await ProductCacheService.instance.saveProduct(mergedProduct);
             return mergedProduct;
           }
         }
@@ -181,7 +197,7 @@ class FoodService {
     // 5. Gemini AI Fallback & Enrichment (when information is unavailable in any API)
     if (mergedProduct == null || mergedProduct.hasMissingOrZeroNutrients) {
       try {
-        print('🤖 [FoodService] Checking Gemini AI for missing product/nutrition data...');
+        print('[GEMINI AI] Querying Gemini AI fallback...');
         final geminiProduct = await AiService.instance.lookupProductWithGemini(
           barcode: cleanBarcode,
           partialProduct: mergedProduct,
@@ -199,6 +215,7 @@ class FoodService {
     }
 
     if (mergedProduct != null) {
+      await ProductCacheService.instance.saveProduct(mergedProduct);
       return mergedProduct;
     }
 

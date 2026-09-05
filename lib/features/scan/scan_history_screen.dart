@@ -322,10 +322,14 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ResultScreen(product: item.toFoodProduct()),
+            builder: (_) => ResultScreen(
+              product: item.toFoodProduct(),
+              canonicalAnalysis: item.toCanonicalAnalysis(),
+            ),
           ),
         );
       },
+
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: EdgeInsets.all(12 * scale),
